@@ -75,31 +75,31 @@ const aiRecommendations: Doctor[] = [
     name: "Dr. Elena Rostova",
     title: "Cardio-Diagnostics",
     match: "98% Match",
-    reason:
-      "Highly recommended based on your recent wearable data showing mild arrhythmias. Dr. Rostova specializes in early-stage rhythm diagnostics and has immediate availability for tele-consultation.",
+    reason: "Highly recommended based on your recent wearable data showing mild arrhythmias. Dr. Rostova specializes in early-stage rhythm diagnostics and has immediate availability for tele-consultation.",
     fee: "$140",
     nextAvailable: "Today, 3:15 PM",
     slots: [
       { day: "Today", time: "3:15 PM" },
       { day: "Tomorrow", time: "10:00 AM" },
     ],
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAgbpm0AYnXu4lkAdUB-t7i2KBmkqAMNZ8-fee9K47rooUTAAISQib0hfmOXnrq0YGhX2OQ0xcWcFD3VAd5b94SnrHvTzzX-QDwYkNt3KkgmLlWsjrx6NcvEPzt50Vq_MosfDZ4zudVp30hjMRjgnNeHtT4rQC2KqGdnmp6nT5sKUhAhRSg2SM-Vnz6PqRV4GlWQlwIV463PW5Z6gJMgOZkKO1wXbeZAMHzNUKVFbTs6bRmlbqzOGAIIiLvNhl0JLBVov4iv5chBbY",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAgbpm0AYnXu4lkAdUB-t7i2KBmkqAMNZ8-fee9K47rooUTAAISQib0hfmOXnrq0YGhX2OQ0xcWcFD3VAd5b94SnrHvTzzX-QDwYkNt3KkgmLlWsjrx6NcvEPzt50Vq_MosfDZ4zudVp30hjMRjgnNeHtT4rQC2KqGdnmp6nT5sKUhAhRSg2SM-Vnz6PqRV4GlWQlwIV463PW5Z6gJMgOZkKO1wXbeZAMHzNUKVFbTs6bRmlbqzOGAIIiLvNhl0JLBVov4iv5chBbY",
+    rating: "",
+    experience: ""
   },
   {
     name: "Dr. James Chen",
     title: "Preventative Cardiology",
     match: "92% Match",
-    reason:
-      "Matches your preference for holistic preventative care. Dr. Chen has successfully treated 45+ patients with similar lifestyle profiles and risk factors in the past year.",
+    reason: "Matches your preference for holistic preventative care. Dr. Chen has successfully treated 45+ patients with similar lifestyle profiles and risk factors in the past year.",
     fee: "$165",
     nextAvailable: "Tomorrow, 11:00 AM",
     slots: [
       { day: "Tomorrow", time: "11:00 AM" },
       { day: "Fri", time: "1:45 PM" },
     ],
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAgbpm0AYnXu4lkAdUB-t7i2KBmkqAMNZ8-fee9K47rooUTAAISQib0hfmOXnrq0YGhX2OQ0xcWcFD3VAd5b94SnrHvTzzX-QDwYkNt3KkgmLlWsjrx6NcvEPzt50Vq_MosfDZ4zudVp30hjMRjgnNeHtT4rQC2KqGdnmp6nT5sKUhAhRSg2SM-Vnz6PqRV4GlWQlwIV463PW5Z6gJMgOZkKO1wXbeZAMHzNUKVFbTs6bRmlbqzOGAIIiLvNhl0JLBVov4iv5chBbY",
+    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAgbpm0AYnXu4lkAdUB-t7i2KBmkqAMNZ8-fee9K47rooUTAAISQib0hfmOXnrq0YGhX2OQ0xcWcFD3VAd5b94SnrHvTzzX-QDwYkNt3KkgmLlWsjrx6NcvEPzt50Vq_MosfDZ4zudVp30hjMRjgnNeHtT4rQC2KqGdnmp6nT5sKUhAhRSg2SM-Vnz6PqRV4GlWQlwIV463PW5Z6gJMgOZkKO1wXbeZAMHzNUKVFbTs6bRmlbqzOGAIIiLvNhl0JLBVov4iv5chBbY",
+    rating: "",
+    experience: ""
   },
 ];
 

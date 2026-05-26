@@ -61,10 +61,7 @@ export default function LoginForm() {
     <section className="mx-auto w-full max-w-md">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:p-8">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#008081]/10 text-[#008081]">
-            <ShieldCheck className="h-7 w-7" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900">Log In</h2>
+          <h2 className="text-2xl font-bold text-slate-900 text-center">Log In</h2>
           <p className="mt-2 text-sm text-slate-500">
             Please complete the following details to proceed
           </p>
@@ -73,28 +70,10 @@ export default function LoginForm() {
         <SignIn
           routing="path"
           path="/login"
-          signUpUrl="/sign-up"
+          signUpUrl="/patientsignup"
+          forceRedirectUrl="/post-login"
           appearance={clerkAppearance}
         />
-
-        <div className="mt-8 space-y-3 text-center">
-          <p className="text-sm text-slate-500">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/sign-up"
-              className="font-bold text-[#008081] hover:underline"
-            >
-              Sign Up
-            </Link>
-          </p>
-
-          <Link
-            href="/forgot-password"
-            className="text-xs text-slate-400 hover:text-[#008081]"
-          >
-            Forgot Password?
-          </Link>
-        </div>
       </div>
     </section>
   );

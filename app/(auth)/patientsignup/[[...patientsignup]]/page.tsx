@@ -54,8 +54,8 @@ export default function SignUpPage() {
           <SignUp
             routing="path"
             path="/patientsignup"
-            signInUrl="/sign-in"
-            forceRedirectUrl="/patientsignup/patientsignupdetails"
+            signInUrl="/login"
+            forceRedirectUrl="/post-login"
             appearance={clerkAppearance}
           />
         </div>

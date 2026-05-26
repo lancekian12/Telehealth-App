@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormFields } from "@/types/patient";
 
 const initialForm: FormFields = {
@@ -16,11 +17,11 @@ const initialForm: FormFields = {
 };
 
 export default function PatientSignupForm() {
+  const router = useRouter();
   const [form, setForm] = useState<FormFields>(initialForm);
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof FormFields, string>>
-  >({});
+  const [errors, setErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -55,13 +56,39 @@ export default function PatientSignupForm() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(false);
+
     if (!validate()) return;
 
-    console.log("Submitting patient signup:", form);
-    setSubmitted(true);
+    try {
+      setLoading(true);
+
+      const res = await fetch("/api/patient", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...form,
+          profilePicture: form.profilePicture?.name ?? "",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to save patient profile");
+      }
+
+      setSubmitted(true);
+      router.push("/");
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,15 +144,10 @@ export default function PatientSignupForm() {
               Join our community for better healthcare access
             </p>
           </div>
+
           <div className="flex justify-center mt-6 gap-2">
             <div className="h-1.5 w-12 rounded-full bg-[#008081]/15"></div>
-
-            <div
-              className="
-      h-1.5 w-12 rounded-full
-      bg-[#008081]
-    "
-            ></div>
+            <div className="h-1.5 w-12 rounded-full bg-[#008081]"></div>
           </div>
         </div>
 
@@ -309,9 +331,7 @@ export default function PatientSignupForm() {
                 placeholder="List allergies, existing conditions, medications, or other relevant history"
                 rows={4}
                 className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition placeholder:text-slate-400 resize-none ${
-                  errors.basicMedicalHistory
-                    ? "border-rose-500"
-                    : "border-slate-200"
+                  errors.basicMedicalHistory ? "border-rose-500" : "border-slate-200"
                 }`}
               />
               {errors.basicMedicalHistory && (
@@ -324,6 +344,7 @@ export default function PatientSignupForm() {
             <div className="pt-2">
               <button
                 type="submit"
+                disabled={loading}
                 className="
                   w-full bg-[#008081]
                   text-white py-4
@@ -333,16 +354,16 @@ export default function PatientSignupForm() {
                   hover:brightness-110
                   transition-all
                   shadow-md shadow-primary/10
+                  disabled:opacity-70
                 "
               >
-                Create Account
+                {loading ? "Saving..." : "Create Account"}
               </button>
             </div>
 
             {submitted && (
               <div className="mt-4 text-center text-sm text-emerald-600">
-                Account data ready (check console). Replace console.log with API
-                call if you want.
+                Account saved successfully.
               </div>
             )}
           </form>
@@ -350,10 +371,7 @@ export default function PatientSignupForm() {
           <div className="mt-8 text-center">
             <p className="text-sm text-slate-500">
               Already have an account?
-              <a
-                className="text-primary font-bold hover:underline ml-1"
-                href="#"
-              >
+              <a className="text-primary font-bold hover:underline ml-1" href="#">
                 Log In
               </a>
             </p>
