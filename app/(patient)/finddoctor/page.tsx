@@ -8,8 +8,10 @@ import {
   Filter,
   MapPin,
   Search,
+  Sparkles,
   Star,
   X,
+  ArrowRight,
 } from "lucide-react";
 import { Inter, Manrope } from "next/font/google";
 
@@ -86,6 +88,7 @@ const TIME_SLOTS = [
 
 export default function FindDoctorsPage(): JSX.Element {
   const [query, setQuery] = useState("");
+  const [symptomText, setSymptomText] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeDoctor, setActiveDoctor] = useState<Doctor | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -119,16 +122,20 @@ export default function FindDoctorsPage(): JSX.Element {
     setPanelOpen(false);
   };
 
+  const handleAnalyzeSymptoms = () => {
+    setQuery(symptomText.trim());
+  };
+
   return (
     <div
-      className={`${inter.variable} ${manrope.variable} min-h-screen bg-white text-[#1a1c1c] antialiased selection:bg-[#6bd8cb] selection:text-[#00201d]`}
+      className={`${inter.variable} ${manrope.variable} min-h-screen bg-white text-[#1a1c1c] antialiased selection:bg-[#7ecfd0] selection:text-[#07201f]`}
     >
       <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-8 md:px-8 mt-20">
         <section className="mx-auto w-full max-w-4xl text-center">
           <h1 className="text-display font-headline font-extrabold text-5xl md:text-7xl tracking-[-0.03em] text-black leading-tight">
             Find the right care,
             <br />
-            <span className="text-primary">right now.</span>
+            <span className="text-[#0f766e]">right now.</span>
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#5a6664] md:text-base">
             Search by specialty, symptoms, or availability. Keep it clean, calm,
@@ -146,24 +153,72 @@ export default function FindDoctorsPage(): JSX.Element {
                   onChange={(e) => setQuery(e.target.value)}
                   type="text"
                   placeholder="Search doctors, specialties, or schedules..."
-                  className="w-full rounded-2xl border border-[#e6e7e4] bg-[#fafafa] py-4 pl-12 pr-4 text-sm outline-none transition focus:border-[#00685f] focus:ring-2 focus:ring-[#00685f]/10"
+                  className="w-full rounded-2xl border border-[#e6e7e4] bg-[#fafafa] py-4 pl-12 pr-4 text-sm outline-none transition focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/10"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={() => setShowFilters((prev) => !prev)}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#eef8f7] px-5 py-4 text-sm font-semibold text-[#00685f] transition hover:bg-[#e1f2f0]"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#eef8f7] px-5 py-4 text-sm font-semibold text-[#0f766e] transition hover:bg-[#e1f2f0]"
               >
                 <Filter className="h-4 w-4" />
                 Filter
               </button>
             </div>
 
+            <section className="relative mt-5 overflow-hidden rounded-[24px] border border-[#e8ebe9] bg-gradient-to-br from-[#fbfcfc] to-[#f3f8f8] p-4 md:p-6 group">
+              <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#0f766e]/10 blur-3xl transition-colors duration-700 group-hover:bg-[#0f766e]/15" />
+              <div className="relative z-10 grid grid-cols-1 gap-5 md:grid-cols-2 md:items-center">
+                <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#0f766e]/10 px-3 py-1 text-[#0f766e]">
+                    <Sparkles className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.2em]">
+                      AI Assistant
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="text-2xl font-bold tracking-tight text-[#111827] md:text-3xl">
+                      Not sure who to see?
+                    </h3>
+                    <p className="mt-2 max-w-md text-sm leading-6 text-[#5a6664] md:text-base">
+                      Describe your symptoms in plain language, and our clinical AI
+                      will recommend the most appropriate specialists and care
+                      pathways for you.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-[20px] border border-[#e8ebe9] bg-white/85 p-4 shadow-sm backdrop-blur-sm md:p-5">
+                  <textarea
+                    value={symptomText}
+                    onChange={(e) => setSymptomText(e.target.value)}
+                    className="h-28 w-full resize-none rounded-2xl border border-[#e6e7e4] bg-[#fafafa] p-4 text-sm text-[#1a1c1c] outline-none transition placeholder:text-[#8a9491] focus:border-[#0f766e] focus:ring-2 focus:ring-[#0f766e]/10"
+                    placeholder="E.g., I've had a persistent dull ache in my lower back for three days, and it hurts when I bend over..."
+                  />
+
+                  <div className="mt-4 flex items-center justify-between gap-4">
+                    <span className="text-xs font-medium text-[#7a8481]">
+                      Powered by HealthSync AI
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAnalyzeSymptoms}
+                      className="inline-flex items-center gap-2 rounded-full bg-[#0f766e] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b5f59]"
+                    >
+                      Analyze Symptoms
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {showFilters ? (
               <div className="mt-4 rounded-2xl border border-[#e8ebe9] bg-[#fafafa] p-4 md:p-5">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="font-[family-name:var(--font-manrope)] text-lg font-bold text-[#00685f]">
+                  <h2 className="font-[family-name:var(--font-manrope)] text-lg font-bold text-[#0f766e]">
                     Filter by
                   </h2>
                   <button
@@ -190,9 +245,9 @@ export default function FindDoctorsPage(): JSX.Element {
                           <input
                             type="checkbox"
                             defaultChecked={index === 2}
-                            className="h-5 w-5 rounded border-gray-300 text-[#00685f] focus:ring-[#00685f]"
+                            className="h-5 w-5 rounded border-gray-300 text-[#0f766e] focus:ring-[#0f766e]"
                           />
-                          <span className="text-sm text-[#1a1c1c] transition-colors group-hover:text-[#00685f]">
+                          <span className="text-sm text-[#1a1c1c] transition-colors group-hover:text-[#0f766e]">
                             {item}
                           </span>
                         </label>
@@ -214,9 +269,9 @@ export default function FindDoctorsPage(): JSX.Element {
                             type="radio"
                             name="availability"
                             defaultChecked={index === 0}
-                            className="h-5 w-5 border-gray-300 text-[#00685f] focus:ring-[#00685f]"
+                            className="h-5 w-5 border-gray-300 text-[#0f766e] focus:ring-[#0f766e]"
                           />
-                          <span className="text-sm text-[#1a1c1c] transition-colors group-hover:text-[#00685f]">
+                          <span className="text-sm text-[#1a1c1c] transition-colors group-hover:text-[#0f766e]">
                             {item}
                           </span>
                         </label>
@@ -236,7 +291,7 @@ export default function FindDoctorsPage(): JSX.Element {
                 key={doctor.id}
                 className="relative w-full max-w-xl overflow-hidden rounded-[24px] bg-white p-8 shadow-[0px_12px_32px_rgba(0,80,73,0.06)]"
               >
-                <div className="absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-bl-full bg-[#6bd8cb]/10" />
+                <div className="absolute right-0 top-0 -mr-8 -mt-8 h-32 w-32 rounded-bl-full bg-[#0f766e]/10" />
 
                 <div className="relative z-10 flex flex-col gap-8 md:flex-row">
                   <div className="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-[#eeeeee] md:h-32 md:w-32">
@@ -250,17 +305,17 @@ export default function FindDoctorsPage(): JSX.Element {
                   <div className="flex flex-1 flex-col">
                     <div className="mb-2 flex items-start justify-between gap-4">
                       <div>
-                        <h3 className="font-[family-name:var(--font-manrope)] text-2xl font-bold tracking-tight text-[#00685f]">
+                        <h3 className="font-[family-name:var(--font-manrope)] text-2xl font-bold tracking-tight text-[#0f766e]">
                           {doctor.name}
                         </h3>
-                        <p className="mt-1 text-sm font-semibold uppercase tracking-wider text-[#416900]">
+                        <p className="mt-1 text-sm font-semibold uppercase tracking-wider text-[#49606b]">
                           {doctor.specialty}
                         </p>
                       </div>
 
-                      <div className="flex items-center rounded-full bg-[#e8e8e8] px-3 py-1">
-                        <Star className="mr-1 h-4 w-4 fill-current text-[#acf847]" />
-                        <span className="text-sm font-semibold">
+                      <div className="flex items-center rounded-full bg-[#f3f4f6] px-3 py-1">
+                        <Star className="mr-1 h-4 w-4 fill-current text-[#d4a72c]" />
+                        <span className="text-sm font-semibold text-[#1a1c1c]">
                           {doctor.rating}
                         </span>
                       </div>
@@ -286,7 +341,7 @@ export default function FindDoctorsPage(): JSX.Element {
                       <button
                         type="button"
                         onClick={() => openPanel(doctor)}
-                        className="inline-flex items-center gap-2 rounded-full bg-[#acf847] px-6 py-2.5 text-sm font-semibold text-[#102000] transition hover:bg-[#91db2a]"
+                        className="inline-flex items-center gap-2 rounded-full bg-[#0f766e] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b5f59]"
                       >
                         View Schedule
                         <ChevronRight className="h-4 w-4" />
@@ -316,7 +371,7 @@ export default function FindDoctorsPage(): JSX.Element {
       >
         <div className="sticky top-0 flex items-start justify-between border-b border-[#e8e8e8] bg-white px-8 py-6">
           <div>
-            <h3 className="font-[family-name:var(--font-manrope)] text-2xl font-bold text-[#00685f]">
+            <h3 className="font-[family-name:var(--font-manrope)] text-2xl font-bold text-[#0f766e]">
               {activeDoctor?.name ?? "Doctor Schedule"}
             </h3>
             <p className="mt-1 text-sm text-[#5a6664]">
@@ -336,11 +391,11 @@ export default function FindDoctorsPage(): JSX.Element {
 
         <div className="flex-grow space-y-8 overflow-y-auto px-8 py-6">
           <div>
-            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#00685f]">
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
               This Week
             </h4>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              <div className="flex min-w-[60px] flex-col items-center rounded-lg bg-[#00685f] p-3 text-white">
+              <div className="flex min-w-[60px] flex-col items-center rounded-lg bg-[#0f766e] p-3 text-white">
                 <span className="text-xs uppercase">Wed</span>
                 <span className="text-lg font-bold">12</span>
               </div>
@@ -360,7 +415,7 @@ export default function FindDoctorsPage(): JSX.Element {
           </div>
 
           <div>
-            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#00685f]">
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
               Available Slots
             </h4>
             <div className="grid grid-cols-2 gap-3">
@@ -371,8 +426,8 @@ export default function FindDoctorsPage(): JSX.Element {
                   className={[
                     "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
                     time === "11:00 AM"
-                      ? "border-[#00685f] bg-[#00685f]/5 text-[#00685f]"
-                      : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#00685f] hover:text-[#00685f]",
+                      ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
+                      : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
                   ].join(" ")}
                 >
                   {time}
@@ -391,7 +446,7 @@ export default function FindDoctorsPage(): JSX.Element {
         <div className="mt-auto border-t border-[#e8e8e8] bg-[#f9f9f9] p-8">
           <button
             type="button"
-            className="w-full rounded-full bg-[#00685f] py-4 text-lg font-bold text-white transition hover:bg-[#005049]"
+            className="w-full rounded-full bg-[#0f766e] py-4 text-lg font-bold text-white transition hover:bg-[#0b5f59]"
           >
             Confirm 11:00 AM
           </button>
