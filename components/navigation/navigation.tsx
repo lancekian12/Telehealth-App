@@ -64,7 +64,6 @@ export default function Navigation() {
               Login
             </Link>
           </div>
-          <Logout/>
 
           <div className="md:hidden flex items-center gap-3">
             <button

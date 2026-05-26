@@ -1,3 +1,4 @@
+import BackButton from "@/components/buttons/backbutton";
 import { SignUp } from "@clerk/nextjs";
 import Link from "next/link";
 
@@ -11,27 +12,9 @@ const clerkAppearance = {
 export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 flex flex-col">
-      <Link
-        href="/"
-        className="
-          relative sm:fixed
-          sm:top-6 sm:left-6
-          mx-4 mt-4 sm:mt-0
-          z-50
-          rounded-lg border border-slate-200
-          bg-white px-4 py-2
-          text-sm font-semibold text-slate-600
-          shadow-sm
-          hover:border-[#008081]/40 hover:text-[#008081]
-          transition-all
-          inline-flex items-center
-        "
-      >
-        Back
-      </Link>
+      <BackButton fallback="/" />
 
       <div className="mx-auto flex flex-col gap-10 min-h-screen w-full max-w-6xl items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
-        
         {/* Header Section */}
         <div className="text-center">
           <div className="flex flex-col items-center gap-2">

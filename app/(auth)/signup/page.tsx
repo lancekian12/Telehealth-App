@@ -1,29 +1,14 @@
 import Link from "next/link";
 import { User, Stethoscope } from "lucide-react";
 import { JSX } from "react";
+import BackButton from "@/components/buttons/backbutton";
 
 export default function SignupPage(): JSX.Element {
 
   return (
     <div className="bg-background-light text-slate-900 flex flex-col min-h-screen">
-      <Link
-        href="/"
-        className="
-            relative sm:fixed
-            sm:top-6 sm:left-6
-            mx-4 mt-4 sm:mt-0
-            z-50
-            rounded-lg border border-slate-200
-            bg-white px-4 py-2
-            text-sm font-semibold text-slate-600
-            shadow-sm
-            hover:border-[#008081]/40 hover:text-[#008081]
-            transition-all
-            inline-flex items-center
-          "
-      >
-        Back
-      </Link>
+      <BackButton fallback="/" />
+      
 
       <main className="flex flex-col items-center justify-center max-w-5xl mx-auto px-4 py-12 w-full">
         <div className="text-center mb-12 md:mb-16">
