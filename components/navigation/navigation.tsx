@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Logout from "../buttons/logout";
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -63,6 +64,7 @@ export default function Navigation() {
               Login
             </Link>
           </div>
+          <Logout/>
 
           <div className="md:hidden flex items-center gap-3">
             <button
