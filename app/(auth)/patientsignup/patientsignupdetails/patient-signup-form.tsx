@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useState } from "react";
 import Link from "next/link";
-import { FormFields } from "@/app/types/patient.types";
+import { FormFields } from "@/types/patient";
 
 const initialForm: FormFields = {
   fullName: "",
