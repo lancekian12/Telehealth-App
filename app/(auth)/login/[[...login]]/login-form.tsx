@@ -61,7 +61,9 @@ export default function LoginForm() {
     <section className="mx-auto w-full max-w-md">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:p-8">
         <div className="mb-8 text-center">
-          <h2 className="text-2xl font-bold text-slate-900 text-center">Log In</h2>
+          <h2 className="text-2xl font-bold text-slate-900 text-center">
+            Log In
+          </h2>
           <p className="mt-2 text-sm text-slate-500">
             Please complete the following details to proceed
           </p>
@@ -70,8 +72,9 @@ export default function LoginForm() {
         <SignIn
           routing="path"
           path="/login"
-          signUpUrl="/patientsignup"
+          withSignUp={true}
           forceRedirectUrl="/post-login"
+          signUpForceRedirectUrl="/post-login"
           appearance={clerkAppearance}
         />
       </div>

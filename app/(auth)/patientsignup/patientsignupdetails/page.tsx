@@ -1,9 +1,10 @@
-// app/patientsignup/patientsignupdetails/page.tsx
+// app/(auth)/patientsignup/patientsignupdetails/page.tsx
+
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { connectDB } from "@/lib/mongodb";
 import { Patient } from "@/models/patient";
-import PatientSignupForm from "./patient-signup-form";
+import FormWrapper from "./form-wrapper";
 
 export default async function PatientSignupDetailsPage() {
   const { userId } = await auth();
@@ -17,8 +18,8 @@ export default async function PatientSignupDetailsPage() {
   const patient = await Patient.findOne({ clerkId: userId }).lean();
 
   if (patient) {
-    redirect("/"); // or your home page
+    redirect("/");
   }
 
-  return <PatientSignupForm />;
+  return <FormWrapper />;
 }

@@ -14,17 +14,17 @@ export default async function PostLoginPage() {
 
   const patient = await Patient.findOne({ clerkId: userId }).lean();
 
-  const hasRequiredInfo =
-    patient &&
-    patient.fullName &&
-    patient.birthday &&
-    patient.weight &&
-    patient.height &&
-    patient.email &&
-    patient.phone &&
-    patient.basicMedicalHistory;
+  const needsDetails =
+    !patient ||
+    !patient.fullName ||
+    !patient.birthday ||
+    !patient.weight ||
+    !patient.height ||
+    !patient.email ||
+    !patient.phone ||
+    !patient.basicMedicalHistory;
 
-  if (!hasRequiredInfo) {
+  if (needsDetails) {
     redirect("/patientsignup/patientsignupdetails");
   }
 
