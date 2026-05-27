@@ -181,23 +181,6 @@ export default function Navigation() {
 
                     {profileOpen && (
                       <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95">
-                        <div className="px-4 py-4 border-b border-slate-100 dark:border-slate-800">
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={patient.profilePicture}
-                              alt={patient.fullName}
-                              className="w-11 h-11 rounded-full object-cover ring-2 ring-[#008081]/20"
-                            />
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">
-                                {patient.fullName}
-                              </p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                View your account
-                              </p>
-                            </div>
-                          </div>
-                        </div>
 
                         <div className="p-2">
                           <button

@@ -15,7 +15,7 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -31,7 +31,7 @@ export async function GET() {
     console.log(error);
     return NextResponse.json(
       { success: false, message: "Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -57,31 +57,35 @@ export async function POST(req: NextRequest) {
     const height = String(formData.get("height") || "");
     const email = String(formData.get("email") || "");
     const phone = String(formData.get("phone") || "");
-    const basicMedicalHistory = String(formData.get("basicMedicalHistory") || "");
+    const basicMedicalHistory = String(
+      formData.get("basicMedicalHistory") || "",
+    );
     const file = formData.get("profilePicture");
 
     if (!(file instanceof File)) {
       return NextResponse.json(
         { success: false, message: "Profile picture is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadedImage = await new Promise<UploadApiResponse>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        { folder: "appointcare" },
-        (error, result) => {
-          if (error) return reject(error);
-          if (!result) return reject(new Error("Cloudinary upload failed"));
-          resolve(result);
-        }
-      );
+    const uploadedImage = await new Promise<UploadApiResponse>(
+      (resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "appointcare" },
+          (error, result) => {
+            if (error) return reject(error);
+            if (!result) return reject(new Error("Cloudinary upload failed"));
+            resolve(result);
+          },
+        );
 
-      stream.end(buffer);
-    });
+        stream.end(buffer);
+      },
+    );
 
     const patient = await Patient.findOneAndUpdate(
       { clerkId: userId },
@@ -96,7 +100,7 @@ export async function POST(req: NextRequest) {
         phone,
         basicMedicalHistory,
       },
-      { new: true, upsert: true, runValidators: true }
+      { new: true, upsert: true, runValidators: true },
     );
 
     return NextResponse.json({ success: true, patient });
@@ -104,7 +108,7 @@ export async function POST(req: NextRequest) {
     console.log(error);
     return NextResponse.json(
       { success: false, message: "Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
