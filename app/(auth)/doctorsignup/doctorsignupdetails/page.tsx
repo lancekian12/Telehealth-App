@@ -1,11 +1,11 @@
+// app/doctorsignup/form-wrapper.tsx
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { DoctorFormFields } from "@/types/doctor";
-
 
 const initialForm: DoctorFormFields = {
   fullName: "",
@@ -17,48 +17,58 @@ const initialForm: DoctorFormFields = {
 };
 
 export default function DoctorSignupForm() {
-  const { user } = useUser();
-  const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+  const { user, isLoaded } = useUser();
   const router = useRouter();
 
-  const [form, setForm] = useState<DoctorFormFields>({
-    ...initialForm,
-    email: clerkEmail,
-  });
+  const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+
+  const [form, setForm] = useState<DoctorFormFields>(initialForm);
   const [errors, setErrors] = useState<
     Partial<Record<keyof DoctorFormFields, string>>
   >({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      email: clerkEmail,
+    }));
+  }, [clerkEmail]);
+
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setForm((p) => ({ ...p, [name]: value }));
-    setErrors((p) => ({ ...p, [name]: undefined }));
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setForm((p) => ({ ...p, profilePicture: file }));
-    setErrors((p) => ({ ...p, profilePicture: undefined }));
+    setForm((prev) => ({ ...prev, profilePicture: file }));
+    setErrors((prev) => ({ ...prev, profilePicture: undefined }));
   };
 
   const validate = () => {
-    const e: Partial<Record<keyof DoctorFormFields, string>> = {};
+    const nextErrors: Partial<Record<keyof DoctorFormFields, string>> = {};
 
-    if (!form.fullName.trim()) e.fullName = "Full name is required";
-    if (!form.specialization.trim()) e.specialization = "Specialization is required";
-    if (!form.bio.trim()) e.bio = "Bio is required";
-    if (!form.profilePicture) e.profilePicture = "Profile picture is required";
-    if (!clerkEmail.trim()) e.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clerkEmail))
-      e.email = "Invalid email";
-    if (!form.phone.trim()) e.phone = "Contact number is required";
+    if (!form.fullName.trim()) nextErrors.fullName = "Full name is required";
+    if (!form.specialization.trim()) {
+      nextErrors.specialization = "Specialization is required";
+    }
+    if (!form.bio.trim()) nextErrors.bio = "Bio is required";
+    if (!form.profilePicture) {
+      nextErrors.profilePicture = "Profile picture is required";
+    }
+    if (!clerkEmail.trim()) nextErrors.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clerkEmail)) {
+      nextErrors.email = "Invalid email";
+    }
+    if (!form.phone.trim()) nextErrors.phone = "Contact number is required";
 
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -86,14 +96,14 @@ export default function DoctorSignupForm() {
         body: formData,
       });
 
-      const data = await res.json();
+      const data: { success?: boolean; message?: string } = await res.json();
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Failed to save doctor profile");
       }
 
       setSubmitted(true);
-      router.push("/");
+      router.push("/doctor/home");
     } catch (error) {
       console.error(error);
     } finally {
@@ -104,7 +114,7 @@ export default function DoctorSignupForm() {
   return (
     <div className="bg-background-light text-slate-900 min-h-screen flex flex-col">
       <Link
-        href="/signup"
+        href="/doctorsignup"
         className="
           relative sm:fixed
           sm:top-6 sm:left-6
@@ -201,7 +211,9 @@ export default function DoctorSignupForm() {
                 placeholder="Cardiology, Pediatrics, Dermatology..."
                 type="text"
                 className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition placeholder:text-slate-400 ${
-                  errors.specialization ? "border-rose-500" : "border-slate-200"
+                  errors.specialization
+                    ? "border-rose-500"
+                    : "border-slate-200"
                 }`}
               />
               {errors.specialization && (
@@ -248,7 +260,9 @@ export default function DoctorSignupForm() {
                 type="file"
                 accept="image/*"
                 className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition file:mr-4 file:rounded-md file:border-0 file:bg-[#008081] file:px-4 file:py-2 file:text-white ${
-                  errors.profilePicture ? "border-rose-500" : "border-slate-200"
+                  errors.profilePicture
+                    ? "border-rose-500"
+                    : "border-slate-200"
                 }`}
               />
               {errors.profilePicture && (
@@ -301,7 +315,7 @@ export default function DoctorSignupForm() {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !isLoaded}
                 className="
                   w-full bg-[#008081]
                   text-white py-4
@@ -328,12 +342,12 @@ export default function DoctorSignupForm() {
           <div className="mt-8 text-center">
             <p className="text-sm text-slate-500">
               Already have an account?
-              <a
+              <Link
                 className="text-primary font-bold hover:underline ml-1"
-                href="#"
+                href="/login"
               >
                 Log In
-              </a>
+              </Link>
             </p>
           </div>
         </div>

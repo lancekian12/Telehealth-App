@@ -1,6 +1,8 @@
+// app/doctorsignup/page.tsx
+"use client";
+
 import BackButton from "@/components/buttons/backbutton";
 import { SignUp } from "@clerk/nextjs";
-import Link from "next/link";
 
 const clerkAppearance = {
   variables: {
@@ -15,7 +17,6 @@ export default function SignUpPage() {
       <BackButton fallback="/" />
 
       <div className="mx-auto flex flex-col gap-10 min-h-screen w-full max-w-6xl items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header Section */}
         <div className="text-center">
           <div className="flex flex-col items-center gap-2">
             <div className="text-primary flex items-center justify-center">
@@ -36,26 +37,23 @@ export default function SignUpPage() {
             <h2 className="text-2xl font-bold text-[#008081] mb-2">
               Doctor Registration
             </h2>
-
             <p className="text-slate-500">
               Join our community for better healthcare access
             </p>
           </div>
 
           <div className="flex justify-center mt-6 gap-2">
-            <div className="h-1.5 w-12 rounded-full bg-[#008081]"></div>
-
-            <div className="h-1.5 w-12 rounded-full bg-[#008081]/15"></div>
+            <div className="h-1.5 w-12 rounded-full bg-[#008081]" />
+            <div className="h-1.5 w-12 rounded-full bg-[#008081]/15" />
           </div>
         </div>
 
-        {/* Clerk Sign Up */}
         <div className="w-full flex justify-center">
           <SignUp
             routing="path"
             path="/doctorsignup"
             signInUrl="/login"
-            forceRedirectUrl="/post-login"
+            forceRedirectUrl="/doctorsignup/post-signup"
             appearance={clerkAppearance}
           />
         </div>

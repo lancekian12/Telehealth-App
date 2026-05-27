@@ -102,7 +102,7 @@ export default function Navigation() {
   return (
     <header
       className={`w-full border-b border-slate-100 dark:border-slate-800 fixed top-0 left-0 right-0 z-[9999] backdrop-blur-md transition-colors duration-300 ${
-        scrolled ? "bg-white/90 shadow-sm" : "bg-white/80"
+        scrolled ? "bg-background-surface shadow-sm" : "bg-white/80"
       } dark:${scrolled ? "bg-slate-900/90" : "bg-slate-900/80"}`}
     >
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">

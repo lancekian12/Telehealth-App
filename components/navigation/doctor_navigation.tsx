@@ -37,23 +37,34 @@ function NavItem({ to, icon, label, exact = false }: NavItemProps) {
       href={to}
       className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
         isActive
-          ? "bg-primary/10 text-primary"
+          ? "bg-white text-primary shadow-sm"
           : "text-slate-600 hover:bg-slate-50 hover:text-primary"
       }`}
     >
-      <span className="w-5 h-5 flex-shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
+      <span
+        className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${
+          isActive ? "translate-x-[15px]" : ""
+        }`}
+      >
+        {icon}
+      </span>
+
+      <span
+        className={`truncate transition-transform duration-200 ${
+          isActive ? "translate-x-[15px]" : ""
+        }`} 
+      >
+        {label}
+      </span>
     </Link>
   );
 }
 
-export default function DoctorShell({
-  children,
-}: DoctorShellProps) {
+export default function DoctorShell({ children }: DoctorShellProps) {
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
-      <aside className="w-72 bg-white/90 backdrop-blur-lg border-r border-slate-200 flex flex-col sticky top-0 h-screen z-20">
+      <aside className="hidden lg:flex flex-col h-full py-8 h-screen w-72 rounded-r-4xl bg-[#f3f3f4] shadow-none border-r border-slate-200 z-10 shrink-0">
         <div className="p-8 flex items-center">
           <span
             className="material-icons text-[#008081]"
@@ -73,7 +84,7 @@ export default function DoctorShell({
           </div>
 
           <NavItem
-            to="/admin"
+            to="/doctor/home"
             icon={<Squares2X2Icon className="w-5 h-5" />}
             label="Dashboard"
             exact
@@ -128,9 +139,7 @@ export default function DoctorShell({
 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate">Admin User</p>
-              <p className="text-xs text-slate-500 truncate">
-                Super Admin
-              </p>
+              <p className="text-xs text-slate-500 truncate">Super Admin</p>
             </div>
 
             <SignOut
@@ -143,9 +152,7 @@ export default function DoctorShell({
       </aside>
 
       {/* Page Content */}
-      <main className="flex-1 p-6 bg-white overflow-y-auto">
-        {children}
-      </main>
+      <main className="flex-1 p-6 bg-white overflow-y-auto">{children}</main>
     </div>
   );
 }

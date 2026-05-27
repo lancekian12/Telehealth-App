@@ -5,6 +5,7 @@
   --color-secondary: #81B641;
   --color-background-light: #FFFFFF;
   --color-background-dark: #0f172a;
+  --color-background-surface: #f3f3f4;
 }
 
 @layer base {
