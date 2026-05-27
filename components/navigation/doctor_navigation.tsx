@@ -5,18 +5,14 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   CalendarBlank,
-  User,
-  UsersThree,
-  FirstAidKit,
   Bell,
   GearSix,
   SignOut,
+  FileText,
+  ChatText,
 } from "phosphor-react";
 import { Squares2X2Icon } from "@heroicons/react/24/solid";
-
-type DoctorShellProps = {
-  children: ReactNode;
-};
+import { Menu, Calendar as CalendarIcon } from "lucide-react";
 
 type NavItemProps = {
   to: string;
@@ -25,46 +21,35 @@ type NavItemProps = {
   exact?: boolean;
 };
 
-function NavItem({ to, icon, label, exact = false }: NavItemProps) {
+function NavItem({ to, icon, label, exact }: NavItemProps) {
   const pathname = usePathname();
-
-  const isActive = exact
-    ? pathname === to
-    : pathname === to || pathname.startsWith(`${to}/`);
+  const active = exact ? pathname === to : pathname.startsWith(to);
 
   return (
     <Link
       href={to}
       className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-        isActive
-          ? "bg-white text-primary shadow-sm"
+        active
+          ? "bg-primary/10 text-primary"
           : "text-slate-600 hover:bg-slate-50 hover:text-primary"
       }`}
     >
-      <span
-        className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${
-          isActive ? "translate-x-[15px]" : ""
-        }`}
-      >
-        {icon}
-      </span>
-
-      <span
-        className={`truncate transition-transform duration-200 ${
-          isActive ? "translate-x-[15px]" : ""
-        }`} 
-      >
-        {label}
-      </span>
+      <span className="w-5 h-5 flex-shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
     </Link>
   );
 }
 
-export default function DoctorShell({ children }: DoctorShellProps) {
+export default function DoctorNavigation({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex flex-col h-full py-8 h-screen w-72 rounded-r-4xl bg-[#f3f3f4] shadow-none border-r border-slate-200 z-10 shrink-0">
+    <div className="min-h-screen flex bg-background-light text-slate-900 font-sans">
+      
+      {/* SIDEBAR */}
+      <aside className="w-72 bg-white/90 backdrop-blur-lg border-r border-slate-200 flex flex-col sticky top-0 h-screen z-20">
         <div className="p-8 flex items-center">
           <span
             className="material-icons text-[#008081]"
@@ -72,7 +57,6 @@ export default function DoctorShell({ children }: DoctorShellProps) {
           >
             eco
           </span>
-
           <span className="text-2xl font-bold text-slate-800">
             Appoint<span className="text-secondary">Care</span>
           </span>
@@ -83,52 +67,17 @@ export default function DoctorShell({ children }: DoctorShellProps) {
             Main Menu
           </div>
 
-          <NavItem
-            to="/doctor/home"
-            icon={<Squares2X2Icon className="w-5 h-5" />}
-            label="Dashboard"
-            exact
-          />
-
-          <NavItem
-            to="/admin/appointments"
-            icon={<CalendarBlank weight="fill" size={20} />}
-            label="Appointments"
-          />
-
-          <NavItem
-            to="/admin/doctors"
-            icon={<User weight="fill" size={20} />}
-            label="Doctors"
-          />
-
-          <NavItem
-            to="/admin/patients"
-            icon={<UsersThree weight="fill" size={20} />}
-            label="Patients"
-          />
-
-          <NavItem
-            to="/admin/specialties"
-            icon={<FirstAidKit weight="fill" size={20} />}
-            label="Specialties"
-          />
+          <NavItem to="/doctor/home" exact icon={<Squares2X2Icon />} label="Dashboard" />
+          <NavItem to="/doctor/appointments" icon={<CalendarBlank weight="fill" size={20} />} label="Appointments" />
+          <NavItem to="/doctor/patientrecords" icon={<FileText weight="fill" size={20} />} label="Patient Records" />
+          <NavItem to="/doctor/messages" icon={<ChatText weight="fill" size={20} />} label="Messages" />
 
           <div className="pt-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4 mb-2">
             System
           </div>
 
-          <NavItem
-            to="/admin/notifications"
-            icon={<Bell weight="fill" size={20} />}
-            label="Notifications"
-          />
-
-          <NavItem
-            to="/admin/settings"
-            icon={<GearSix weight="fill" size={20} />}
-            label="Settings"
-          />
+          <NavItem to="/doctor/notifications" icon={<Bell weight="fill" size={20} />} label="Notifications" />
+          <NavItem to="/doctor/settings" icon={<GearSix weight="fill" size={20} />} label="Settings" />
         </nav>
 
         <div className="p-6 border-t border-slate-100">
@@ -136,23 +85,41 @@ export default function DoctorShell({ children }: DoctorShellProps) {
             <div className="w-10 h-10 rounded-full bg-primary text-white font-bold flex items-center justify-center">
               AD
             </div>
-
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate">Admin User</p>
               <p className="text-xs text-slate-500 truncate">Super Admin</p>
             </div>
-
-            <SignOut
-              weight="fill"
-              size={20}
-              className="text-slate-400 hover:text-red-500 transition-colors"
-            />
+            <button type="button" aria-label="Sign out">
+              <SignOut
+                weight="fill"
+                size={20}
+                className="text-slate-400 hover:text-red-500"
+              />
+            </button>
           </div>
         </div>
       </aside>
 
-      {/* Page Content */}
-      <main className="flex-1 p-6 bg-white overflow-y-auto">{children}</main>
+      {/* MAIN */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* HEADER (mobile only) */}
+        <header className="h-16 md:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <CalendarIcon size={20} className="text-primary" />
+            <span className="text-lg font-bold">
+              Appoint<span className="text-secondary">Care</span>
+            </span>
+          </div>
+          <button className="text-slate-500">
+            <Menu />
+          </button>
+        </header>
+
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
