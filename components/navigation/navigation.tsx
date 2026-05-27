@@ -115,22 +115,36 @@ export default function Navigation() {
                     <div className="relative">
                       <div
                         className="
-          w-14 h-14
-          rounded-full
-          border-[3px]
-          border-[#22c55e]
-          flex items-center justify-center
-          text-[#008081]
-          font-bold text-lg
-          bg-white
-          shadow-sm
-        "
+    relative
+    p-[3px]
+    rounded-full
+    bg-gradient-to-br
+    from-[#008081]
+    via-[#0ea5a4]
+    to-[#81B641]
+    shadow-md
+  "
                       >
-                        {patient.fullName
-                          .split(" ")
-                          .map((name) => name[0])
-                          .slice(0, 2)
-                          .join("")}
+                        <img
+                          src={patient.profilePicture}
+                          alt={patient.fullName}
+                          className="
+      w-14 h-14
+      rounded-full
+      object-cover
+      bg-white
+    "
+                        />
+
+                        <div
+                          className="
+      absolute bottom-0 right-0
+      w-4 h-4
+      rounded-full
+      bg-[#22c55e]
+      border-2 border-white
+    "
+                        />
                       </div>
 
                       <div

@@ -2,7 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { connectDB } from "@/lib/mongodb";
+import { connectDB } from "@/config/mongodb";
 import { Patient } from "@/models/patient";
 import FormWrapper from "./form-wrapper";
 

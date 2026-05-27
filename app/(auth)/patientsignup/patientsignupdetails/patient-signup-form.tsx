@@ -19,7 +19,9 @@ const initialForm: FormFields = {
 export default function PatientSignupForm() {
   const router = useRouter();
   const [form, setForm] = useState<FormFields>(initialForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormFields, string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof FormFields, string>>
+  >({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -65,15 +67,22 @@ export default function PatientSignupForm() {
     try {
       setLoading(true);
 
+      const formData = new FormData();
+      formData.append("fullName", form.fullName);
+      formData.append("birthday", form.birthday);
+      formData.append("weight", form.weight);
+      formData.append("height", form.height);
+      formData.append("email", form.email);
+      formData.append("phone", form.phone);
+      formData.append("basicMedicalHistory", form.basicMedicalHistory);
+
+      if (form.profilePicture) {
+        formData.append("profilePicture", form.profilePicture);
+      }
+
       const res = await fetch("/api/patient", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...form,
-          profilePicture: form.profilePicture?.name ?? "",
-        }),
+        body: formData,
       });
 
       const data = await res.json();
@@ -331,7 +340,9 @@ export default function PatientSignupForm() {
                 placeholder="List allergies, existing conditions, medications, or other relevant history"
                 rows={4}
                 className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition placeholder:text-slate-400 resize-none ${
-                  errors.basicMedicalHistory ? "border-rose-500" : "border-slate-200"
+                  errors.basicMedicalHistory
+                    ? "border-rose-500"
+                    : "border-slate-200"
                 }`}
               />
               {errors.basicMedicalHistory && (
@@ -371,7 +382,10 @@ export default function PatientSignupForm() {
           <div className="mt-8 text-center">
             <p className="text-sm text-slate-500">
               Already have an account?
-              <a className="text-primary font-bold hover:underline ml-1" href="#">
+              <a
+                className="text-primary font-bold hover:underline ml-1"
+                href="#"
+              >
                 Log In
               </a>
             </p>

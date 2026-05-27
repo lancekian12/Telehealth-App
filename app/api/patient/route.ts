@@ -1,8 +1,12 @@
 // app/api/patient/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { connectDB } from "@/lib/mongodb";
+import { v2 as cloudinary } from "cloudinary";
+import type { UploadApiResponse } from "cloudinary";
+import { connectDB } from "@/config/mongodb";
 import { Patient } from "@/models/patient";
+
+export const runtime = "nodejs";
 
 export async function GET() {
   try {
@@ -10,21 +14,14 @@ export async function GET() {
 
     if (!userId) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
-        {
-          status: 401,
-        }
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
       );
     }
 
     await connectDB();
 
-    const patient = await Patient.findOne({
-      clerkId: userId,
-    });
+    const patient = await Patient.findOne({ clerkId: userId });
 
     return NextResponse.json({
       success: true,
@@ -32,15 +29,9 @@ export async function GET() {
     });
   } catch (error) {
     console.log(error);
-
     return NextResponse.json(
-      {
-        success: false,
-        message: "Server Error",
-      },
-      {
-        status: 500,
-      }
+      { success: false, message: "Server Error" },
+      { status: 500 }
     );
   }
 }
@@ -57,11 +48,54 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
-    const body = await req.json();
+
+    const formData = await req.formData();
+
+    const fullName = String(formData.get("fullName") || "");
+    const birthday = String(formData.get("birthday") || "");
+    const weight = String(formData.get("weight") || "");
+    const height = String(formData.get("height") || "");
+    const email = String(formData.get("email") || "");
+    const phone = String(formData.get("phone") || "");
+    const basicMedicalHistory = String(formData.get("basicMedicalHistory") || "");
+    const file = formData.get("profilePicture");
+
+    if (!(file instanceof File)) {
+      return NextResponse.json(
+        { success: false, message: "Profile picture is required" },
+        { status: 400 }
+      );
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const uploadedImage = await new Promise<UploadApiResponse>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "appointcare" },
+        (error, result) => {
+          if (error) return reject(error);
+          if (!result) return reject(new Error("Cloudinary upload failed"));
+          resolve(result);
+        }
+      );
+
+      stream.end(buffer);
+    });
 
     const patient = await Patient.findOneAndUpdate(
       { clerkId: userId },
-      { clerkId: userId, ...body },
+      {
+        clerkId: userId,
+        fullName,
+        birthday,
+        weight,
+        height,
+        profilePicture: uploadedImage.secure_url,
+        email,
+        phone,
+        basicMedicalHistory,
+      },
       { new: true, upsert: true, runValidators: true }
     );
 
