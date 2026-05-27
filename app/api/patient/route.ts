@@ -4,6 +4,47 @@ import { auth } from "@clerk/nextjs/server";
 import { connectDB } from "@/lib/mongodb";
 import { Patient } from "@/models/patient";
 
+export async function GET() {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    await connectDB();
+
+    const patient = await Patient.findOne({
+      clerkId: userId,
+    });
+
+    return NextResponse.json({
+      success: true,
+      patient,
+    });
+  } catch (error) {
+    console.log(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Server Error",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();

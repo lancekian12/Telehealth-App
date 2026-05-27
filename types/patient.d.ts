@@ -1,4 +1,5 @@
 export type FormFields = {
+  
   fullName: string;
   birthday: string;
   weight: string;
@@ -8,3 +9,28 @@ export type FormFields = {
   phone: string;
   basicMedicalHistory: string;
 };
+
+export interface Patient {
+  _id?: string;
+
+  clerkId: string;
+
+  fullName: string;
+
+  birthday: string;
+
+  weight: string;
+
+  height: string;
+
+  profilePicture?: string;
+
+  email: string;
+
+  phone: string;
+
+  basicMedicalHistory: string;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
