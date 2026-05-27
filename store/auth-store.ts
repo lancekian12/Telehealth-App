@@ -8,7 +8,7 @@ interface AuthStore {
 
   isAuthenticated: boolean;
 
-  setPatient: (patient: Patient) => void;
+  setPatient: (patient: Patient | null) => void;
 
   clearPatient: () => void;
 
@@ -25,7 +25,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setPatient: (patient) =>
     set({
       patient,
-      isAuthenticated: true,
+      isAuthenticated: !!patient,
     }),
 
   clearPatient: () =>
