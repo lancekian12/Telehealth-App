@@ -1,9 +1,10 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormFields } from "@/types/patient";
+import { useUser } from "@clerk/nextjs";
 
 const initialForm: FormFields = {
   fullName: "",
@@ -17,6 +18,8 @@ const initialForm: FormFields = {
 };
 
 export default function PatientSignupForm() {
+  const { user } = useUser();
+  const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? "";
   const router = useRouter();
   const [form, setForm] = useState<FormFields>(initialForm);
   const [errors, setErrors] = useState<
@@ -47,8 +50,8 @@ export default function PatientSignupForm() {
     if (!form.weight.trim()) e.weight = "Weight is required";
     if (!form.height.trim()) e.height = "Height is required";
     if (!form.profilePicture) e.profilePicture = "Profile picture is required";
-    if (!form.email.trim()) e.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+    if (!clerkEmail.trim()) e.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clerkEmail))
       e.email = "Invalid email";
     if (!form.phone.trim()) e.phone = "Contact number is required";
     if (!form.basicMedicalHistory.trim())
@@ -72,7 +75,7 @@ export default function PatientSignupForm() {
       formData.append("birthday", form.birthday);
       formData.append("weight", form.weight);
       formData.append("height", form.height);
-      formData.append("email", form.email);
+      formData.append("email", clerkEmail);
       formData.append("phone", form.phone);
       formData.append("basicMedicalHistory", form.basicMedicalHistory);
 
@@ -220,15 +223,13 @@ export default function PatientSignupForm() {
                   name="weight"
                   value={form.weight}
                   onChange={handleChange}
-                  placeholder="70 kg"
-                  type="text"
+                  placeholder="70 kg "
+                  type="number"
+                  min="1"
                   className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition placeholder:text-slate-400 ${
                     errors.weight ? "border-rose-500" : "border-slate-200"
                   }`}
                 />
-                {errors.weight && (
-                  <p className="mt-1 text-xs text-rose-600">{errors.weight}</p>
-                )}
               </div>
 
               <div>
@@ -244,7 +245,8 @@ export default function PatientSignupForm() {
                   value={form.height}
                   onChange={handleChange}
                   placeholder="170 cm"
-                  type="text"
+                  type="number"
+                  min="1"
                   className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition placeholder:text-slate-400 ${
                     errors.height ? "border-rose-500" : "border-slate-200"
                   }`}
@@ -289,17 +291,11 @@ export default function PatientSignupForm() {
               <input
                 id="email"
                 name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="example@email.com"
+                value={clerkEmail}
+                readOnly
                 type="email"
-                className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition placeholder:text-slate-400 ${
-                  errors.email ? "border-rose-500" : "border-slate-200"
-                }`}
+                className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed focus:outline-none"
               />
-              {errors.email && (
-                <p className="mt-1 text-xs text-rose-600">{errors.email}</p>
-              )}
             </div>
 
             <div>

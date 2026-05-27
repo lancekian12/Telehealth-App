@@ -12,8 +12,8 @@ export default async function PostLoginPage() {
 
   await connectDB();
 
-  const patient = await Patient.findOne({ clerkId: userId }).lean();
-
+  const patient = await Patient.findOne({ clerkId: userId });
+  
   const needsDetails =
     !patient ||
     !patient.fullName ||
