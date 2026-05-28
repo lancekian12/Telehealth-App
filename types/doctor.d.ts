@@ -1,7 +1,7 @@
 export type DoctorConsultationMode = "video" | "in_person";
 
 export type WorkingHourInput = {
-  day: string;
+  date: string;
   startTime: string;
   endTime: string;
   isAvailable: boolean;
@@ -12,6 +12,18 @@ export type UnavailableSlotInput = {
   startTime: string;
   endTime: string;
   reason: string;
+};
+
+export type DoctorScheduleOverride = {
+  date: string;
+  status?: "available" | "blocked";
+  action?: "rescheduled" | "cancelled";
+  startTime?: string | null;
+  endTime?: string | null;
+  newDate?: string | null;
+  newStartTime?: string | null;
+  newEndTime?: string | null;
+  reason?: string;
 };
 
 export type DoctorFormFields = {
@@ -97,7 +109,7 @@ export type DoctorApiItem = {
   verified: boolean;
   acceptsNewPatients: boolean;
   workingHours: Array<{
-    day: string;
+    date: string;
     startTime: string;
     endTime: string;
     isAvailable: boolean;
@@ -107,6 +119,17 @@ export type DoctorApiItem = {
     startTime: string;
     endTime: string;
     reason: string;
+  }>;
+  scheduleOverrides?: Array<{
+    date: string;
+    status?: "available" | "blocked";
+    action?: "rescheduled" | "cancelled";
+    startTime?: string | null;
+    endTime?: string | null;
+    newDate?: string | null;
+    newStartTime?: string | null;
+    newEndTime?: string | null;
+    reason?: string;
   }>;
   consultationDurationMinutes: number;
 
@@ -144,7 +167,7 @@ export type FindDoctor = {
 };
 
 export type WorkingHour = {
-  day: string;
+  date: string;
   startTime: string;
   endTime: string;
   isAvailable: boolean;
@@ -158,10 +181,14 @@ export type UnavailableSlot = {
 };
 
 export type ScheduleOverride = {
-  date: string; // YYYY-MM-DD
-  status: "available" | "blocked";
+  date: string;
+  status?: "available" | "blocked";
+  action?: "rescheduled" | "cancelled";
   startTime?: string | null;
   endTime?: string | null;
+  newDate?: string | null;
+  newStartTime?: string | null;
+  newEndTime?: string | null;
   reason?: string;
 };
 
@@ -182,8 +209,14 @@ export type DoctorResponse = {
   success: boolean;
   message?: string;
   doctor?: {
-    workingHours?: WorkingHour[];
+    workingHours?: {
+      date: string;
+      startTime: string;
+      endTime: string;
+      isAvailable: boolean;
+    }[];
     unavailableSlots?: UnavailableSlot[];
+    scheduleOverrides?: ScheduleOverride[];
     appointments?: unknown;
     bookings?: unknown;
     scheduledPatients?: unknown;
@@ -192,7 +225,17 @@ export type DoctorResponse = {
 };
 
 export type ScheduleResponse = {
-  scheduleOverrides: any;
+  scheduleOverrides?: {
+    date: string;
+    status?: "available" | "blocked";
+    action?: "rescheduled" | "cancelled";
+    startTime?: string | null;
+    endTime?: string | null;
+    newDate?: string | null;
+    newStartTime?: string | null;
+    newEndTime?: string | null;
+    reason?: string;
+  }[];
   success: boolean;
   message?: string;
   workingHours?: WorkingHour[];

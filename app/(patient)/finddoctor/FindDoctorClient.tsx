@@ -13,13 +13,13 @@ import {
   Stethoscope,
   Video,
   Globe,
-  X,
 } from "lucide-react";
 
 import SearchBar from "@/components/patient/SearchBar";
 import FilterModal from "@/components/patient/FilterModal";
 import { DoctorApiItem, FindDoctor } from "@/types/doctor";
 import AvailabilityPanel from "@/components/patient/AvailabilityPanel";
+
 declare global {
   interface Window {
     __doctorMap?: LeafletMap;
@@ -107,7 +107,7 @@ export default function FindDoctorClient(): JSX.Element {
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeDoctor, setActiveDoctor] = useState<FindDoctor | null>(null);
-  const [selectedTime, setSelectedTime] = useState("11:00 AM");
+  const [selectedTime, setSelectedTime] = useState("");
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
   const [doctors, setDoctors] = useState<FindDoctor[]>([]);
@@ -123,18 +123,6 @@ export default function FindDoctorClient(): JSX.Element {
     () => [12.8797, 121.774],
     [],
   );
-
-  const [doctorSchedule, setDoctorSchedule] = useState<{
-    workingHours: {
-      day: string;
-      start: string;
-      end: string;
-    }[];
-    unavailableSlots: {
-      date: string;
-      time: string;
-    }[];
-  } | null>(null);
 
   useEffect(() => {
     const loadDoctors = async () => {
@@ -179,7 +167,6 @@ export default function FindDoctorClient(): JSX.Element {
             img: doctor.profilePicture || "/doctor-placeholder.png",
             tags,
             status: doctor.acceptsNewPatients ? "accepting" : "fully_booked",
-
             bio: doctor.bio || "",
             verified: doctor.verified ?? false,
             acceptsNewPatients: doctor.acceptsNewPatients ?? false,
@@ -211,14 +198,8 @@ export default function FindDoctorClient(): JSX.Element {
       .replace(/\s+/g, " ")
       .trim();
 
-  const matchesAny = (text: string, terms: string[]) => {
-    const normalizedText = normalize(text);
-    return terms.every((term) => normalizedText.includes(normalize(term)));
-  };
-
   const specialtyOptions = useMemo(() => {
     const items = doctors.map((d) => d.specialty?.trim()).filter(Boolean);
-
     return ["All specialties", ...Array.from(new Set(items)).sort()];
   }, [doctors]);
 
@@ -227,6 +208,7 @@ export default function FindDoctorClient(): JSX.Element {
       .flatMap((d) => d.languages || [])
       .map((l) => l.trim())
       .filter(Boolean);
+
     return ["All languages", ...Array.from(new Set(items)).sort()];
   }, [doctors]);
 
@@ -235,6 +217,9 @@ export default function FindDoctorClient(): JSX.Element {
     const locationText = normalize(locationQuery);
     const specialtyText = normalize(specialtyFilter);
     const languageText = normalize(language);
+
+    const minPriceValue = typeof minPrice === "number" ? minPrice : 0;
+    const maxPriceValue = typeof maxPrice === "number" ? maxPrice : 5000;
 
     return doctors
       .filter((d) => {
@@ -277,9 +262,8 @@ export default function FindDoctorClient(): JSX.Element {
 
         const matchesVerified = !verifiedOnly || !!d.verified;
         const matchesAccepting = !acceptingOnly || !!d.acceptsNewPatients;
-
         const matchesRating = d.rating >= minRating;
-        const matchesPrice = d.fee >= minPrice && d.fee <= maxPrice;
+        const matchesPrice = d.fee >= minPriceValue && d.fee <= maxPriceValue;
 
         return (
           matchesQuery &&
@@ -318,6 +302,7 @@ export default function FindDoctorClient(): JSX.Element {
       key: string;
       day: string;
       date: number;
+      fullDate: string;
       active: boolean;
       muted: boolean;
     }[] = [];
@@ -328,14 +313,20 @@ export default function FindDoctorClient(): JSX.Element {
       const d = new Date(now);
       d.setDate(now.getDate() + i);
 
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const dayNum = String(d.getDate()).padStart(2, "0");
+      const fullDate = `${year}-${month}-${dayNum}`;
+
       const day = d
         .toLocaleDateString("en-US", { weekday: "short" })
         .toUpperCase();
 
       days.push({
-        key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+        key: fullDate,
         day,
         date: d.getDate(),
+        fullDate,
         active: i === selectedDayIndex,
         muted: day === "SAT" || day === "SUN",
       });
@@ -343,6 +334,23 @@ export default function FindDoctorClient(): JSX.Element {
 
     return days;
   }, [selectedDayIndex]);
+
+  const openAvailabilityPanel = (doctor: FindDoctor) => {
+    console.log("[FindDoctorClient] openAvailabilityPanel clicked:", {
+      doctorId: doctor.id,
+      doctorName: doctor.name,
+    });
+
+    if (doctor.status === "fully_booked") {
+      console.log("[FindDoctorClient] doctor is fully booked, not opening panel");
+      return;
+    }
+
+    setActiveDoctor(doctor);
+    setSelectedTime("");
+    setSelectedDayIndex(0);
+    setPanelOpen(true);
+  };
 
   const PAGE_SIZE = 2;
   const totalPages = Math.max(1, Math.ceil(filteredAll.length / PAGE_SIZE));
@@ -510,33 +518,6 @@ export default function FindDoctorClient(): JSX.Element {
   useEffect(() => {
     mapRef.current?.invalidateSize();
   }, [page]);
-
-  const openAvailabilityPanel = async (doctor: FindDoctor) => {
-    try {
-      if (doctor.status === "fully_booked") return;
-
-      const res = await fetch(`/api/doctor/${doctor.id}`);
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Failed to load doctor schedule");
-      }
-
-      setActiveDoctor(doctor);
-
-      setDoctorSchedule({
-        workingHours: data.doctor.workingHours || [],
-        unavailableSlots: data.doctor.unavailableSlots || [],
-      });
-
-      setSelectedTime("");
-      setSelectedDayIndex(0);
-
-      setPanelOpen(true);
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   function closePanel() {
     setPanelOpen(false);
@@ -799,7 +780,6 @@ export default function FindDoctorClient(): JSX.Element {
         setSelectedDayIndex={setSelectedDayIndex}
         selectedTime={selectedTime}
         setSelectedTime={setSelectedTime}
-        schedule={doctorSchedule}
       />
     </div>
   );

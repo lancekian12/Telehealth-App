@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { FindDoctor } from "@/types/doctor";
 
@@ -8,30 +8,46 @@ type SelectedDateItem = {
   key: string;
   day: string;
   date: number;
-  fullDate: string; // YYYY-MM-DD
+  fullDate: string;
   active: boolean;
   muted: boolean;
 };
 
 type WorkingHour = {
-  day: string;
-  startTime: string;
-  endTime: string;
-  isAvailable: boolean;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  isAvailable?: boolean;
 };
 
 type ScheduleOverride = {
-  date: string; // YYYY-MM-DD
-  status: "available" | "blocked";
+  date: string;
+  action: "rescheduled" | "cancelled";
   startTime?: string | null;
   endTime?: string | null;
+  newDate?: string | null;
+  newStartTime?: string | null;
+  newEndTime?: string | null;
   reason?: string;
 };
 
-type AvailabilitySchedule = {
-  workingHours: WorkingHour[];
-  scheduleOverrides: ScheduleOverride[];
-} | null;
+type UnavailableSlot = {
+  date: string; // whole-day block only
+};
+
+type DoctorDetailsResponse = {
+  success: boolean;
+  message?: string;
+  doctor?: {
+    id: string;
+    clerkId?: string;
+    fullName: string;
+    workingHours?: WorkingHour[];
+    scheduleOverrides?: ScheduleOverride[];
+    unavailableSlots?: UnavailableSlot[];
+    consultationDurationMinutes?: number;
+  };
+};
 
 type AvailabilityPanelProps = {
   open: boolean;
@@ -42,7 +58,6 @@ type AvailabilityPanelProps = {
   setSelectedDayIndex: React.Dispatch<React.SetStateAction<number>>;
   selectedTime: string;
   setSelectedTime: React.Dispatch<React.SetStateAction<string>>;
-  schedule: AvailabilitySchedule;
 };
 
 function parseTimeToMinutes(value: string) {
@@ -56,37 +71,24 @@ function parseTimeToMinutes(value: string) {
   if (meridiem === "PM" && hour !== 12) hour += 12;
   if (meridiem === "AM" && hour === 12) hour = 0;
 
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
   return hour * 60 + minute;
 }
 
 function formatMinutesToTime(totalMinutes: number) {
-  const hour24 = Math.floor(totalMinutes / 60);
-  const minute = totalMinutes % 60;
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalized / 60);
+  const minute = normalized % 60;
   const meridiem = hour24 >= 12 ? "PM" : "AM";
   const hour12 = hour24 % 12 || 12;
 
   return `${hour12}:${minute.toString().padStart(2, "0")} ${meridiem}`;
 }
 
-function generateTimeSlots(start: string, end: string) {
-  const slots: string[] = [];
-
-  const startMinutes = parseTimeToMinutes(start);
-  const endMinutes = parseTimeToMinutes(end);
-
-  if (
-    startMinutes === null ||
-    endMinutes === null ||
-    startMinutes >= endMinutes
-  ) {
-    return slots;
-  }
-
-  for (let minutes = startMinutes; minutes < endMinutes; minutes += 30) {
-    slots.push(formatMinutesToTime(minutes));
-  }
-
-  return slots;
+function formatTimeLabel(time: string) {
+  const minutes = parseTimeToMinutes(time);
+  return minutes === null ? time : formatMinutesToTime(minutes);
 }
 
 export default function AvailabilityPanel({
@@ -98,51 +100,184 @@ export default function AvailabilityPanel({
   setSelectedDayIndex,
   selectedTime,
   setSelectedTime,
-  schedule,
 }: AvailabilityPanelProps) {
+  const [doctorSchedule, setDoctorSchedule] = useState<{
+    fullName: string;
+    workingHours: WorkingHour[];
+    scheduleOverrides: ScheduleOverride[];
+    unavailableSlots: UnavailableSlot[];
+    consultationDurationMinutes: number;
+  }>({
+    fullName: activeDoctor?.name ?? "Doctor Schedule",
+    workingHours: [],
+    scheduleOverrides: [],
+    unavailableSlots: [],
+    consultationDurationMinutes: 60,
+  });
+
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log("[AvailabilityPanel] effect:", {
+      open,
+      doctorId: activeDoctor?.id,
+      doctorName: activeDoctor?.name,
+    });
+
+    if (!open || !activeDoctor?.id) return;
+
+    const controller = new AbortController();
+
+    async function loadDoctorSchedule() {
+      setLoadingSchedule(true);
+      setScheduleError(null);
+
+      try {
+        const url = `/api/doctor/${activeDoctor?.id}`;
+        console.log("[AvailabilityPanel] fetching:", url);
+
+        const res = await fetch(url, {
+          method: "GET",
+          signal: controller.signal,
+        });
+
+        const json: DoctorDetailsResponse = await res.json();
+
+        console.log("[AvailabilityPanel] response status:", res.status);
+        console.log("[AvailabilityPanel] response json:", json);
+        console.log("[AvailabilityPanel] workingHours:", json.doctor?.workingHours);
+        console.log(
+          "[AvailabilityPanel] unavailableSlots:",
+          json.doctor?.unavailableSlots,
+        );
+        console.log(
+          "[AvailabilityPanel] scheduleOverrides:",
+          json.doctor?.scheduleOverrides,
+        );
+
+        if (!res.ok || !json.success || !json.doctor) {
+          throw new Error(json.message || "Failed to load doctor schedule");
+        }
+
+        setDoctorSchedule({
+          fullName: json.doctor.fullName || activeDoctor?.name || "Doctor Schedule",
+          workingHours: json.doctor.workingHours || [],
+          scheduleOverrides: json.doctor.scheduleOverrides || [],
+          unavailableSlots: json.doctor.unavailableSlots || [],
+          consultationDurationMinutes:
+            json.doctor.consultationDurationMinutes || 60,
+        });
+      } catch (error: unknown) {
+        if (controller.signal.aborted) return;
+
+        console.error("[AvailabilityPanel] load failed:", error);
+
+        setScheduleError(
+          error instanceof Error ? error.message : "Something went wrong",
+        );
+        setDoctorSchedule({
+          fullName: activeDoctor?.name ?? "Doctor Schedule",
+          workingHours: [],
+          scheduleOverrides: [],
+          unavailableSlots: [],
+          consultationDurationMinutes: 60,
+        });
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingSchedule(false);
+        }
+      }
+    }
+
+    void loadDoctorSchedule();
+
+    return () => controller.abort();
+  }, [activeDoctor?.id, activeDoctor?.name, open]);
+
   const selectedDay = selectedDate[selectedDayIndex];
-  const selectedFullDate = selectedDay?.fullDate;
-  const selectedDayName = selectedDay?.day;
+  const selectedFullDate = selectedDay?.fullDate || "";
 
-  const workingHour = schedule?.workingHours?.find(
-    (item) => item.day === selectedDayName && item.isAvailable,
+  const dayAvailability = useMemo(() => {
+    return selectedDate.map((item) => {
+      const blockedByUnavailable = doctorSchedule.unavailableSlots.some(
+        (slot) => slot.date === item.fullDate,
+      );
+
+      const cancelledOverride = doctorSchedule.scheduleOverrides.some(
+        (override) =>
+          override.date === item.fullDate && override.action === "cancelled",
+      );
+
+      const workingHoursForDay = doctorSchedule.workingHours.filter(
+        (hour) => hour.date === item.fullDate && hour.isAvailable !== false,
+      );
+
+      const rescheduledSlots = doctorSchedule.scheduleOverrides
+        .filter(
+          (override) =>
+            override.action === "rescheduled" &&
+            override.newDate === item.fullDate &&
+            override.newStartTime &&
+            override.newEndTime,
+        )
+        .map((override) => ({
+          startTime: override.newStartTime as string,
+          endTime: override.newEndTime as string,
+          label: `${formatTimeLabel(override.newStartTime as string)} - ${formatTimeLabel(override.newEndTime as string)}`,
+        }));
+
+      const baseSlots = workingHoursForDay.map((slot) => ({
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        label: `${formatTimeLabel(slot.startTime)} - ${formatTimeLabel(slot.endTime)}`,
+      }));
+
+      const slots = blockedByUnavailable || cancelledOverride
+        ? []
+        : [...baseSlots, ...rescheduledSlots];
+
+      const uniqueSlots = slots.filter(
+        (slot, index, arr) =>
+          arr.findIndex(
+            (x) => x.startTime === slot.startTime && x.endTime === slot.endTime,
+          ) === index,
+      );
+
+      return {
+        ...item,
+        disabled: uniqueSlots.length === 0,
+        slots: uniqueSlots,
+        blockedByUnavailable,
+        cancelledOverride,
+      };
+    });
+  }, [selectedDate, doctorSchedule]);
+
+  const selectedDayInfo = dayAvailability[selectedDayIndex];
+  const availableSlots = selectedDayInfo?.slots ?? [];
+  const isBlockedDay = Boolean(
+    selectedDayInfo?.blockedByUnavailable || selectedDayInfo?.cancelledOverride,
   );
+  const isDisabledDay = Boolean(selectedDayInfo?.disabled);
 
-  const dateOverride = schedule?.scheduleOverrides?.find(
-    (item) => item.date === selectedFullDate,
-  );
-
-  const availableSlots = useMemo(() => {
-    if (!selectedDay || !selectedFullDate) return [];
-
-    if (dateOverride?.status === "blocked") {
-      return [];
-    }
-
-    const isAvailableOverride = dateOverride?.status === "available";
-
-    let startTime = "";
-    let endTime = "";
-
-    if (
-      isAvailableOverride &&
-      dateOverride?.startTime &&
-      dateOverride?.endTime
-    ) {
-      startTime = dateOverride.startTime;
-      endTime = dateOverride.endTime;
-    } else if (workingHour) {
-      startTime = workingHour.startTime;
-      endTime = workingHour.endTime;
-    } else if (isAvailableOverride) {
-      startTime = "00:00";
-      endTime = "23:59";
-    }
-
-    if (!startTime || !endTime) return [];
-
-    return generateTimeSlots(startTime, endTime);
-  }, [selectedDay, selectedFullDate, dateOverride, workingHour]);
+  useEffect(() => {
+    console.log("[AvailabilityPanel] render state:", {
+      selectedFullDate,
+      isBlockedDay,
+      isDisabledDay,
+      availableSlots,
+      scheduleOverrides: doctorSchedule.scheduleOverrides,
+      unavailableSlots: doctorSchedule.unavailableSlots,
+    });
+  }, [
+    selectedFullDate,
+    isBlockedDay,
+    isDisabledDay,
+    availableSlots,
+    doctorSchedule.scheduleOverrides,
+    doctorSchedule.unavailableSlots,
+  ]);
 
   if (!open) return null;
 
@@ -159,7 +294,7 @@ export default function AvailabilityPanel({
         <div className="sticky top-0 flex items-start justify-between border-b border-[#e8e8e8] bg-white px-8 py-6">
           <div>
             <h3 className="font-['Manrope'] text-2xl font-bold text-[#0f766e]">
-              {activeDoctor?.name ?? "Doctor Schedule"}
+              {doctorSchedule.fullName}
             </h3>
             <p className="mt-1 text-sm text-[#5a6664]">
               Select an available time
@@ -183,24 +318,36 @@ export default function AvailabilityPanel({
             </h4>
 
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {selectedDate.map((item, index) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setSelectedDayIndex(index)}
-                  className={[
-                    "flex min-w-[60px] flex-col items-center rounded-lg p-3 transition-colors",
-                    item.active
-                      ? "bg-[#0f766e] text-white"
-                      : item.muted
-                        ? "bg-[#f3f3f4] text-[#bcc9c6]"
-                        : "bg-[#f3f3f4] text-[#1a1c1c] hover:bg-[#e8e8e8]",
-                  ].join(" ")}
-                >
-                  <span className="text-xs uppercase">{item.day}</span>
-                  <span className="text-lg font-bold">{item.date}</span>
-                </button>
-              ))}
+              {dayAvailability.map((item, index) => {
+                const isSelected = index === selectedDayIndex;
+                const disabled = item.disabled;
+
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    disabled={disabled}
+                    aria-disabled={disabled}
+                    onClick={() => {
+                      if (disabled) return;
+                      setSelectedDayIndex(index);
+                    }}
+                    className={[
+                      "flex min-w-[60px] flex-col items-center rounded-lg p-3 transition-colors",
+                      disabled
+                        ? "cursor-not-allowed bg-slate-100 text-slate-300 opacity-80"
+                        : isSelected
+                          ? "bg-[#0f766e] text-white"
+                          : item.muted
+                            ? "bg-[#f3f3f4] text-[#bcc9c6] hover:bg-[#e8e8e8]"
+                            : "bg-[#f3f3f4] text-[#1a1c1c] hover:bg-[#e8e8e8]",
+                    ].join(" ")}
+                  >
+                    <span className="text-xs uppercase">{item.day}</span>
+                    <span className="text-lg font-bold">{item.date}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -209,38 +356,44 @@ export default function AvailabilityPanel({
               Available Slots
             </h4>
 
-            {dateOverride?.status === "blocked" ? (
+            {loadingSchedule ? (
               <div className="rounded-lg border border-dashed border-[#bcc9c6]/50 px-4 py-6 text-center text-sm text-[#6d7a77]">
-                Doctor is unavailable on this date
-                {dateOverride.reason ? `: ${dateOverride.reason}` : "."}
+                Loading doctor schedule...
+              </div>
+            ) : scheduleError ? (
+              <div className="rounded-lg border border-dashed border-red-200 bg-red-50 px-4 py-6 text-center text-sm text-red-700">
+                {scheduleError}
+              </div>
+            ) : isBlockedDay ? (
+              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                Doctor is unavailable on this date.
+              </div>
+            ) : availableSlots.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {availableSlots.map((slot) => {
+                  const selected =
+                    slot.startTime === selectedTime || slot.label === selectedTime;
+
+                  return (
+                    <button
+                      key={`${slot.startTime}-${slot.endTime}`}
+                      type="button"
+                      onClick={() => setSelectedTime(slot.startTime)}
+                      className={[
+                        "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
+                        selected
+                          ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
+                          : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
+                      ].join(" ")}
+                    >
+                      {slot.label}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {availableSlots.length > 0 ? (
-                  availableSlots.map((time) => {
-                    const selected = time === selectedTime;
-
-                    return (
-                      <button
-                        key={time}
-                        type="button"
-                        onClick={() => setSelectedTime(time)}
-                        className={[
-                          "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
-                          selected
-                            ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
-                            : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
-                        ].join(" ")}
-                      >
-                        {time}
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="col-span-2 rounded-lg border border-dashed border-[#bcc9c6]/50 px-4 py-6 text-center text-sm text-[#6d7a77]">
-                    No available slots for this day
-                  </div>
-                )}
+              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                No available slots for this day
               </div>
             )}
           </div>
