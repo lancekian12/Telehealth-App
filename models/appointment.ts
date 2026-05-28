@@ -37,7 +37,7 @@ const AppointmentSchema = new Schema(
 
     consultationType: {
       type: String,
-      enum: ["video", "in_person",],
+      enum: ["video", "in_person"],
       required: true,
     },
 
@@ -120,7 +120,7 @@ const AppointmentSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 AppointmentSchema.index({ doctor: 1, appointmentDate: 1, startTime: 1 });

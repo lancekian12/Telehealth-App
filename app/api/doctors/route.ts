@@ -42,7 +42,7 @@ export async function GET() {
             doctor.unavailableSlots ?? [],
 
           consultationDurationMinutes:
-            doctor.consultationDurationMinutes ?? 30,
+            doctor.consultationDurationMinutes ?? 60,
 
           clinicName: doctor.clinicName || "",
           clinicStreetAddress:

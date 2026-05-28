@@ -125,7 +125,7 @@ export default function DoctorSignupForm() {
 
       formData.append(
         "consultationDurationMinutes",
-        form.consultationDurationMinutes || "30",
+        form.consultationDurationMinutes || "60",
       );
 
       formData.append("clinicName", form.clinicName.trim());

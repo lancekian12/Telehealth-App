@@ -96,11 +96,11 @@ const normalizeProfileToForm = (doctor: DoctorProfile): DoctorFormFields => ({
   languages: (doctor.languages ?? []).join(", "),
   verified: doctor.verified ?? false,
   workingHours:
-    doctor.workingHours?.length > 0 ? doctor.workingHours : [createWorkingHour()],
+    doctor.workingHours?.length > 0
+      ? doctor.workingHours
+      : [createWorkingHour()],
   unavailableSlots: doctor.unavailableSlots ?? [],
-  consultationDurationMinutes: String(
-    doctor.consultationDurationMinutes ?? 30,
-  ),
+  consultationDurationMinutes: String(doctor.consultationDurationMinutes ?? 60),
 
   clinicName: doctor.clinicName ?? "",
   clinicStreetAddress: doctor.clinicStreetAddress ?? "",

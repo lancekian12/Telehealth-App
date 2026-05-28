@@ -1,76 +1,411 @@
 "use client";
 
-import React, { JSX, useMemo, useState } from "react";
+import React, { JSX, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
-  Leaf,
   Video,
   Stethoscope,
   Star,
   CreditCard,
   ChevronRight,
-  ChevronLeft,
   ArrowRight,
-  Sun,
-  Moon,
 } from "lucide-react";
 
-type ConsultationType = "video" | "inperson";
+type ConsultationType = "video" | "in_person";
 
-const DATES = [
-  { day: "Mon", date: 23, disabled: false },
-  { day: "Tue", date: 24, disabled: false },
-  { day: "Wed", date: 25, disabled: false },
-  { day: "Thu", date: 26, disabled: false },
-  { day: "Fri", date: 27, disabled: true },
-  { day: "Sat", date: 28, disabled: false },
-  { day: "Sun", date: 29, disabled: false },
-] as const;
+type DoctorDetailsResponse = {
+  success: boolean;
+  message?: string;
+  doctor?: {
+    id: string;
+    fullName: string;
+    specialization: string;
+    profilePicture?: string;
+    consultationFee?: number;
+    clinicAddress?: string;
+    rating?: number;
+    consultationDurationMinutes?: number;
+    workingHours?: Array<{
+      date: string;
+      startTime: string;
+      endTime: string;
+      isAvailable?: boolean;
+    }>;
+    unavailableSlots?: Array<{
+      date: string;
+    }>;
+    scheduleOverrides?: Array<{
+      date: string;
+      action: "rescheduled" | "cancelled";
+      newDate?: string | null;
+      newStartTime?: string | null;
+      newEndTime?: string | null;
+    }>;
+    bookedSlots?: Array<{
+      date: string;
+      startTime: string;
+      endTime: string;
+    }>;
+  };
+};
 
-const MORNING_SLOTS = [
-  "09:00 AM",
-  "09:30 AM",
-  "10:00 AM",
-  "10:30 AM",
-  "11:00 AM",
-  "11:30 AM",
-] as const;
+type PatientMeResponse = {
+  success: boolean;
+  message?: string;
+  patient?: {
+    id: string;
+    clerkId: string;
+    role: string;
+    fullName: string;
+    profilePicture?: string;
+    email?: string;
+  };
+};
 
-const AFTERNOON_SLOTS = [
-  "01:00 PM",
-  "01:30 PM",
-  "02:00 PM",
-  "02:30 PM",
-  "03:00 PM",
-  "03:30 PM",
-  "04:00 PM",
-  "04:30 PM",
-] as const;
+type TimeSlot = {
+  startTime: string;
+  endTime: string;
+  label: string;
+};
+
+function parseTimeToMinutes(value: string) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  return hour * 60 + minute;
+}
+
+function formatMinutesToTime(totalMinutes: number) {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  const meridiem = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${minute.toString().padStart(2, "0")} ${meridiem}`;
+}
+
+function formatTimeLabel(time: string) {
+  const minutes = parseTimeToMinutes(time);
+  return minutes === null ? time : formatMinutesToTime(minutes);
+}
+
+function formatDateLabel(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function addDays(date: Date, amount: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+function toYmd(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function generateWeek(anchor: Date) {
+  return Array.from({ length: 7 }, (_, index) => {
+    const d = addDays(anchor, index);
+    const day = d
+      .toLocaleDateString("en-US", { weekday: "short" })
+      .toUpperCase();
+
+    return {
+      key: toYmd(d),
+      day,
+      date: d.getDate(),
+      fullDate: toYmd(d),
+    };
+  });
+}
 
 export default function BookAppointmentClient(): JSX.Element {
+  const searchParams = useSearchParams();
+
+  const doctorId = searchParams.get("doctorId") || "";
+  const initialDate = searchParams.get("date") || "";
+  const initialTime = searchParams.get("time") || "";
+
+  const [patientId, setPatientId] = useState("");
+  const [patientLoading, setPatientLoading] = useState(false);
+
   const [consultationType, setConsultationType] =
     useState<ConsultationType>("video");
-  const [selectedDateIdx, setSelectedDateIdx] = useState<number>(1);
-  const [selectedTime, setSelectedTime] = useState<string>("10:00 AM");
+  const [selectedDateIdx, setSelectedDateIdx] = useState<number>(0);
+  const [selectedTime, setSelectedTime] = useState<string>(initialTime);
+
+  const [doctor, setDoctor] = useState<DoctorDetailsResponse["doctor"] | null>(
+    null,
+  );
+  const [loadingDoctor, setLoadingDoctor] = useState(false);
+  const [doctorError, setDoctorError] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const anchorDate = useMemo(() => {
+    if (!initialDate) return new Date();
+    const [year, month, day] = initialDate.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }, [initialDate]);
+
+  const dates = useMemo(() => {
+    const start = addDays(anchorDate, -3);
+    return generateWeek(start);
+  }, [anchorDate]);
+
+  useEffect(() => {
+    if (!initialDate) return;
+    const idx = dates.findIndex((d) => d.fullDate === initialDate);
+    if (idx >= 0) setSelectedDateIdx(idx);
+  }, [dates, initialDate]);
+
+  useEffect(() => {
+    if (!doctorId) return;
+
+    const controller = new AbortController();
+
+    async function loadDoctor() {
+      try {
+        setLoadingDoctor(true);
+        setDoctorError(null);
+
+        const res = await fetch(`/api/doctor/${doctorId}`, {
+          signal: controller.signal,
+        });
+
+        const json: DoctorDetailsResponse = await res.json();
+
+        if (!res.ok || !json.success || !json.doctor) {
+          throw new Error(json.message || "Failed to load doctor");
+        }
+
+        setDoctor(json.doctor);
+      } catch (error: unknown) {
+        if (controller.signal.aborted) return;
+        setDoctorError(
+          error instanceof Error ? error.message : "Failed to load doctor",
+        );
+      } finally {
+        if (!controller.signal.aborted) setLoadingDoctor(false);
+      }
+    }
+
+    void loadDoctor();
+    return () => controller.abort();
+  }, [doctorId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadMe() {
+      try {
+        setPatientLoading(true);
+        const res = await fetch("/api/patient", {
+          signal: controller.signal,
+        });
+
+        const json: PatientMeResponse = await res.json();
+
+        if (!res.ok || !json.success || !json.patient) {
+          throw new Error(json.message || "Failed to load patient");
+        }
+
+        setPatientId(json.patient.id);
+      } catch {
+        // ignore
+      } finally {
+        if (!controller.signal.aborted) setPatientLoading(false);
+      }
+    }
+
+    void loadMe();
+    return () => controller.abort();
+  }, []);
+
+  const selectedDate = dates[selectedDateIdx];
+
+  const workingHoursForSelectedDate = useMemo<TimeSlot[]>(() => {
+    if (!doctor || !selectedDate) return [];
+
+    const isBlocked = doctor.unavailableSlots?.some(
+      (slot) => slot.date === selectedDate.fullDate,
+    );
+    if (isBlocked) return [];
+
+    const cancelled = doctor.scheduleOverrides?.some(
+      (item) =>
+        item.date === selectedDate.fullDate && item.action === "cancelled",
+    );
+    if (cancelled) return [];
+
+    const bookedOnThatDate =
+      doctor.bookedSlots?.filter(
+        (slot) => slot.date === selectedDate.fullDate,
+      ) || [];
+
+    const base = (doctor.workingHours || [])
+      .filter(
+        (slot) =>
+          slot.date === selectedDate.fullDate && slot.isAvailable !== false,
+      )
+      .filter((slot) => {
+        return !bookedOnThatDate.some(
+          (booked) =>
+            booked.startTime === slot.startTime &&
+            booked.endTime === slot.endTime,
+        );
+      });
+
+    const rescheduled = (doctor.scheduleOverrides || [])
+      .filter(
+        (item) =>
+          item.action === "rescheduled" &&
+          item.newDate === selectedDate.fullDate &&
+          item.newStartTime &&
+          item.newEndTime,
+      )
+      .map((item) => ({
+        startTime: item.newStartTime as string,
+        endTime: item.newEndTime as string,
+      }));
+
+    return [...base, ...rescheduled].map((slot) => ({
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      label: `${formatTimeLabel(slot.startTime)} - ${formatTimeLabel(
+        slot.endTime,
+      )}`,
+    }));
+  }, [doctor, selectedDate]);
+
+  useEffect(() => {
+    if (workingHoursForSelectedDate.length === 0) {
+      setSelectedTime("");
+      return;
+    }
+
+    const stillValid = workingHoursForSelectedDate.some(
+      (slot) => slot.startTime === selectedTime,
+    );
+
+    if (!stillValid) {
+      if (initialTime) {
+        const matchedInitialSlot = workingHoursForSelectedDate.find(
+          (slot) => slot.startTime === initialTime,
+        );
+
+        if (matchedInitialSlot) {
+          setSelectedTime(matchedInitialSlot.startTime);
+          return;
+        }
+      }
+
+      setSelectedTime(workingHoursForSelectedDate[0].startTime);
+    }
+  }, [workingHoursForSelectedDate, initialTime]);
+
+  const selectedSlot = useMemo(() => {
+    return (
+      workingHoursForSelectedDate.find(
+        (slot) => slot.startTime === selectedTime,
+      ) || null
+    );
+  }, [workingHoursForSelectedDate, selectedTime]);
 
   const canConfirm = useMemo(() => {
-    const date = DATES[selectedDateIdx];
-    return !!selectedTime && !date?.disabled;
-  }, [selectedDateIdx, selectedTime]);
-
-  function confirm() {
-    if (!canConfirm) return;
-    const dt = DATES[selectedDateIdx];
-    alert(
-      `Appointment confirmed: ${
-        consultationType === "video" ? "Video" : "In-Person"
-      } on ${dt.day} ${dt.date} at ${selectedTime}`
+    return (
+      !!doctorId &&
+      !!patientId &&
+      !!selectedTime &&
+      !!selectedDate &&
+      !!doctor &&
+      !!selectedSlot &&
+      !submitting &&
+      !patientLoading
     );
+  }, [
+    doctorId,
+    patientId,
+    selectedTime,
+    selectedDate,
+    doctor,
+    selectedSlot,
+    submitting,
+    patientLoading,
+  ]);
+
+  async function confirm() {
+    if (!doctorId || !patientId) {
+      setBookingError("Missing doctorId or patientId.");
+      return;
+    }
+
+    if (!doctor || !selectedDate || !selectedSlot) {
+      setBookingError("Please select a valid date and time.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setBookingError(null);
+      setBookingSuccess(null);
+
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          doctorId,
+          patientId,
+          appointmentDate: selectedDate.fullDate,
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
+          consultationType,
+          reasonForVisit: "",
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to book appointment");
+      }
+
+      setBookingSuccess("Appointment booked successfully.");
+      alert("Appointment booked successfully.");
+    } catch (error: unknown) {
+      setBookingError(
+        error instanceof Error ? error.message : "Failed to book appointment",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 font-sans">
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <nav className="mb-8 flex items-center text-sm text-slate-500 gap-2">
+    <div className="min-h-screen bg-white text-slate-900 dark:bg-[#0f172a] dark:text-slate-100 font-sans">
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <nav className="mb-8 flex items-center gap-2 text-sm text-slate-500">
           <a className="hover:text-[#008081] transition-colors" href="#">
             Home
           </a>
@@ -79,88 +414,77 @@ export default function BookAppointmentClient(): JSX.Element {
             Find Doctor
           </a>
           <ChevronRight className="text-[14px]" />
-          <a className="hover:text-[#008081] transition-colors" href="#">
-            Dr. Maria Santos
-          </a>
-          <ChevronRight className="text-[14px]" />
           <span className="font-semibold text-[#008081]">Book Appointment</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 space-y-6">
-            <div className="rounded-3xl p-6 relative overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700 shadow-[0_8px_32px_rgba(31,38,135,0.07)]">
-              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-[#008081]/10 to-[#81B641]/10 z-0" />
-              <div className="relative z-10 flex flex-col items-center text-center mt-4">
-                <div className="w-32 h-32 rounded-full p-1 bg-white shadow-xl mb-4 relative">
+        {doctorError ? (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {doctorError}
+          </div>
+        ) : null}
+
+        {bookingError ? (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {bookingError}
+          </div>
+        ) : null}
+
+        {bookingSuccess ? (
+          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+            {bookingSuccess}
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          <div className="space-y-6 lg:col-span-4">
+            <div className="relative overflow-hidden rounded-3xl border border-white/50 bg-white/80 p-6 shadow-[0_8px_32px_rgba(31,38,135,0.07)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80">
+              <div className="absolute left-0 top-0 z-0 h-32 w-full bg-gradient-to-br from-[#008081]/10 to-[#81B641]/10" />
+              <div className="relative z-10 mt-4 flex flex-col items-center text-center">
+                <div className="mb-4 h-32 w-32 rounded-full bg-white p-1 shadow-xl">
                   <img
-                    alt="Dr. Maria Santos"
-                    className="w-full h-full rounded-full object-cover"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJlVhFcqU6rhRVGOSoSK85MOYvSWfF0iHljU1TGeexv_sSOkkfL4FTxy3vWUt_2crV_kpD6aTVmA1OsL45ywM7BZzgI2JXebJHrN0s_4x9bMLMk-3BVM2o0saMxf0rrjJIFu0ONvqgVt8IytR87mFc-9xTVuS3lzDAACVTDasGCSwpGVIQrJafDo2Lc3KRCaI-S4x9rqQ5vKwTy_KO2IEDbxEEpAIUYSFAndWJ69w2CDusJPk17ANQHoYmuRQ-lPYutTBdNfwLjko"
+                    alt={doctor?.fullName || "Doctor"}
+                    className="h-full w-full rounded-full object-cover"
+                    src={
+                      doctor?.profilePicture ||
+                      "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400"
+                    }
                   />
-                  <div
-                    className="absolute bottom-1 right-1 bg-green-500 border-2 border-white w-6 h-6 rounded-full flex items-center justify-center"
-                    title="Online Now"
-                  >
-                    <Video size={14} className="text-white" />
-                  </div>
                 </div>
 
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  Dr. Maria Santos
+                  {loadingDoctor ? "Loading..." : doctor?.fullName || "Doctor"}
                 </h1>
-                <p className="text-[#008081] font-medium mt-1">Pediatrician</p>
-                <p className="text-slate-500 text-sm mt-1">
-                  Davao Doctors Hospital
+                <p className="mt-1 font-medium text-[#008081]">
+                  {doctor?.specialization || "Specialist"}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {doctor?.clinicAddress || "Clinic address"}
                 </p>
 
-                <div className="flex items-center justify-center gap-2 mt-3 bg-slate-50 dark:bg-slate-700/50 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-600">
+                <div className="mt-3 flex items-center justify-center gap-2 rounded-full border border-slate-100 bg-slate-50 px-3 py-1.5 dark:border-slate-600 dark:bg-slate-700/50">
                   <Star size={16} className="text-yellow-400" />
                   <span className="text-sm font-bold text-slate-900 dark:text-white">
-                    4.9
+                    {(doctor?.rating ?? 0).toFixed(1)}
                   </span>
-                  <span className="text-xs text-slate-400">(124 reviews)</span>
                 </div>
               </div>
 
-              <div className="mt-8 space-y-4 relative z-10">
-                <h3 className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wide opacity-70">
+              <div className="relative z-10 mt-8 space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-900 opacity-70 dark:text-white">
                   About
                 </h3>
-                <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
-                  Specializes in child nutrition and developmental disorders.
-                  Graduate of Davao Medical School Foundation with 12 years of
-                  practice. Dedicated to providing compassionate care for
-                  children of all ages.
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  Book your consultation with the selected doctor.
                 </p>
-
-                <div className="h-px bg-slate-100 dark:bg-slate-700 my-4" />
-
-                <h3 className="font-semibold text-slate-900 dark:text-white text-sm uppercase tracking-wide opacity-70">
-                  Specializations
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-3 py-1 rounded-full bg-[#008081]/5 text-[#008081] text-xs font-medium border border-[#008081]/10">
-                    Child Nutrition
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-[#008081]/5 text-[#008081] text-xs font-medium border border-[#008081]/10">
-                    Development
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-[#008081]/5 text-[#008081] text-xs font-medium border border-[#008081]/10">
-                    Immunization
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-[#008081]/5 text-[#008081] text-xs font-medium border border-[#008081]/10">
-                    General Pediatrics
-                  </span>
-                </div>
               </div>
 
-              <div className="mt-8 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <div className="mt-8 flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
                 <div>
-                  <p className="text-xs text-slate-500 mb-0.5">
+                  <p className="mb-0.5 text-xs text-slate-500">
                     Consultation Fee
                   </p>
                   <p className="text-xl font-bold text-slate-900 dark:text-white">
-                    ₱600
+                    ₱{doctor?.consultationFee ?? 0}
                   </p>
                 </div>
                 <CreditCard size={32} className="text-slate-300" />
@@ -168,10 +492,10 @@ export default function BookAppointmentClient(): JSX.Element {
             </div>
           </div>
 
-          <div className="lg:col-span-8 space-y-8 pb-12">
-            <div className="rounded-3xl p-6 sm:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700 shadow-[0_8px_32px_rgba(31,38,135,0.07)]">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-[#008081] text-white flex items-center justify-center font-bold shadow-lg">
+          <div className="space-y-8 pb-12 lg:col-span-8">
+            <div className="rounded-3xl border border-white/50 bg-white/80 p-6 shadow-[0_8px_32px_rgba(31,38,135,0.07)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80 sm:p-8">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#008081] font-bold text-white shadow-lg">
                   1
                 </div>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">
@@ -179,7 +503,7 @@ export default function BookAppointmentClient(): JSX.Element {
                 </h2>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="relative block">
                   <input
                     name="consultation_type"
@@ -189,25 +513,24 @@ export default function BookAppointmentClient(): JSX.Element {
                     className="sr-only"
                   />
                   <div
-                    className={`rounded-2xl p-5 bg-white dark:bg-slate-900 h-full text-left border transition-all ${
+                    className={`h-full rounded-2xl border bg-white p-5 text-left transition-all dark:bg-slate-900 ${
                       consultationType === "video"
                         ? "border-[#008081] bg-[#008081]/5 text-[#008081]"
                         : "border-transparent"
                     }`}
                   >
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30">
                         <Video size={20} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white mb-1">
+                        <h3 className="mb-1 font-bold text-slate-900 dark:text-white">
                           Video Consultation
                         </h3>
-                        <p className="text-xs text-slate-500 leading-relaxed mb-2">
-                          Connect with the doctor remotely via secure video
-                          call.
+                        <p className="mb-2 text-xs leading-relaxed text-slate-500">
+                          Connect remotely via secure video call.
                         </p>
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
+                        <span className="rounded bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-900/30">
                           Available Now
                         </span>
                       </div>
@@ -219,27 +542,27 @@ export default function BookAppointmentClient(): JSX.Element {
                   <input
                     name="consultation_type"
                     type="radio"
-                    checked={consultationType === "inperson"}
-                    onChange={() => setConsultationType("inperson")}
+                    checked={consultationType === "in_person"}
+                    onChange={() => setConsultationType("in_person")}
                     className="sr-only"
                   />
                   <div
-                    className={`rounded-2xl p-5 bg-white dark:bg-slate-900 h-full text-left border transition-all ${
-                      consultationType === "inperson"
+                    className={`h-full rounded-2xl border bg-white p-5 text-left transition-all dark:bg-slate-900 ${
+                      consultationType === "in_person"
                         ? "border-[#81B641] bg-[#81B641]/5 text-[#81B641]"
                         : "border-transparent"
                     }`}
                   >
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-[#81B641]/10 text-[#81B641] flex items-center justify-center shrink-0">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#81B641]/10 text-[#81B641]">
                         <Stethoscope size={20} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white mb-1">
+                        <h3 className="mb-1 font-bold text-slate-900 dark:text-white">
                           In-Person Visit
                         </h3>
-                        <p className="text-xs text-slate-500 leading-relaxed mb-2">
-                          Visit the doctor at Davao Doctors Hospital.
+                        <p className="mb-2 text-xs leading-relaxed text-slate-500">
+                          Visit the clinic on your chosen schedule.
                         </p>
                         <span className="text-xs font-semibold text-slate-500">
                           Requires Confirmation
@@ -251,53 +574,34 @@ export default function BookAppointmentClient(): JSX.Element {
               </div>
             </div>
 
-            <div className="rounded-3xl p-6 sm:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700 shadow-[0_8px_32px_rgba(31,38,135,0.07)]">
-              <div className="flex items-center justify-between mb-6">
+            <div className="rounded-3xl border border-white/50 bg-white/80 p-6 shadow-[0_8px_32px_rgba(31,38,135,0.07)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80 sm:p-8">
+              <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#008081] text-white flex items-center justify-center font-bold shadow-lg">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#008081] font-bold text-white shadow-lg">
                     2
                   </div>
                   <h2 className="text-xl font-bold text-slate-800 dark:text-white">
                     Choose Date
                   </h2>
                 </div>
-                <div className="flex gap-2 items-center">
-                  <button
-                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center transition-colors"
-                    aria-label="prev month"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">
-                    October 2023
-                  </span>
-                  <button
-                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 flex items-center justify-center transition-colors"
-                    aria-label="next month"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
               </div>
 
-              <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
-                {DATES.map((d, i) => {
+              <div className="flex gap-3 overflow-x-auto pb-4">
+                {dates.map((d, i) => {
                   const selected = i === selectedDateIdx;
+
                   return (
                     <button
-                      key={d.day + d.date}
-                      onClick={() => !d.disabled && setSelectedDateIdx(i)}
-                      disabled={d.disabled}
-                      className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all min-w-[80px] ${
-                        d.disabled
-                          ? "opacity-50 cursor-not-allowed border-slate-100 bg-slate-50 dark:bg-slate-900"
-                          : selected
-                          ? "bg-[#008081] text-white border-[#008081] shadow-lg"
-                          : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-[#008081]/50"
+                      key={d.key}
+                      onClick={() => setSelectedDateIdx(i)}
+                      className={`flex min-w-[80px] flex-col items-center justify-center rounded-xl border p-3 transition-all ${
+                        selected
+                          ? "border-[#008081] bg-[#008081] text-white shadow-lg"
+                          : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
                       }`}
                     >
                       <span
-                        className={`text-xs font-medium mb-1 uppercase ${
+                        className={`mb-1 text-xs font-medium uppercase ${
                           selected ? "text-white/80" : "text-slate-400"
                         }`}
                       >
@@ -305,7 +609,9 @@ export default function BookAppointmentClient(): JSX.Element {
                       </span>
                       <span
                         className={`text-lg font-bold ${
-                          selected ? "text-white" : "text-slate-900 dark:text-white"
+                          selected
+                            ? "text-white"
+                            : "text-slate-900 dark:text-white"
                         }`}
                       >
                         {d.date}
@@ -314,11 +620,17 @@ export default function BookAppointmentClient(): JSX.Element {
                   );
                 })}
               </div>
+
+              {selectedDate ? (
+                <p className="mt-3 text-sm text-slate-500">
+                  Selected date: {formatDateLabel(selectedDate.fullDate)}
+                </p>
+              ) : null}
             </div>
 
-            <div className="rounded-3xl p-6 sm:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/50 dark:border-slate-700 shadow-[0_8px_32px_rgba(31,38,135,0.07)]">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-full bg-[#008081] text-white flex items-center justify-center font-bold shadow-lg">
+            <div className="rounded-3xl border border-white/50 bg-white/80 p-6 shadow-[0_8px_32px_rgba(31,38,135,0.07)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/80 sm:p-8">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#008081] font-bold text-white shadow-lg">
                   3
                 </div>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">
@@ -326,78 +638,45 @@ export default function BookAppointmentClient(): JSX.Element {
                 </h2>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sun size={16} className="text-slate-400" />
-                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                      Morning
-                    </h3>
-                  </div>
+              {workingHoursForSelectedDate.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {workingHoursForSelectedDate.map((slot) => {
+                    const selected = selectedTime === slot.startTime;
 
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    {MORNING_SLOTS.map((t) => {
-                      const disabled = t === "11:00 AM";
-                      const selected = t === selectedTime;
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => !disabled && setSelectedTime(t)}
-                          disabled={disabled}
-                          className={`px-4 py-3 rounded-xl border border-[#E2E8F0] text-center text-sm font-medium transition-all ${
-                            disabled
-                              ? "text-slate-300 border-slate-100 bg-slate-50 dark:bg-slate-900 dark:text-slate-600 cursor-not-allowed"
-                              : selected
-                              ? "bg-[#008081] text-white border-[#008081] shadow-lg"
-                              : "bg-white  dark:bg-slate-800 dark:border-slate-700 hover:border-[#008081]/50 hover:bg-[#008081]/5 hover:text-[#008081]"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                  </div>
+                    return (
+                      <button
+                        key={`${slot.startTime}-${slot.endTime}`}
+                        type="button"
+                        onClick={() => setSelectedTime(slot.startTime)}
+                        className={`rounded-xl border px-4 py-3 text-center text-sm font-medium transition-all ${
+                          selected
+                            ? "border-[#008081] bg-[#008081] text-white shadow-lg"
+                            : "border-[#E2E8F0] bg-white hover:border-[#008081]/50 hover:bg-[#008081]/5 hover:text-[#008081] dark:border-slate-700 dark:bg-slate-800"
+                        }`}
+                      >
+                        {slot.label}
+                      </button>
+                    );
+                  })}
                 </div>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Moon size={16} className="text-slate-400" />
-                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-                      Afternoon
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    {AFTERNOON_SLOTS.map((t) => {
-                      const selected = t === selectedTime;
-                      return (
-                        <button
-                          key={t}
-                          onClick={() => setSelectedTime(t)}
-                          className={`px-4 py-3 border-[#E2E8F0] rounded-xl border text-center text-sm font-medium transition-all ${
-                            selected
-                              ? "bg-[#008081] text-white border-[#008081] shadow-lg"
-                              : "bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-[#008081]/50 hover:bg-[#008081]/5 hover:text-[#008081]"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                  </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/50">
+                  No available slots for this selected date.
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-4">
               <button
                 onClick={confirm}
                 disabled={!canConfirm}
-                className={`bg-[#008081] hover:bg-[#00736f] text-white px-8 py-4 rounded-full font-bold text-lg shadow-xl transition-all flex items-center gap-2 w-full sm:w-auto justify-center ${
-                  !canConfirm ? "opacity-60 cursor-not-allowed" : "hover:-translate-y-1"
+                className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#008081] px-8 py-4 text-lg font-bold text-white shadow-xl transition-all hover:bg-[#00736f] sm:w-auto ${
+                  !canConfirm
+                    ? "cursor-not-allowed opacity-60"
+                    : "hover:-translate-y-1"
                 }`}
               >
-                Confirm Appointment
+                {submitting ? "Booking..." : "Confirm Appointment"}
                 <ArrowRight size={18} />
               </button>
             </div>

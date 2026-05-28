@@ -42,7 +42,7 @@ const UnavailableSlotSchema = new Schema(
   {
     date: {
       type: String,
-      required: true, // YYYY-MM-DD
+      required: true,
     },
   },
   { _id: false },
@@ -52,40 +52,33 @@ const ScheduleOverrideSchema = new Schema(
   {
     date: {
       type: String,
-      required: true, // YYYY-MM-DD
+      required: true,
     },
-
     startTime: {
       type: String,
       default: null,
     },
-
     endTime: {
       type: String,
       default: null,
     },
-
     action: {
       type: String,
       enum: ["rescheduled", "cancelled"],
       required: true,
     },
-
     newDate: {
       type: String,
-      default: null, // YYYY-MM-DD if rescheduled
+      default: null,
     },
-
     newStartTime: {
       type: String,
       default: null,
     },
-
     newEndTime: {
       type: String,
       default: null,
     },
-
     reason: {
       type: String,
       default: "",
@@ -187,7 +180,6 @@ const DoctorSchema = new Schema(
       default: true,
     },
 
-
     unavailableSlots: {
       type: [UnavailableSlotSchema],
       default: [],
@@ -206,7 +198,7 @@ const DoctorSchema = new Schema(
 
     consultationDurationMinutes: {
       type: Number,
-      default: 30,
+      default: 60,
     },
 
     clinicName: {

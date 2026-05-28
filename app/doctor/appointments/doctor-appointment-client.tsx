@@ -250,7 +250,7 @@ export default function DoctorAppointmentClient() {
       );
 
       setConsultationDurationMinutes(
-        doctorJson.doctor?.consultationDurationMinutes || 30,
+        doctorJson.doctor?.consultationDurationMinutes || 60,
       );
 
       const rawAppointments =

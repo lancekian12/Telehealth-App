@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { FindDoctor } from "@/types/doctor";
 
@@ -14,9 +15,9 @@ type SelectedDateItem = {
 };
 
 type WorkingHour = {
-  date: string; // YYYY-MM-DD
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
+  date: string;
+  startTime: string;
+  endTime: string;
   isAvailable?: boolean;
 };
 
@@ -32,7 +33,7 @@ type ScheduleOverride = {
 };
 
 type UnavailableSlot = {
-  date: string; // whole-day block only
+  date: string;
 };
 
 type DoctorDetailsResponse = {
@@ -101,6 +102,8 @@ export default function AvailabilityPanel({
   selectedTime,
   setSelectedTime,
 }: AvailabilityPanelProps) {
+  const router = useRouter();
+
   const [doctorSchedule, setDoctorSchedule] = useState<{
     fullName: string;
     workingHours: WorkingHour[];
@@ -146,22 +149,14 @@ export default function AvailabilityPanel({
 
         console.log("[AvailabilityPanel] response status:", res.status);
         console.log("[AvailabilityPanel] response json:", json);
-        console.log("[AvailabilityPanel] workingHours:", json.doctor?.workingHours);
-        console.log(
-          "[AvailabilityPanel] unavailableSlots:",
-          json.doctor?.unavailableSlots,
-        );
-        console.log(
-          "[AvailabilityPanel] scheduleOverrides:",
-          json.doctor?.scheduleOverrides,
-        );
 
         if (!res.ok || !json.success || !json.doctor) {
           throw new Error(json.message || "Failed to load doctor schedule");
         }
 
         setDoctorSchedule({
-          fullName: json.doctor.fullName || activeDoctor?.name || "Doctor Schedule",
+          fullName:
+            json.doctor.fullName || activeDoctor?.name || "Doctor Schedule",
           workingHours: json.doctor.workingHours || [],
           scheduleOverrides: json.doctor.scheduleOverrides || [],
           unavailableSlots: json.doctor.unavailableSlots || [],
@@ -194,9 +189,6 @@ export default function AvailabilityPanel({
 
     return () => controller.abort();
   }, [activeDoctor?.id, activeDoctor?.name, open]);
-
-  const selectedDay = selectedDate[selectedDayIndex];
-  const selectedFullDate = selectedDay?.fullDate || "";
 
   const dayAvailability = useMemo(() => {
     return selectedDate.map((item) => {
@@ -233,9 +225,10 @@ export default function AvailabilityPanel({
         label: `${formatTimeLabel(slot.startTime)} - ${formatTimeLabel(slot.endTime)}`,
       }));
 
-      const slots = blockedByUnavailable || cancelledOverride
-        ? []
-        : [...baseSlots, ...rescheduledSlots];
+      const slots =
+        blockedByUnavailable || cancelledOverride
+          ? []
+          : [...baseSlots, ...rescheduledSlots];
 
       const uniqueSlots = slots.filter(
         (slot, index, arr) =>
@@ -263,23 +256,30 @@ export default function AvailabilityPanel({
 
   useEffect(() => {
     console.log("[AvailabilityPanel] render state:", {
-      selectedFullDate,
       isBlockedDay,
       isDisabledDay,
       availableSlots,
-      scheduleOverrides: doctorSchedule.scheduleOverrides,
-      unavailableSlots: doctorSchedule.unavailableSlots,
     });
-  }, [
-    selectedFullDate,
-    isBlockedDay,
-    isDisabledDay,
-    availableSlots,
-    doctorSchedule.scheduleOverrides,
-    doctorSchedule.unavailableSlots,
-  ]);
+  }, [isBlockedDay, isDisabledDay, availableSlots]);
 
   if (!open) return null;
+
+  const handleConfirm = () => {
+    if (!activeDoctor?.id) return;
+    if (isBlockedDay || isDisabledDay || !selectedTime) return;
+
+    const selected = selectedDate[selectedDayIndex];
+    const params = new URLSearchParams({
+      doctorId: activeDoctor.id,
+      date: selected?.fullDate || "",
+      time: selectedTime,
+    });
+
+    router.push(`/bookappointment?${params.toString()}`);
+  };
+
+  const canConfirm =
+    !!activeDoctor?.id && !!selectedTime && !isBlockedDay && !isDisabledDay;
 
   return (
     <>
@@ -331,16 +331,16 @@ export default function AvailabilityPanel({
                     onClick={() => {
                       if (disabled) return;
                       setSelectedDayIndex(index);
+                      setSelectedTime("");
                     }}
                     className={[
-                      "flex min-w-[60px] flex-col items-center rounded-lg p-3 transition-colors",
+                      "flex min-w-[60px] flex-col items-center rounded-lg border p-3 transition-all duration-200",
+
                       disabled
-                        ? "cursor-not-allowed bg-slate-100 text-slate-300 opacity-80"
+                        ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-300 opacity-80"
                         : isSelected
-                          ? "bg-[#0f766e] text-white"
-                          : item.muted
-                            ? "bg-[#f3f3f4] text-[#bcc9c6] hover:bg-[#e8e8e8]"
-                            : "bg-[#f3f3f4] text-[#1a1c1c] hover:bg-[#e8e8e8]",
+                          ? "border-[#0f766e] bg-[#0f766e] text-white shadow-md"
+                          : "border-[#0f766e]/30 bg-[#0f766e]/5 text-[#0f766e] hover:border-[#0f766e] hover:bg-[#0f766e]/10",
                     ].join(" ")}
                   >
                     <span className="text-xs uppercase">{item.day}</span>
@@ -372,7 +372,8 @@ export default function AvailabilityPanel({
               <div className="grid grid-cols-2 gap-3">
                 {availableSlots.map((slot) => {
                   const selected =
-                    slot.startTime === selectedTime || slot.label === selectedTime;
+                    slot.startTime === selectedTime ||
+                    slot.label === selectedTime;
 
                   return (
                     <button
@@ -402,7 +403,9 @@ export default function AvailabilityPanel({
         <div className="mt-auto border-t border-[#e8e8e8] bg-[#f9f9f9] p-8">
           <button
             type="button"
-            className="w-full rounded-full bg-[#0f766e] py-4 text-lg font-bold text-white transition hover:bg-[#0b5f59]"
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            className="w-full rounded-full bg-[#0f766e] py-4 text-lg font-bold text-white transition hover:bg-[#0b5f59] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Confirm {selectedTime || "Time"}
           </button>

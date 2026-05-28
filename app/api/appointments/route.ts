@@ -1,0 +1,581 @@
+import { NextResponse } from "next/server";
+import { Types } from "mongoose";
+import { connectDB } from "@/config/mongodb";
+import { Doctor } from "@/models/doctor";
+import { Appointment } from "@/models/appointment";
+
+export const runtime = "nodejs";
+
+type AppointmentStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "completed"
+  | "cancelled";
+
+type ConsultationType = "video" | "in_person";
+
+function isYmd(date: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date);
+}
+
+function parseTimeToMinutes(value: string) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function addMinutesToTime(time: string, minutesToAdd: number) {
+  const base = parseTimeToMinutes(time);
+  if (base === null) return null;
+
+  const total = (base + minutesToAdd) % 1440;
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function toObjectId(value: string) {
+  return Types.ObjectId.isValid(value) ? new Types.ObjectId(value) : null;
+}
+
+function dayStart(date: string) {
+  return new Date(`${date}T00:00:00.000Z`);
+}
+
+function sameDate(dateA: string, dateB: string) {
+  return dateA === dateB;
+}
+
+function isDateBlocked(
+  date: string,
+  unavailableSlots: Array<{ date: string }>,
+  scheduleOverrides: Array<{
+    date: string;
+    action: "rescheduled" | "cancelled";
+    newDate?: string | null;
+  }>,
+) {
+  const blockedByUnavailable = unavailableSlots.some((slot) =>
+    sameDate(slot.date, date),
+  );
+
+  const blockedByCancelledOverride = scheduleOverrides.some(
+    (override) => override.date === date && override.action === "cancelled",
+  );
+
+  return blockedByUnavailable || blockedByCancelledOverride;
+}
+
+function getMatchingWorkingHour(
+  doctor: {
+    workingHours?: Array<{
+      date: string;
+      startTime: string;
+      endTime: string;
+      isAvailable?: boolean;
+    }>;
+    scheduleOverrides?: Array<{
+      date: string;
+      action: "rescheduled" | "cancelled";
+      newDate?: string | null;
+      newStartTime?: string | null;
+      newEndTime?: string | null;
+    }>;
+  },
+  appointmentDate: string,
+  startTime: string,
+  endTime: string,
+) {
+  const baseMatch = (doctor.workingHours || []).find(
+    (slot) =>
+      slot.date === appointmentDate &&
+      slot.startTime === startTime &&
+      slot.endTime === endTime &&
+      slot.isAvailable !== false,
+  );
+
+  const rescheduledMatch = (doctor.scheduleOverrides || []).find(
+    (override) =>
+      override.action === "rescheduled" &&
+      override.newDate === appointmentDate &&
+      override.newStartTime === startTime &&
+      override.newEndTime === endTime,
+  );
+
+  return baseMatch || rescheduledMatch || null;
+}
+
+function appointmentStatusAllowed(value: unknown): value is AppointmentStatus {
+  return (
+    value === "pending" ||
+    value === "accepted" ||
+    value === "rejected" ||
+    value === "completed" ||
+    value === "cancelled"
+  );
+}
+
+function consultationTypeAllowed(value: unknown): value is ConsultationType {
+  return value === "video" || value === "in_person";
+}
+
+export async function GET(req: Request) {
+  try {
+    await connectDB();
+
+    const url = new URL(req.url);
+    const appointmentId = url.searchParams.get("appointmentId");
+    const doctorId = url.searchParams.get("doctorId");
+    const patientId = url.searchParams.get("patientId");
+    const status = url.searchParams.get("status");
+
+    if (appointmentId) {
+      if (!Types.ObjectId.isValid(appointmentId)) {
+        return NextResponse.json(
+          { success: false, message: "Invalid appointmentId" },
+          { status: 400 },
+        );
+      }
+
+      const appointment = await Appointment.findById(appointmentId)
+        .populate(
+          "doctor",
+          "fullName specialization profilePicture clinicAddress",
+        )
+        .populate("patient", "fullName email profilePicture")
+        .lean();
+
+      if (!appointment) {
+        return NextResponse.json(
+          { success: false, message: "Appointment not found" },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({ success: true, appointment }, { status: 200 });
+    }
+
+    const filter: Record<string, unknown> = {};
+
+    if (doctorId) {
+      const objectId = toObjectId(doctorId);
+      if (!objectId) {
+        return NextResponse.json(
+          { success: false, message: "Invalid doctorId" },
+          { status: 400 },
+        );
+      }
+      filter.doctor = objectId;
+    }
+
+    if (patientId) {
+      const objectId = toObjectId(patientId);
+      if (!objectId) {
+        return NextResponse.json(
+          { success: false, message: "Invalid patientId" },
+          { status: 400 },
+        );
+      }
+      filter.patient = objectId;
+    }
+
+    if (status) {
+      if (!appointmentStatusAllowed(status)) {
+        return NextResponse.json(
+          { success: false, message: "Invalid status" },
+          { status: 400 },
+        );
+      }
+      filter.status = status;
+    }
+
+    const appointments = await Appointment.find(filter)
+      .sort({ appointmentDate: -1, startTime: 1 })
+      .populate(
+        "doctor",
+        "fullName specialization profilePicture clinicAddress",
+      )
+      .populate("patient", "fullName email profilePicture")
+      .lean();
+
+    return NextResponse.json({ success: true, appointments }, { status: 200 });
+  } catch (error: unknown) {
+    console.error("[GET /api/appointments] error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+
+    const doctorId = String(body.doctorId || "");
+    const patientId = String(body.patientId || "");
+    const appointmentDate = String(body.appointmentDate || "");
+    const startTime = String(body.startTime || "");
+    const endTime = String(body.endTime || "");
+    const consultationType = body.consultationType as ConsultationType;
+    const reasonForVisit = String(body.reasonForVisit || "");
+
+    if (
+      !doctorId ||
+      !patientId ||
+      !appointmentDate ||
+      !startTime ||
+      !endTime ||
+      !consultationType
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "doctorId, patientId, appointmentDate, startTime, endTime, and consultationType are required",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!consultationTypeAllowed(consultationType)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid consultationType" },
+        { status: 400 },
+      );
+    }
+
+    if (!isYmd(appointmentDate)) {
+      return NextResponse.json(
+        { success: false, message: "appointmentDate must be YYYY-MM-DD" },
+        { status: 400 },
+      );
+    }
+
+    const doctorObjectId = toObjectId(doctorId);
+    const patientObjectId = toObjectId(patientId);
+
+    if (!doctorObjectId || !patientObjectId) {
+      return NextResponse.json(
+        { success: false, message: "Invalid doctorId or patientId" },
+        { status: 400 },
+      );
+    }
+
+    const doctor = await Doctor.findById(doctorObjectId);
+
+    if (!doctor) {
+      return NextResponse.json(
+        { success: false, message: "Doctor not found" },
+        { status: 404 },
+      );
+    }
+
+    if (
+      isDateBlocked(
+        appointmentDate,
+        doctor.unavailableSlots || [],
+        doctor.scheduleOverrides || [],
+      )
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Doctor is unavailable on this date" },
+        { status: 409 },
+      );
+    }
+
+    const matchedSlot = getMatchingWorkingHour(
+      doctor,
+      appointmentDate,
+      startTime,
+      endTime,
+    );
+
+    if (!matchedSlot) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Selected time is not within the doctor's working hours",
+        },
+        { status: 409 },
+      );
+    }
+
+    const slotStart = parseTimeToMinutes(startTime);
+    const slotEnd = parseTimeToMinutes(endTime);
+
+    if (slotStart === null || slotEnd === null || slotEnd <= slotStart) {
+      return NextResponse.json(
+        { success: false, message: "Invalid appointment time range" },
+        { status: 400 },
+      );
+    }
+
+    const consultationDurationMinutes =
+      doctor.consultationDurationMinutes || 60;
+    const expectedEndTime = addMinutesToTime(
+      startTime,
+      consultationDurationMinutes,
+    );
+
+    if (expectedEndTime && expectedEndTime !== endTime) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Appointment duration must be exactly ${consultationDurationMinutes} minutes`,
+        },
+        { status: 409 },
+      );
+    }
+
+    const conflict = await Appointment.findOne({
+      doctor: doctorObjectId,
+      appointmentDate: dayStart(appointmentDate),
+      status: { $nin: ["rejected", "cancelled"] },
+      startTime: { $lt: endTime },
+      endTime: { $gt: startTime },
+    }).lean();
+
+    if (conflict) {
+      return NextResponse.json(
+        { success: false, message: "This slot is already booked" },
+        { status: 409 },
+      );
+    }
+
+    const created = await Appointment.create({
+      doctor: doctorObjectId,
+      patient: patientObjectId,
+      appointmentDate: dayStart(appointmentDate),
+      startTime,
+      endTime,
+      status: "pending",
+      consultationType,
+      consultationSessionLink: "",
+      reasonForVisit,
+      rejectionReason: "",
+      acceptedAt: null,
+      rejectedAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      isSlotLocked: true,
+      notes: "",
+      prescription: null,
+      medicalRecord: null,
+      reminderSent: false,
+      pushNotificationsSent: {
+        booked: false,
+        upcoming: false,
+        scheduleUpdate: false,
+      },
+    });
+
+    doctor.workingHours = (doctor.workingHours || []).map((slot) => {
+      const matchesThisSlot =
+        slot.date === appointmentDate &&
+        slot.startTime === startTime &&
+        slot.endTime === endTime;
+
+      return matchesThisSlot
+        ? { ...slot.toObject?.(), isAvailable: false }
+        : slot;
+    });
+
+    await doctor.save();
+
+    const populated = await Appointment.findById(created._id)
+      .populate(
+        "doctor",
+        "fullName specialization profilePicture clinicAddress",
+      )
+      .populate("patient", "fullName email profilePicture")
+      .lean();
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Appointment created successfully",
+        appointment: populated,
+      },
+      { status: 201 },
+    );
+  } catch (error: unknown) {
+    console.error("[POST /api/appointments] error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    await connectDB();
+
+    const body = await req.json();
+
+    const appointmentId = String(body.appointmentId || "");
+    const status = body.status as AppointmentStatus;
+    const rejectionReason = String(body.rejectionReason || "");
+    const notes = String(body.notes || "");
+    const consultationSessionLink = String(body.consultationSessionLink || "");
+
+    if (!appointmentId || !status) {
+      return NextResponse.json(
+        { success: false, message: "appointmentId and status are required" },
+        { status: 400 },
+      );
+    }
+
+    if (!Types.ObjectId.isValid(appointmentId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid appointmentId" },
+        { status: 400 },
+      );
+    }
+
+    if (!appointmentStatusAllowed(status)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid status" },
+        { status: 400 },
+      );
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return NextResponse.json(
+        { success: false, message: "Appointment not found" },
+        { status: 404 },
+      );
+    }
+
+    const doctor = await Doctor.findById(appointment.doctor);
+    if (!doctor) {
+      return NextResponse.json(
+        { success: false, message: "Doctor not found" },
+        { status: 404 },
+      );
+    }
+
+    appointment.status = status;
+
+    if (notes) appointment.notes = notes;
+
+    if (status === "accepted") {
+      appointment.acceptedAt = new Date();
+      appointment.rejectedAt = null;
+      appointment.cancelledAt = null;
+      if (consultationSessionLink) {
+        appointment.consultationSessionLink = consultationSessionLink;
+      }
+
+      // Keep slot locked
+      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
+        const matchesThisSlot =
+          slot.date ===
+            new Date(appointment.appointmentDate).toISOString().slice(0, 10) &&
+          slot.startTime === appointment.startTime &&
+          slot.endTime === appointment.endTime;
+
+        return matchesThisSlot ? { ...slot.toObject?.(), isAvailable: false } : slot;
+      });
+    }
+
+    if (status === "rejected" || status === "cancelled") {
+      if (status === "rejected") {
+        appointment.rejectedAt = new Date();
+        appointment.rejectionReason = rejectionReason || "Rejected by doctor";
+      }
+
+      if (status === "cancelled") {
+        appointment.cancelledAt = new Date();
+      }
+
+      appointment.acceptedAt = null;
+      appointment.completedAt = null;
+
+      // Unlock the matching slot
+      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
+        const matchesThisSlot =
+          slot.date ===
+            new Date(appointment.appointmentDate).toISOString().slice(0, 10) &&
+          slot.startTime === appointment.startTime &&
+          slot.endTime === appointment.endTime;
+
+        return matchesThisSlot ? { ...slot.toObject?.(), isAvailable: true } : slot;
+      });
+    }
+
+    if (status === "completed") {
+      appointment.completedAt = new Date();
+
+      // keep it unavailable because it's already used
+      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
+        const matchesThisSlot =
+          slot.date ===
+            new Date(appointment.appointmentDate).toISOString().slice(0, 10) &&
+          slot.startTime === appointment.startTime &&
+          slot.endTime === appointment.endTime;
+
+        return matchesThisSlot ? { ...slot.toObject?.(), isAvailable: false } : slot;
+      });
+    }
+
+    await appointment.save();
+    await doctor.save();
+
+    const populated = await Appointment.findById(appointment._id)
+      .populate(
+        "doctor",
+        "fullName specialization profilePicture clinicAddress",
+      )
+      .populate("patient", "fullName email profilePicture")
+      .lean();
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Appointment updated successfully",
+        appointment: populated,
+      },
+      { status: 200 },
+    );
+  } catch (error: unknown) {
+    console.error("[PATCH /api/appointments] error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
+    );
+  }
+}

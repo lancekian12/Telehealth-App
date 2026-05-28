@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
+import { Appointment } from "@/models/appointment";
 
 export const runtime = "nodejs";
 
@@ -14,29 +15,13 @@ export async function GET(
 
     const { id } = await params;
 
-    console.log("[doctor route] id:", id);
-    console.log("[doctor route] db:", Doctor.db.name);
-    console.log("[doctor route] collection:", Doctor.collection.name);
-
     const byId = Types.ObjectId.isValid(id)
       ? await Doctor.findById(id).lean()
       : null;
 
     const byClerk = await Doctor.findOne({ clerkId: id }).lean();
 
-    console.log("[doctor route] byId found:", !!byId);
-    console.log("[doctor route] byClerk found:", !!byClerk);
-
     if (!byId && !byClerk) {
-      const count = await Doctor.countDocuments();
-      const sample = await Doctor.find()
-        .select({ _id: 1, clerkId: 1, fullName: 1 })
-        .limit(5)
-        .lean();
-
-      console.log("[doctor route] doctor count:", count);
-      console.log("[doctor route] sample docs:", sample);
-
       return NextResponse.json(
         { success: false, message: "Doctor not found" },
         { status: 404 },
@@ -44,6 +29,19 @@ export async function GET(
     }
 
     const doctor = byId ?? byClerk!;
+
+    const doctorObjectId = Types.ObjectId.isValid(String(doctor._id))
+      ? new Types.ObjectId(String(doctor._id))
+      : null;
+
+    const bookedSlots = doctorObjectId
+      ? await Appointment.find({
+          doctor: doctorObjectId,
+          status: { $in: ["pending", "accepted"] },
+        })
+          .select({ appointmentDate: 1, startTime: 1, endTime: 1, status: 1 })
+          .lean()
+      : [];
 
     return NextResponse.json({
       success: true,
@@ -62,8 +60,13 @@ export async function GET(
         workingHours: doctor.workingHours ?? [],
         unavailableSlots: doctor.unavailableSlots ?? [],
         scheduleOverrides: doctor.scheduleOverrides ?? [],
-        consultationDurationMinutes: doctor.consultationDurationMinutes ?? 30,
+        consultationDurationMinutes: doctor.consultationDurationMinutes ?? 60,
         clinicAddress: doctor.clinicAddress || "",
+        bookedSlots: bookedSlots.map((slot) => ({
+          date: new Date(slot.appointmentDate).toISOString().slice(0, 10),
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        })),
       },
     });
   } catch (error: unknown) {

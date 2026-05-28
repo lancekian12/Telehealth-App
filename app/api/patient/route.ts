@@ -15,7 +15,7 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -28,11 +28,8 @@ export async function GET() {
 
     if (!patient) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Patient not found",
-        },
-        { status: 404 }
+        { success: false, message: "Patient not found" },
+        { status: 404 },
       );
     }
 
@@ -40,24 +37,22 @@ export async function GET() {
       {
         success: true,
         patient: {
+          id: String(patient._id),
+          clerkId: patient.clerkId,
           role: patient.role,
           fullName: patient.fullName,
-          profilePicture:
-            patient.profilePicture || "",
+          profilePicture: patient.profilePicture || "",
           email: patient.email,
         },
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.log(error);
 
     return NextResponse.json(
-      {
-        success: false,
-        message: "Server Error",
-      },
-      { status: 500 }
+      { success: false, message: "Server Error" },
+      { status: 500 },
     );
   }
 }
@@ -129,7 +124,17 @@ export async function POST(req: NextRequest) {
       { new: true, upsert: true, runValidators: true },
     );
 
-    return NextResponse.json({ success: true, patient });
+    return NextResponse.json({
+      success: true,
+      patient: {
+        id: String(patient._id),
+        clerkId: patient.clerkId,
+        role: patient.role,
+        fullName: patient.fullName,
+        profilePicture: patient.profilePicture,
+        email: patient.email,
+      },
+    });
   } catch (error) {
     console.log(error);
     return NextResponse.json(
