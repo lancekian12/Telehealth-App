@@ -15,6 +15,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
+import WorkingHoursModal from "@/components/doctor/working-hours-modal";
 import {
   Video,
   CheckCircle,
@@ -42,6 +43,8 @@ import {
   WorkingHour,
 } from "@/types/doctor";
 import CreateSchedule from "@/components/doctor/create-schedule";
+import WorkingHoursCard from "@/components/doctor/working-hours-card";
+import BlockedSlotsCard from "@/components/doctor/blocked-slots-card";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -218,6 +221,7 @@ export default function DoctorAppointmentClient() {
   const [rescheduleEndTime, setRescheduleEndTime] = useState("09:30");
   const [saving, setSaving] = useState(false);
   const [showAllSchedule, setShowAllSchedule] = useState(false);
+  const [showAllWorkingHours, setShowAllWorkingHours] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -288,6 +292,7 @@ export default function DoctorAppointmentClient() {
         setShowCreateSchedule(false);
         setShowReschedule(false);
         setShowAllSchedule(false);
+        setShowAllWorkingHours(false);
       }
     };
 
@@ -389,9 +394,6 @@ export default function DoctorAppointmentClient() {
     return unavailableSlots.filter((slot) => slot.date === selectedDate);
   }, [selectedDate, unavailableSlots]);
 
-  const workingHoursPreview = useMemo(() => {
-    return workingHours.slice(0, 9);
-  }, [workingHours]);
 
   const handleOpenNewSlot = () => {
     setSlotDate(selectedDate);
@@ -623,104 +625,15 @@ export default function DoctorAppointmentClient() {
                     </div>
                   )}
 
-                  <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Clock3 size={16} className="text-primary" />
-                      <h4 className="font-semibold text-slate-800">
-                        Working Hours
-                      </h4>
-                    </div>
+                  <WorkingHoursCard
+                    workingHours={workingHours}
+                    onViewAll={() => setShowAllWorkingHours(true)}
+                  />
 
-                    {workingHours.length === 0 ? (
-                      <p className="text-sm text-slate-500">
-                        No working hours found.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {workingHoursPreview.map((item, index) => {
-                          const workingHour = item as WorkingHourView;
-                          const dateLabel = workingHour.date
-                            ? formatShortDate(workingHour.date)
-                            : workingHour.day || "Working hour";
-
-                          return (
-                            <div
-                              key={`${workingHour.date || workingHour.day || "working"}-${index}`}
-                              className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"
-                            >
-                              <div>
-                                <p className="font-medium text-slate-800">
-                                  {dateLabel}
-                                </p>
-                                <p className="text-slate-500">
-                                  {workingHour.startTime && workingHour.endTime
-                                    ? formatTimeRange(
-                                        workingHour.startTime,
-                                        workingHour.endTime,
-                                      )
-                                    : "No time set"}
-                                </p>
-                              </div>
-                              <span
-                                className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                                  workingHour.isAvailable
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : "bg-slate-200 text-slate-600"
-                                }`}
-                              >
-                                {workingHour.isAvailable
-                                  ? "Available"
-                                  : "Unavailable"}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Ban size={16} className="text-secondary" />
-                      <h4 className="font-semibold text-slate-800">
-                        Blocked Slots
-                      </h4>
-                    </div>
-
-                    {selectedUnavailableSlots.length === 0 ? (
-                      <p className="text-sm text-slate-500">
-                        No blocked slots on {formatDateLabel(selectedDate)}.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedUnavailableSlots.map((slot, index) => (
-                          <div
-                            key={`${slot.date}-${slot.startTime}-${slot.endTime}-${index}`}
-                            className="rounded-xl bg-slate-50 px-3 py-2 text-sm"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="font-medium text-slate-800">
-                                  {formatShortDate(slot.date)}
-                                </p>
-                                <p className="text-slate-500">
-                                  {slot.startTime} - {slot.endTime}
-                                </p>
-                              </div>
-                              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700">
-                                Blocked
-                              </span>
-                            </div>
-                            {slot.reason ? (
-                              <p className="mt-2 text-xs text-slate-500">
-                                {slot.reason}
-                              </p>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <BlockedSlotsCard
+                    selectedDate={selectedDate}
+                    slots={selectedUnavailableSlots}
+                  />
                 </div>
 
                 <div className="lg:col-span-2 flex flex-col gap-6">
@@ -959,6 +872,14 @@ export default function DoctorAppointmentClient() {
           }}
         />
       )}
+
+      {showAllWorkingHours ? (
+        <WorkingHoursModal
+          open={showAllWorkingHours}
+          onClose={() => setShowAllWorkingHours(false)}
+          workingHours={workingHours}
+        />
+      ) : null}
 
       {showAllSchedule ? (
         <div

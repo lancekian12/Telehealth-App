@@ -159,7 +159,10 @@ export async function GET(req: Request) {
           "doctor",
           "fullName specialization profilePicture clinicAddress",
         )
-        .populate("patient", "fullName email profilePicture")
+        .populate(
+          "patient",
+          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+        )
         .lean();
 
       if (!appointment) {
@@ -212,7 +215,10 @@ export async function GET(req: Request) {
         "doctor",
         "fullName specialization profilePicture clinicAddress",
       )
-      .populate("patient", "fullName email profilePicture")
+      .populate(
+        "patient",
+        "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+      )
       .lean();
 
     return NextResponse.json({ success: true, appointments }, { status: 200 });
@@ -411,7 +417,10 @@ export async function POST(req: Request) {
         "doctor",
         "fullName specialization profilePicture clinicAddress",
       )
-      .populate("patient", "fullName email profilePicture")
+      .populate(
+        "patient",
+        "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+      )
       .lean();
 
     return NextResponse.json(
@@ -504,7 +513,9 @@ export async function PATCH(req: Request) {
           slot.startTime === appointment.startTime &&
           slot.endTime === appointment.endTime;
 
-        return matchesThisSlot ? { ...slot.toObject?.(), isAvailable: false } : slot;
+        return matchesThisSlot
+          ? { ...slot.toObject?.(), isAvailable: false }
+          : slot;
       });
     }
 
@@ -529,7 +540,9 @@ export async function PATCH(req: Request) {
           slot.startTime === appointment.startTime &&
           slot.endTime === appointment.endTime;
 
-        return matchesThisSlot ? { ...slot.toObject?.(), isAvailable: true } : slot;
+        return matchesThisSlot
+          ? { ...slot.toObject?.(), isAvailable: true }
+          : slot;
       });
     }
 
@@ -544,7 +557,9 @@ export async function PATCH(req: Request) {
           slot.startTime === appointment.startTime &&
           slot.endTime === appointment.endTime;
 
-        return matchesThisSlot ? { ...slot.toObject?.(), isAvailable: false } : slot;
+        return matchesThisSlot
+          ? { ...slot.toObject?.(), isAvailable: false }
+          : slot;
       });
     }
 
@@ -556,7 +571,10 @@ export async function PATCH(req: Request) {
         "doctor",
         "fullName specialization profilePicture clinicAddress",
       )
-      .populate("patient", "fullName email profilePicture")
+      .populate(
+        "patient",
+        "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+      )
       .lean();
 
     return NextResponse.json(

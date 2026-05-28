@@ -129,9 +129,6 @@ export default function SearchBar({
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Search
-            </p>
             <p
               className={`truncate text-sm font-medium ${
                 query.trim() ? "text-slate-900" : "text-slate-400"
@@ -414,7 +411,6 @@ export default function SearchBar({
                     {locationQuery || "All Philippines"}
                   </p>
                 </div>
-
               </div>
             </div>
           </div>
