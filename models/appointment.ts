@@ -37,7 +37,7 @@ const AppointmentSchema = new Schema(
 
     consultationType: {
       type: String,
-      enum: ["video", "in_person", "phone"],
+      enum: ["video", "in_person",],
       required: true,
     },
 

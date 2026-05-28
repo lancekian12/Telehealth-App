@@ -6,6 +6,42 @@ import type {
   UnavailableSlotInput,
 } from "@/types/doctor";
 
+type DoctorProfile = {
+  clerkId: string;
+  role: "doctor";
+  fullName: string;
+  specialization: string;
+  bio: string;
+  profilePicture: string;
+  email: string;
+  phone: string;
+  licenseNumber: string;
+  experienceYears: number;
+  rating: number;
+  consultationFee: number;
+  consultationModes: DoctorConsultationMode[];
+  languages: string[];
+  verified: boolean;
+  acceptsNewPatients: boolean;
+  workingHours: WorkingHourInput[];
+  unavailableSlots: UnavailableSlotInput[];
+  consultationDurationMinutes: number;
+
+  clinicName: string;
+  clinicStreetAddress: string;
+  clinicBarangay: string;
+  clinicCityMunicipality: string;
+  clinicProvince: string;
+  clinicAddress: string;
+
+  latitude?: number | null;
+  longitude?: number | null;
+
+  pushNotificationToken: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 const createWorkingHour = (): WorkingHourInput => ({
   day: "Monday",
   startTime: "09:00",
@@ -37,7 +73,40 @@ const initialDoctorForm = (): DoctorFormFields => ({
   workingHours: [createWorkingHour()],
   unavailableSlots: [],
   consultationDurationMinutes: "30",
-  clinicAddress: "",
+
+  clinicName: "",
+  clinicStreetAddress: "",
+  clinicBarangay: "",
+  clinicCityMunicipality: "",
+  clinicProvince: "",
+});
+
+const normalizeProfileToForm = (doctor: DoctorProfile): DoctorFormFields => ({
+  role: "doctor",
+  fullName: doctor.fullName ?? "",
+  specialization: doctor.specialization ?? "",
+  bio: doctor.bio ?? "",
+  profilePicture: null,
+  email: doctor.email ?? "",
+  phone: doctor.phone ?? "",
+  licenseNumber: doctor.licenseNumber ?? "",
+  experienceYears: String(doctor.experienceYears ?? 0),
+  consultationFee: String(doctor.consultationFee ?? 0),
+  consultationModes: doctor.consultationModes ?? [],
+  languages: (doctor.languages ?? []).join(", "),
+  verified: doctor.verified ?? false,
+  workingHours:
+    doctor.workingHours?.length > 0 ? doctor.workingHours : [createWorkingHour()],
+  unavailableSlots: doctor.unavailableSlots ?? [],
+  consultationDurationMinutes: String(
+    doctor.consultationDurationMinutes ?? 30,
+  ),
+
+  clinicName: doctor.clinicName ?? "",
+  clinicStreetAddress: doctor.clinicStreetAddress ?? "",
+  clinicBarangay: doctor.clinicBarangay ?? "",
+  clinicCityMunicipality: doctor.clinicCityMunicipality ?? "",
+  clinicProvince: doctor.clinicProvince ?? "",
 });
 
 type DoctorStore = {
@@ -45,6 +114,7 @@ type DoctorStore = {
   loading: boolean;
   submitted: boolean;
   errors: Partial<Record<keyof DoctorFormFields, string>>;
+  currentDoctor: DoctorProfile | null;
 
   setForm: (form: DoctorFormFields) => void;
   resetForm: () => void;
@@ -54,13 +124,13 @@ type DoctorStore = {
     errors:
       | Partial<Record<keyof DoctorFormFields, string>>
       | ((
-          prev: Partial<Record<keyof DoctorFormFields, string>>
-        ) => Partial<Record<keyof DoctorFormFields, string>>)
+          prev: Partial<Record<keyof DoctorFormFields, string>>,
+        ) => Partial<Record<keyof DoctorFormFields, string>>),
   ) => void;
 
   setField: <K extends keyof DoctorFormFields>(
     field: K,
-    value: DoctorFormFields[K]
+    value: DoctorFormFields[K],
   ) => void;
 
   setEmailFromClerk: (email: string) => void;
@@ -72,7 +142,7 @@ type DoctorStore = {
   updateWorkingHour: (
     index: number,
     field: keyof WorkingHourInput,
-    value: string | boolean
+    value: string | boolean,
   ) => void;
   removeWorkingHour: (index: number) => void;
 
@@ -80,16 +150,20 @@ type DoctorStore = {
   updateUnavailableSlot: (
     index: number,
     field: keyof UnavailableSlotInput,
-    value: string
+    value: string,
   ) => void;
   removeUnavailableSlot: (index: number) => void;
+
+  setCurrentDoctor: (doctor: DoctorProfile | null) => void;
+  loadCurrentDoctor: () => Promise<void>;
 };
 
-export const useDoctorStore = create<DoctorStore>((set) => ({
+export const useDoctorStore = create<DoctorStore>((set, get) => ({
   form: initialDoctorForm(),
   loading: false,
   submitted: false,
   errors: {},
+  currentDoctor: null,
 
   setForm: (form) => set({ form }),
 
@@ -99,6 +173,7 @@ export const useDoctorStore = create<DoctorStore>((set) => ({
       loading: false,
       submitted: false,
       errors: {},
+      currentDoctor: null,
     }),
 
   setLoading: (loading) => set({ loading }),
@@ -172,7 +247,7 @@ export const useDoctorStore = create<DoctorStore>((set) => ({
       form: {
         ...state.form,
         workingHours: state.form.workingHours.map((slot, i) =>
-          i === index ? { ...slot, [field]: value } : slot
+          i === index ? { ...slot, [field]: value } : slot,
         ),
       },
     })),
@@ -201,7 +276,7 @@ export const useDoctorStore = create<DoctorStore>((set) => ({
       form: {
         ...state.form,
         unavailableSlots: state.form.unavailableSlots.map((slot, i) =>
-          i === index ? { ...slot, [field]: value } : slot
+          i === index ? { ...slot, [field]: value } : slot,
         ),
       },
     })),
@@ -211,8 +286,38 @@ export const useDoctorStore = create<DoctorStore>((set) => ({
       form: {
         ...state.form,
         unavailableSlots: state.form.unavailableSlots.filter(
-          (_, i) => i !== index
+          (_, i) => i !== index,
         ),
       },
     })),
+
+  setCurrentDoctor: (doctor) =>
+    set({
+      currentDoctor: doctor,
+      form: doctor ? normalizeProfileToForm(doctor) : initialDoctorForm(),
+    }),
+
+  loadCurrentDoctor: async () => {
+    try {
+      set({ loading: true });
+
+      const res = await fetch("/api/doctor");
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to load doctor profile");
+      }
+
+      const doctor = Array.isArray(data.doctors) ? data.doctors[0] : null;
+
+      set({
+        currentDoctor: doctor,
+        form: doctor ? normalizeProfileToForm(doctor) : initialDoctorForm(),
+      });
+    } catch (error) {
+      console.error("loadCurrentDoctor error:", error);
+    } finally {
+      set({ loading: false });
+    }
+  },
 }));

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
+import type { DateClickArg } from "@fullcalendar/interaction";
 import type { EventInput } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin, { DateClickArg } from "@fullcalendar/interaction";
+import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import {
   Video,
@@ -16,53 +17,65 @@ import {
   Menu,
   Settings,
   Calendar as CalendarIcon,
+  RefreshCw,
+  Clock3,
+  Ban,
+  UserRound,
 } from "lucide-react";
 
-type PendingRequest = {
+type WorkingHour = {
+  day: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+};
+
+type UnavailableSlot = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  reason?: string;
+};
+
+type AppointmentType = "online" | "clinic";
+
+type AppointmentRecord = {
   id: string;
-  name: string;
-  avatar?: string;
-  requestedAt: string;
-  type: "online" | "clinic";
-  note?: string;
-  slot: string;
+  patientName: string;
+  patientAvatar?: string;
+  date: string;
+  time: string;
+  type: AppointmentType;
+  reason?: string;
+  status?: "pending" | "confirmed" | "completed" | "cancelled";
+};
+
+type DoctorResponse = {
+  success: boolean;
+  message?: string;
+  doctor?: {
+    workingHours?: WorkingHour[];
+    unavailableSlots?: UnavailableSlot[];
+    appointments?: unknown;
+    bookings?: unknown;
+    scheduledPatients?: unknown;
+  };
 };
 
 type AppointmentEventProps = {
-  type: "online" | "clinic";
+  type: AppointmentType;
   description?: string;
+  patientName?: string;
+  status?: string;
 };
 
-const initialPending: PendingRequest[] = [
-  {
-    id: "p1",
-    name: "Alice Freeman",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop",
-    requestedAt: "10 mins ago",
-    type: "online",
-    note: "I've been experiencing mild headaches for the last 3 days. Would like a quick consultation.",
-    slot: "Oct 24, 10:30 AM",
-  },
-  {
-    id: "p2",
-    name: "Michael King",
-    requestedAt: "1 hour ago",
-    type: "clinic",
-    note: "Annual physical checkup and blood work review.",
-    slot: "Oct 25, 09:00 AM",
-  },
-  {
-    id: "p3",
-    name: "Sarah Jenkins",
-    avatar:
-      "https://images.unsplash.com/photo-1545996124-66d39ea0f3f0?w=400&h=400&fit=crop",
-    requestedAt: "2 hours ago",
-    type: "online",
-    note: "Follow up on my skin rash medication. It seems to be improving.",
-    slot: "Oct 24, 02:00 PM",
-  },
-];
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
 
 function getLocalDateString(date: Date) {
   const year = date.getFullYear();
@@ -71,64 +84,149 @@ function getLocalDateString(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getInitialEvents(): EventInput[] {
-  const today = new Date();
-  const todayStr = getLocalDateString(today);
+function formatDateLabel(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-  const sampleDate = new Date();
-  sampleDate.setDate(today.getDate() + 2);
-  const sampleStr = getLocalDateString(sampleDate);
+function formatShortDate(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-  return [
-    {
-      id: "e1",
-      title: "Emma Wilson - Teleconsult",
-      start: `${todayStr}T09:00:00`,
-      extendedProps: {
-        type: "online",
-        description: "Teleconsult session",
-      } satisfies AppointmentEventProps,
-    },
-    {
-      id: "e2",
-      title: "Robert Brown - Clinic",
-      start: `${todayStr}T11:15:00`,
-      extendedProps: {
-        type: "clinic",
-        description: "In-person visit",
-      } satisfies AppointmentEventProps,
-    },
-    {
-      id: "e3",
-      title: "Sarah Miller - Routine",
-      start: `${todayStr}T14:00:00`,
-      extendedProps: {
-        type: "online",
-        description: "Routine follow-up",
-      } satisfies AppointmentEventProps,
-    },
-    {
-      id: "e4",
-      title: "Follow-up (EKG)",
-      start: `${sampleStr}T10:30:00`,
-      extendedProps: {
-        type: "clinic",
-        description: "Follow-up check",
-      } satisfies AppointmentEventProps,
-    },
-  ];
+function formatTimeRange(startTime: string, endTime: string) {
+  return `${startTime} - ${endTime}`;
+}
+
+function normalizeAppointments(input: unknown): AppointmentRecord[] {
+  const source = Array.isArray(input) ? input : [];
+
+  return source
+    .map((item): AppointmentRecord | null => {
+      if (!isRecord(item)) return null;
+
+      const id = asString(item.id || item._id || crypto.randomUUID());
+      const patientName =
+        asString(item.patientName) ||
+        asString(item.patient?.name) ||
+        asString(item.name) ||
+        asString(item.fullName) ||
+        "Unknown Patient";
+
+      const date =
+        asString(item.date) ||
+        asString(item.appointmentDate) ||
+        asString(item.bookedDate);
+
+      const time =
+        asString(item.time) ||
+        asString(item.startTime) ||
+        asString(item.slotTime);
+
+      const typeRaw = asString(item.type || item.mode || item.kind, "online");
+      const type: AppointmentType = typeRaw === "clinic" ? "clinic" : "online";
+
+      const reason =
+        asString(item.reason) ||
+        asString(item.note) ||
+        asString(item.description) ||
+        "";
+
+      const statusRaw = asString(item.status, "confirmed");
+      const status =
+        statusRaw === "pending" ||
+        statusRaw === "confirmed" ||
+        statusRaw === "completed" ||
+        statusRaw === "cancelled"
+          ? statusRaw
+          : "confirmed";
+
+      const patientAvatar =
+        asString(item.patientAvatar) ||
+        asString(item.avatar) ||
+        asString(item.photo) ||
+        "";
+
+      if (!date || !time) return null;
+
+      return {
+        id,
+        patientName,
+        patientAvatar: patientAvatar || undefined,
+        date,
+        time,
+        type,
+        reason: reason || undefined,
+        status,
+      };
+    })
+    .filter((x): x is AppointmentRecord => x !== null);
+}
+
+function normalizeSchedule(doctor: DoctorResponse["doctor"]) {
+  const workingHours = Array.isArray(doctor?.workingHours) ? doctor!.workingHours! : [];
+  const unavailableSlots = Array.isArray(doctor?.unavailableSlots)
+    ? doctor!.unavailableSlots!
+    : [];
+
+  return { workingHours, unavailableSlots };
 }
 
 export default function DoctorAppointmentClient() {
   const calendarRef = useRef<FullCalendar | null>(null);
 
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const d = new Date();
-    return getLocalDateString(d);
-  });
+  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString(new Date()));
+  const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
+  const [unavailableSlots, setUnavailableSlots] = useState<UnavailableSlot[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [pending, setPending] = useState<PendingRequest[]>(() => initialPending);
-  const [events, setEvents] = useState<EventInput[]>(() => getInitialEvents());
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const res = await fetch("/api/doctor", { method: "GET" });
+      const json: DoctorResponse = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to load doctor data");
+      }
+
+      const schedule = normalizeSchedule(json.doctor);
+      setWorkingHours(schedule.workingHours);
+      setUnavailableSlots(schedule.unavailableSlots);
+
+      const rawAppointments =
+        json.doctor?.appointments ??
+        json.doctor?.bookings ??
+        json.doctor?.scheduledPatients ??
+        [];
+
+      setAppointments(normalizeAppointments(rawAppointments));
+    } catch (error: unknown) {
+      setLoadError(error instanceof Error ? error.message : "Something went wrong");
+      setWorkingHours([]);
+      setUnavailableSlots([]);
+      setAppointments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   useEffect(() => {
     calendarRef.current?.getApi().gotoDate(selectedDate);
@@ -138,59 +236,78 @@ export default function DoctorAppointmentClient() {
     setSelectedDate(arg.dateStr);
   };
 
-  const handleAccept = (id: string) => {
-    const req = pending.find((p) => p.id === id);
-    if (!req) return;
+  const appointmentEvents = useMemo<EventInput[]>(() => {
+    return appointments.map((appt) => ({
+      id: appt.id,
+      title: appt.patientName,
+      start: `${appt.date}T${appt.time.length === 5 ? `${appt.time}:00` : appt.time}`,
+      backgroundColor: appt.type === "clinic" ? "#81B641" : "#008081",
+      borderColor: appt.type === "clinic" ? "#81B641" : "#008081",
+      textColor: "#ffffff",
+      extendedProps: {
+        type: appt.type,
+        description: appt.reason || "Booked appointment",
+        patientName: appt.patientName,
+        status: appt.status,
+      } satisfies AppointmentEventProps,
+    }));
+  }, [appointments]);
 
-    setPending((prev) => prev.filter((p) => p.id !== id));
+  const blockedEvents = useMemo<EventInput[]>(() => {
+    return unavailableSlots.map((slot) => ({
+      id: `blocked-${slot.date}-${slot.startTime}-${slot.endTime}`,
+      start: `${slot.date}T${slot.startTime}:00`,
+      end: `${slot.date}T${slot.endTime}:00`,
+      display: "background",
+      backgroundColor: "rgba(239, 68, 68, 0.18)",
+      extendedProps: {
+        description: slot.reason || "Unavailable",
+      },
+    }));
+  }, [unavailableSlots]);
 
-    const ev: EventInput = {
-      id: `evt-${Date.now()}`,
-      title: `${req.name} - ${req.type === "online" ? "Teleconsult" : "Clinic"}`,
-      start: `${getLocalDateString(new Date())}T10:00:00`,
-      extendedProps: { type: req.type } satisfies AppointmentEventProps,
-    };
-
-    setEvents((prev) => [...prev, ev]);
-  };
-
-  const handleReject = (id: string) => {
-    setPending((prev) => prev.filter((p) => p.id !== id));
-  };
+  const calendarEvents = useMemo<EventInput[]>(
+    () => [...appointmentEvents, ...blockedEvents],
+    [appointmentEvents, blockedEvents]
+  );
 
   const eventsForSelectedDate = useMemo(() => {
-    return events.filter((ev) => {
-      if (!ev.start) return false;
-      const start =
-        typeof ev.start === "string"
-          ? ev.start
-          : (ev.start as Date).toISOString();
-      return start.startsWith(selectedDate);
-    });
-  }, [events, selectedDate]);
+    return appointments.filter((appt) => appt.date === selectedDate);
+  }, [appointments, selectedDate]);
+
+  const today = getLocalDateString(new Date());
+  const todayAppointments = useMemo(() => {
+    return appointments.filter((appt) => appt.date === today);
+  }, [appointments, today]);
+
+  const selectedUnavailableSlots = useMemo(() => {
+    return unavailableSlots.filter((slot) => slot.date === selectedDate);
+  }, [selectedDate, unavailableSlots]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       <style>{`
-        .pending-card {
-          display:flex; flex-direction: column; padding:1rem; border-radius:1rem; background: #ffffff;
-          border: 1px solid #e6eef0;
-        }
-        .health-tag {
-          padding: .375rem .625rem; border-radius:999px; font-size:10px; font-weight:700; text-transform: uppercase;
-        }
         .status-badge {
-          display:flex; align-items:center; gap:.375rem; padding:.375rem .625rem; border-radius:999px; font-size:11px; font-weight:700; text-transform: uppercase; border:1px solid rgba(0,0,0,0.05);
+          display:flex;
+          align-items:center;
+          gap:.375rem;
+          padding:.375rem .625rem;
+          border-radius:999px;
+          font-size:11px;
+          font-weight:700;
+          text-transform: uppercase;
+          border:1px solid rgba(0,0,0,0.05);
         }
-        .status-badge.online { background-color: rgba(0,128,129,0.1); color:#008081; border-color: rgba(0,128,129,0.2); }
-        .status-badge.clinic { background-color: rgba(129,182,65,0.1); color:#81B641; border-color: rgba(129,182,65,0.2); }
-        .calendar-day {
-          height:3rem; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding-top:.375rem; border-radius:.75rem;
-          color:#334155; transition: background-color .15s, border .15s; cursor: pointer;
+        .status-badge.online {
+          background-color: rgba(0,128,129,0.1);
+          color:#008081;
+          border-color: rgba(0,128,129,0.2);
         }
-        .calendar-day.selected { background-color: rgba(0,128,129,0.03); border: 1px solid rgba(0,128,129,0.12); color:#008081; font-weight:700; }
-        .calendar-day.today { background-color: #f1f5f9; font-weight:700; }
-        .dot { width:.375rem; height:.375rem; border-radius:999px; }
+        .status-badge.clinic {
+          background-color: rgba(129,182,65,0.1);
+          color:#81B641;
+          border-color: rgba(129,182,65,0.2);
+        }
         .text-primary { color: #008081; }
         .bg-primary { background-color: #008081; }
         .bg-secondary { background-color: #81B641; }
@@ -198,8 +315,8 @@ export default function DoctorAppointmentClient() {
         .rounded-3xl { border-radius: 2rem; }
       `}</style>
 
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <header className="h-16 md:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        <header className="h-16 md:hidden bg-white border-b border-slate-200 flex items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <CalendarIcon size={20} className="text-primary" />
             <span className="text-lg font-bold">
@@ -211,164 +328,232 @@ export default function DoctorAppointmentClient() {
           </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/50">
-          <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 h-full">
-            <div className="flex flex-col h-full gap-6">
-              <div className="flex items-center justify-between shrink-0">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">
+                  <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
                     Appointment Management
                   </h1>
-                  <p className="text-slate-500 dark:text-slate-400 mt-1">
-                    Manage pending requests and your daily schedule.
+                  <p className="text-slate-500 mt-1">
+                    View booked patients, daily schedule, and blocked slots.
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2 shadow-sm">
-                    <Settings size={16} /> Filters
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => void loadData()}
+                    className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm"
+                  >
+                    <RefreshCw size={16} />
+                    Refresh
                   </button>
-                  <button className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 shadow-lg transition-all flex items-center gap-2">
-                    <Plus size={14} /> New Slot
+
+                  <button className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm">
+                    <Settings size={16} />
+                    Filters
+                  </button>
+
+                  <button className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-lg transition-all flex items-center gap-2">
+                    <Plus size={14} />
+                    New Slot
                   </button>
                 </div>
               </div>
 
-              <div className="flex flex-col lg:flex-row gap-6 h-full">
-                <div className="w-full lg:w-1/3 flex flex-col gap-4">
+              {loadError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+                  {loadError}
+                </div>
+              ) : null}
+
+              <div className="grid gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-1 flex flex-col gap-4">
                   <div className="flex items-center justify-between px-1">
-                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                      <span className="w-2 h-6 bg-secondary rounded-full" />{" "}
-                      Pending Requests{" "}
+                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                      <span className="w-2 h-6 bg-secondary rounded-full" />
+                      Today&apos;s Patients
                       <span className="bg-secondary/10 text-secondary text-xs px-2 py-0.5 rounded-full font-bold">
-                        {pending.length}
+                        {todayAppointments.length}
                       </span>
                     </h3>
-                    <button className="text-sm text-primary font-semibold hover:underline">
-                      View All
-                    </button>
                   </div>
 
-                  <div
-                    className="flex flex-col gap-4 overflow-y-auto pr-2 pb-4 h-full"
-                    style={{ maxHeight: "calc(100vh - 200px)" }}
-                  >
-                    {pending.map((p) => (
-                      <div key={p.id} className="pending-card group">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex gap-3">
-                            {p.avatar ? (
-                              <img
-                                alt={p.name}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                                src={p.avatar}
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg border-2 border-white shadow-sm">
-                                {p.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .slice(0, 2)
-                                  .join("")}
+                  {todayAppointments.length === 0 ? (
+                    <div className="rounded-2xl bg-white border border-slate-200 p-5 text-slate-500">
+                      No patients today.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      {todayAppointments.map((appt) => (
+                        <div
+                          key={appt.id}
+                          className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              {appt.patientAvatar ? (
+                                <img
+                                  src={appt.patientAvatar}
+                                  alt={appt.patientName}
+                                  className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-lg">
+                                  {appt.patientName
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .slice(0, 2)
+                                    .join("")}
+                                </div>
+                              )}
+
+                              <div>
+                                <h4 className="font-bold text-slate-800">
+                                  {appt.patientName}
+                                </h4>
+                                <p className="text-xs text-slate-500">
+                                  {appt.reason || "Booked appointment"}
+                                </p>
                               </div>
-                            )}
-                            <div>
-                              <h4 className="font-bold text-slate-800 dark:text-white">
-                                {p.name}
-                              </h4>
-                              <p className="text-xs text-slate-500">
-                                Requested: {p.requestedAt}
-                              </p>
+                            </div>
+
+                            <span
+                              className={`status-badge shrink-0 ${
+                                appt.type === "online" ? "online" : "clinic"
+                              }`}
+                            >
+                              {appt.type === "online" ? (
+                                <Video size={14} />
+                              ) : (
+                                <CheckCircle size={14} />
+                              )}
+                              <span>{appt.type === "online" ? "Online" : "Clinic"}</span>
+                            </span>
+                          </div>
+
+                          <div className="mt-4 flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2 text-slate-500">
+                              <CalendarIcon size={14} />
+                              {formatDateLabel(appt.date)}
+                            </div>
+                            <div className="flex items-center gap-2 font-semibold text-slate-700">
+                              <Clock3 size={14} />
+                              {appt.time}
                             </div>
                           </div>
-                          <span
-                            className={`status-badge shrink-0 ${
-                              p.type === "online" ? "online" : "clinic"
-                            }`}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock3 size={16} className="text-primary" />
+                      <h4 className="font-semibold text-slate-800">Working Hours</h4>
+                    </div>
+
+                    {workingHours.length === 0 ? (
+                      <p className="text-sm text-slate-500">
+                        No working hours found.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {workingHours.map((item, index) => (
+                          <div
+                            key={`${item.day}-${index}`}
+                            className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"
                           >
-                            {p.type === "online" ? (
-                              <Video size={14} />
-                            ) : (
-                              <CheckCircle size={14} />
-                            )}
-                            <span className="ml-1">
-                              {p.type === "online" ? "Online" : "F2F Visit"}
+                            <div>
+                              <p className="font-medium text-slate-800">{item.day}</p>
+                              <p className="text-slate-500">
+                                {formatTimeRange(item.startTime, item.endTime)}
+                              </p>
+                            </div>
+                            <span
+                              className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                                item.isAvailable
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-slate-200 text-slate-600"
+                              }`}
+                            >
+                              {item.isAvailable ? "Available" : "Unavailable"}
                             </span>
-                          </span>
-                        </div>
-
-                        <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl mb-4 text-sm text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700">
-                          <p className="line-clamp-2">{p.note}</p>
-                          <div className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500">
-                            <CalendarIcon size={14} />
-                            {p.slot}
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 mt-auto">
-                          <button
-                            onClick={() => handleReject(p.id)}
-                            className="py-2 px-3 rounded-lg border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-slate-600 text-sm font-semibold transition-colors"
-                          >
-                            Reject
-                          </button>
-                          <button
-                            onClick={() => handleAccept(p.id)}
-                            className={`py-2 px-3 rounded-lg ${
-                              p.type === "clinic"
-                                ? "bg-secondary text-white hover:bg-secondary/90 shadow-md"
-                                : "bg-primary text-white hover:bg-primary/90 shadow-md"
-                            } text-sm font-semibold transition-colors`}
-                          >
-                            Accept
-                          </button>
-                        </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Ban size={16} className="text-secondary" />
+                      <h4 className="font-semibold text-slate-800">Blocked Slots</h4>
+                    </div>
+
+                    {selectedUnavailableSlots.length === 0 ? (
+                      <p className="text-sm text-slate-500">
+                        No blocked slots on {formatDateLabel(selectedDate)}.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedUnavailableSlots.map((slot, index) => (
+                          <div
+                            key={`${slot.date}-${slot.startTime}-${slot.endTime}-${index}`}
+                            className="rounded-xl bg-slate-50 px-3 py-2 text-sm"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="font-medium text-slate-800">
+                                  {formatShortDate(slot.date)}
+                                </p>
+                                <p className="text-slate-500">
+                                  {slot.startTime} - {slot.endTime}
+                                </p>
+                              </div>
+                              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700">
+                                Blocked
+                              </span>
+                            </div>
+                            {slot.reason ? (
+                              <p className="mt-2 text-xs text-slate-500">
+                                {slot.reason}
+                              </p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="w-full lg:w-2/3 flex flex-col gap-6">
-                  <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold text-slate-800 dark:text-white">
+                <div className="lg:col-span-2 flex flex-col gap-6">
+                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4 gap-3">
+                      <h2 className="text-xl font-bold text-slate-800">
                         {new Date().toLocaleString(undefined, {
                           month: "long",
                           year: "numeric",
                         })}
                       </h2>
-                      <div className="flex gap-2">
-                        <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex bg-slate-100 rounded-lg p-1">
                           <button
-                            onClick={() => {
-                              const api = calendarRef.current?.getApi();
-                              api?.prev();
-                            }}
-                            className="p-1 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors text-slate-500"
+                            onClick={() => calendarRef.current?.getApi().prev()}
+                            className="p-1 hover:bg-white rounded-md transition-colors text-slate-500"
                           >
                             <ChevronLeft size={14} />
                           </button>
                           <button
-                            onClick={() => {
-                              const api = calendarRef.current?.getApi();
-                              api?.next();
-                            }}
-                            className="p-1 hover:bg-white dark:hover:bg-slate-600 rounded-md transition-colors text-slate-500"
+                            onClick={() => calendarRef.current?.getApi().next()}
+                            className="p-1 hover:bg-white rounded-md transition-colors text-slate-500"
                           >
                             <ChevronRight size={14} />
                           </button>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-center mb-2">
-                      {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                        <div
-                          key={`${d}-${i}`}
-                          className="text-xs font-semibold text-slate-400 uppercase tracking-wider"
-                        >
-                          {d}
-                        </div>
-                      ))}
                     </div>
 
                     <div className="mt-2">
@@ -382,128 +567,116 @@ export default function DoctorAppointmentClient() {
                         ]}
                         initialView="dayGridMonth"
                         headerToolbar={false}
-                        height={420}
-                        events={events}
+                        height={520}
+                        events={calendarEvents}
                         dateClick={handleDateClick}
-                        dayMaxEvents={3}
                         selectable
+                        dayMaxEvents={3}
                         eventDisplay="block"
+                        eventTimeFormat={{
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        }}
                       />
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-4 flex-1">
+                  <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
-                        <span className="w-2 h-6 bg-primary rounded-full" />{" "}
-                        Schedule for{" "}
-                        {new Date(selectedDate).toLocaleDateString()}
+                      <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                        <span className="w-2 h-6 bg-primary rounded-full" />
+                        Schedule for {formatDateLabel(selectedDate)}
                       </h3>
                       <span className="text-sm text-slate-500">
-                        {eventsForSelectedDate.length} Appointments
+                        {eventsForSelectedDate.length} appointment
+                        {eventsForSelectedDate.length !== 1 ? "s" : ""}
                       </span>
                     </div>
 
-                    <div
-                      className="space-y-3 overflow-y-auto pr-2 pb-4"
-                      style={{ maxHeight: "calc(100vh - 550px)" }}
-                    >
-                      {eventsForSelectedDate.length === 0 && (
+                    <div className="space-y-3">
+                      {eventsForSelectedDate.length === 0 ? (
                         <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-slate-500">
-                          No appointments on{" "}
-                          {new Date(selectedDate).toLocaleDateString()}.
+                          {selectedDate === today
+                            ? "No patients today."
+                            : `No appointments on ${formatDateLabel(selectedDate)}.`}
                         </div>
-                      )}
-
-                      {eventsForSelectedDate.map((ev) => {
-                        const startStr =
-                          typeof ev.start === "string"
-                            ? ev.start
-                            : (ev.start as Date).toISOString();
-                        const time = new Date(startStr).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
-                        const evType =
-                          (
-                            ev.extendedProps as
-                              | AppointmentEventProps
-                              | undefined
-                          )?.type || "online";
-
-                        return (
+                      ) : (
+                        eventsForSelectedDate.map((appt) => (
                           <div
-                            key={String(ev.id)}
-                            className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all"
+                            key={appt.id}
+                            className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all"
                           >
-                            <div className="flex sm:flex-col items-center sm:items-start justify-center min-w-[4.5rem] text-center sm:text-left border-r sm:border-r-0 border-slate-100 pr-4 sm:pr-0">
+                            <div className="flex sm:flex-col items-center sm:items-start justify-center min-w-[5rem] text-center sm:text-left border-r sm:border-r-0 border-slate-100 pr-4 sm:pr-0">
                               <span
                                 className={`text-xl font-bold ${
-                                  evType === "online"
+                                  appt.type === "online"
                                     ? "text-primary"
                                     : "text-slate-700"
                                 }`}
                               >
-                                {time}
+                                {appt.time}
                               </span>
                               <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                                {
-                                  new Date(startStr)
-                                    .toLocaleString(undefined, { hour12: true })
-                                    .split(" ")[1]
-                                }
+                                {appt.type === "online" ? "ONLINE" : "CLINIC"}
                               </span>
                             </div>
 
                             <div className="flex-1 flex items-center gap-3">
-                              <div className="relative">
-                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-sm">
-                                  {(ev.title as string)
-                                    .split(" ")
-                                    .slice(0, 2)
-                                    .map((s) => s[0])
-                                    .join("")}
-                                </div>
+                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-sm">
+                                {appt.patientName
+                                  .split(" ")
+                                  .slice(0, 2)
+                                  .map((s) => s[0])
+                                  .join("")}
                               </div>
-                              <div>
-                                <h4 className="font-bold text-slate-800 dark:text-white text-sm">
-                                  {ev.title}
+
+                              <div className="min-w-0">
+                                <h4 className="font-bold text-slate-800 text-sm">
+                                  {appt.patientName}
                                 </h4>
-                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5 flex-wrap">
                                   <span
                                     className={`${
-                                      evType === "clinic"
+                                      appt.type === "clinic"
                                         ? "bg-secondary/10 text-secondary"
                                         : "bg-primary/10 text-primary"
                                     } px-1.5 py-0.5 rounded text-[10px] font-bold uppercase`}
                                   >
-                                    {evType === "clinic" ? "Clinic" : "Online"}
+                                    {appt.type === "clinic" ? "Clinic" : "Online"}
                                   </span>
-                                  <span>
-                                    • {ev.extendedProps?.description || "—"}
-                                  </span>
+                                  <span>• {appt.reason || "Booked appointment"}</span>
                                 </div>
                               </div>
                             </div>
 
                             <div className="flex items-center">
-                              {evType === "online" ? (
-                                <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 shadow-lg transition-all flex items-center justify-center gap-2">
-                                  <Video size={14} /> Start Tele-Consult
+                              {appt.type === "online" ? (
+                                <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:opacity-90 shadow-lg transition-all flex items-center justify-center gap-2">
+                                  <Video size={14} />
+                                  Start Tele-Consult
                                 </button>
                               ) : (
-                                <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-secondary text-white text-xs font-bold hover:bg-secondary/90 shadow-lg transition-all flex items-center justify-center gap-2">
-                                  <CheckCircle size={14} /> Clinic Check-in
+                                <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-secondary text-white text-xs font-bold hover:opacity-90 shadow-lg transition-all flex items-center justify-center gap-2">
+                                  <CheckCircle size={14} />
+                                  Clinic Check-in
                                 </button>
                               )}
                             </div>
                           </div>
-                        );
-                      })}
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
+
+              {isLoading ? (
+                <div className="fixed bottom-4 right-4 rounded-full bg-white border border-slate-200 shadow-lg px-4 py-2 text-sm text-slate-600 flex items-center gap-2">
+                  <RefreshCw size={14} className="animate-spin" />
+                  Loading data...
+                </div>
+              ) : null}
             </div>
           </div>
         </main>

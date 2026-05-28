@@ -2,13 +2,29 @@ import React from "react";
 import { Calendar, MessageSquare, Pill } from "lucide-react";
 import BackButton from "@/components/buttons/backbutton";
 import LoginForm from "./login-form";
+import Link from "next/link";
 
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 font-inter">
       {/* Back button */}
-      <BackButton fallback="/" />
-
+      <Link
+        href="/"
+        className={`
+    relative sm:fixed
+    sm:top-6 sm:left-6
+    mx-4 mt-4 sm:mt-0
+    z-50
+    rounded-lg border border-slate-200
+    bg-white px-4 py-2
+    text-sm font-semibold text-slate-600
+    shadow-sm
+    hover:border-[#008081]/40 hover:text-[#008081]
+    transition-all
+  `}
+      >
+        Back
+      </Link>
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         {/* Intro / Brand */}
         <div className="text-center mb-10 sm:mb-12">

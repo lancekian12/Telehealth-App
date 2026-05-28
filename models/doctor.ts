@@ -89,7 +89,7 @@ const DoctorSchema = new Schema(
     consultationModes: [
       {
         type: String,
-        enum: ["video", "in_person", "phone"],
+        enum: ["video", "in_person"],
       },
     ],
 
@@ -114,6 +114,7 @@ const DoctorSchema = new Schema(
       type: [TimeSlotSchema],
       default: [],
     },
+
     role: {
       type: String,
       enum: ["patient", "doctor"],
@@ -146,9 +147,50 @@ const DoctorSchema = new Schema(
       default: 30,
     },
 
+    clinicName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    clinicStreetAddress: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    clinicBarangay: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    clinicCityMunicipality: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    clinicProvince: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     clinicAddress: {
       type: String,
       default: "",
+      trim: true,
+    },
+
+    latitude: {
+      type: Number,
+      default: null,
+    },
+
+    longitude: {
+      type: Number,
+      default: null,
     },
 
     pushNotificationToken: {

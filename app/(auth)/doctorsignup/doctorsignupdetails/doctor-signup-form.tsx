@@ -1,4 +1,3 @@
-// app/(whatever)/doctor-signup/DoctorSignupForm.tsx
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
@@ -12,12 +11,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
-import type {
-  DoctorConsultationMode,
-  DoctorFormFields,
-  WorkingHourInput,
-  UnavailableSlotInput,
-} from "@/types/doctor";
+import type { DoctorFormFields } from "@/types/doctor";
 import { useDoctorStore } from "@/store/doctor-store";
 
 const DAYS = [
@@ -29,6 +23,12 @@ const DAYS = [
   "Saturday",
   "Sunday",
 ] as const;
+
+const accent = "#008081";
+const accentSoft = "bg-[#008081]/10";
+const accentBorder = "border-[#008081]/20";
+const neutralCard = "bg-white";
+const neutralPage = "bg-white";
 
 export default function DoctorSignupForm() {
   const { user, isLoaded } = useUser();
@@ -59,13 +59,11 @@ export default function DoctorSignupForm() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
-    if (clerkEmail) {
-      setEmailFromClerk(clerkEmail);
-    }
+    if (clerkEmail) setEmailFromClerk(clerkEmail);
   }, [clerkEmail, setEmailFromClerk]);
 
   const handleTextChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setField(name as keyof DoctorFormFields, value as never);
@@ -100,6 +98,16 @@ export default function DoctorSignupForm() {
       nextErrors.workingHours = "Add at least one working hour";
     }
 
+    if (!form.clinicName.trim()) {
+      nextErrors.clinicName = "Clinic name is required";
+    }
+    if (!form.clinicCityMunicipality.trim()) {
+      nextErrors.clinicCityMunicipality = "City / municipality is required";
+    }
+    if (!form.clinicProvince.trim()) {
+      nextErrors.clinicProvince = "Province is required";
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -126,7 +134,7 @@ export default function DoctorSignupForm() {
 
       formData.append(
         "consultationModes",
-        JSON.stringify(form.consultationModes)
+        JSON.stringify(form.consultationModes),
       );
 
       formData.append(
@@ -135,17 +143,26 @@ export default function DoctorSignupForm() {
           form.languages
             .split(",")
             .map((item) => item.trim())
-            .filter(Boolean)
-        )
+            .filter(Boolean),
+        ),
       );
 
       formData.append("workingHours", JSON.stringify(form.workingHours));
       formData.append("unavailableSlots", JSON.stringify(form.unavailableSlots));
       formData.append(
         "consultationDurationMinutes",
-        form.consultationDurationMinutes || "30"
+        form.consultationDurationMinutes || "30",
       );
-      formData.append("clinicAddress", form.clinicAddress.trim());
+
+      formData.append("clinicName", form.clinicName.trim());
+      formData.append("clinicStreetAddress", form.clinicStreetAddress.trim());
+      formData.append("clinicBarangay", form.clinicBarangay.trim());
+      formData.append(
+        "clinicCityMunicipality",
+        form.clinicCityMunicipality.trim(),
+      );
+      formData.append("clinicProvince", form.clinicProvince.trim());
+
       formData.append("verified", String(form.verified));
 
       if (form.profilePicture) {
@@ -173,8 +190,13 @@ export default function DoctorSignupForm() {
     }
   };
 
+  const fieldBase =
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition placeholder:text-slate-400 focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10";
+  const labelBase = "mb-1.5 block text-sm font-medium text-slate-700";
+  const sectionCard = "rounded-2xl border border-slate-200 bg-white p-4";
+
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900">
+    <div className={`min-h-screen ${neutralPage} text-slate-900`}>
       <Link
         href="/doctorsignup"
         className="
@@ -196,7 +218,7 @@ export default function DoctorSignupForm() {
       <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-4 py-8 sm:py-12">
         <div className="mb-8 text-center">
           <div className="mb-3 flex items-center justify-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#008081]/10">
+            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${accentSoft}`}>
               <UploadCloud className="h-7 w-7 text-[#008081]" />
             </div>
           </div>
@@ -226,10 +248,7 @@ export default function DoctorSignupForm() {
         >
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-                htmlFor="fullName"
-              >
+              <label className={labelBase} htmlFor="fullName">
                 Full Name
               </label>
               <input
@@ -239,8 +258,8 @@ export default function DoctorSignupForm() {
                 onChange={handleTextChange}
                 placeholder="Dr. Juan Dela Cruz"
                 type="text"
-                className={`w-full rounded-xl border px-4 py-3 outline-none transition placeholder:text-slate-400 ${
-                  errors.fullName ? "border-rose-500" : "border-slate-200"
+                className={`${fieldBase} ${
+                  errors.fullName ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
                 }`}
               />
               {errors.fullName && (
@@ -249,10 +268,7 @@ export default function DoctorSignupForm() {
             </div>
 
             <div>
-              <label
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-                htmlFor="specialization"
-              >
+              <label className={labelBase} htmlFor="specialization">
                 Specialization
               </label>
               <input
@@ -262,10 +278,8 @@ export default function DoctorSignupForm() {
                 onChange={handleTextChange}
                 placeholder="Cardiology, Pediatrics, Dermatology..."
                 type="text"
-                className={`w-full rounded-xl border px-4 py-3 outline-none transition placeholder:text-slate-400 ${
-                  errors.specialization
-                    ? "border-rose-500"
-                    : "border-slate-200"
+                className={`${fieldBase} ${
+                  errors.specialization ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
                 }`}
               />
               {errors.specialization && (
@@ -276,10 +290,7 @@ export default function DoctorSignupForm() {
             </div>
 
             <div>
-              <label
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-                htmlFor="phone"
-              >
+              <label className={labelBase} htmlFor="phone">
                 Contact Number
               </label>
               <input
@@ -289,8 +300,8 @@ export default function DoctorSignupForm() {
                 onChange={handleTextChange}
                 placeholder="+63 900 000 0000"
                 type="tel"
-                className={`w-full rounded-xl border px-4 py-3 outline-none transition placeholder:text-slate-400 ${
-                  errors.phone ? "border-rose-500" : "border-slate-200"
+                className={`${fieldBase} ${
+                  errors.phone ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
                 }`}
               />
               {errors.phone && (
@@ -299,10 +310,7 @@ export default function DoctorSignupForm() {
             </div>
 
             <div className="sm:col-span-2">
-              <label
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-                htmlFor="bio"
-              >
+              <label className={labelBase} htmlFor="bio">
                 Bio
               </label>
               <textarea
@@ -312,8 +320,8 @@ export default function DoctorSignupForm() {
                 onChange={handleTextChange}
                 placeholder="Write a short professional bio, experience, and expertise..."
                 rows={5}
-                className={`w-full resize-none rounded-xl border px-4 py-3 outline-none transition placeholder:text-slate-400 ${
-                  errors.bio ? "border-rose-500" : "border-slate-200"
+                className={`${fieldBase} resize-none ${
+                  errors.bio ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
                 }`}
               />
               {errors.bio && (
@@ -322,10 +330,7 @@ export default function DoctorSignupForm() {
             </div>
 
             <div className="sm:col-span-2">
-              <label
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-                htmlFor="profilePicture"
-              >
+              <label className={labelBase} htmlFor="profilePicture">
                 Profile Picture
               </label>
               <input
@@ -334,8 +339,8 @@ export default function DoctorSignupForm() {
                 onChange={handleFileChange}
                 type="file"
                 accept="image/*"
-                className={`w-full rounded-xl border bg-white px-4 py-3 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-[#008081] file:px-4 file:py-2 file:text-white ${
-                  errors.profilePicture ? "border-rose-500" : "border-slate-200"
+                className={`w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-[#008081] file:px-4 file:py-2 file:text-white hover:border-[#008081]/40 ${
+                  errors.profilePicture ? "border-rose-500" : ""
                 }`}
               />
               {errors.profilePicture && (
@@ -346,10 +351,7 @@ export default function DoctorSignupForm() {
             </div>
 
             <div className="sm:col-span-2">
-              <label
-                className="mb-1.5 block text-sm font-medium text-slate-700"
-                htmlFor="email"
-              >
+              <label className={labelBase} htmlFor="email">
                 Email Address
               </label>
               <input
@@ -358,7 +360,7 @@ export default function DoctorSignupForm() {
                 value={form.email}
                 readOnly
                 type="email"
-                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-slate-500 outline-none"
+                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 outline-none"
               />
               {errors.email && (
                 <p className="mt-1 text-xs text-rose-600">{errors.email}</p>
@@ -366,7 +368,7 @@ export default function DoctorSignupForm() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-sm font-semibold text-slate-700">
               Consultation Mode
             </p>
@@ -380,7 +382,7 @@ export default function DoctorSignupForm() {
                 onClick={() => toggleConsultationMode("video")}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   form.consultationModes.includes("video")
-                    ? "bg-[#008081] text-white"
+                    ? "bg-[#008081] text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-700 hover:border-[#008081]/40"
                 }`}
               >
@@ -392,7 +394,7 @@ export default function DoctorSignupForm() {
                 onClick={() => toggleConsultationMode("in_person")}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   form.consultationModes.includes("in_person")
-                    ? "bg-[#008081] text-white"
+                    ? "bg-[#008081] text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-700 hover:border-[#008081]/40"
                 }`}
               >
@@ -421,12 +423,9 @@ export default function DoctorSignupForm() {
           </button>
 
           {showAdvanced && (
-            <div className="mt-4 grid gap-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-5 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
               <div>
-                <label
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                  htmlFor="licenseNumber"
-                >
+                <label className={labelBase} htmlFor="licenseNumber">
                   License Number
                 </label>
                 <input
@@ -436,15 +435,12 @@ export default function DoctorSignupForm() {
                   onChange={handleTextChange}
                   placeholder="Optional"
                   type="text"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition placeholder:text-slate-400"
+                  className={fieldBase}
                 />
               </div>
 
               <div>
-                <label
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                  htmlFor="experienceYears"
-                >
+                <label className={labelBase} htmlFor="experienceYears">
                   Experience (Years)
                 </label>
                 <input
@@ -455,15 +451,12 @@ export default function DoctorSignupForm() {
                   placeholder="0"
                   type="number"
                   min="0"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition placeholder:text-slate-400"
+                  className={fieldBase}
                 />
               </div>
 
               <div>
-                <label
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                  htmlFor="consultationFee"
-                >
+                <label className={labelBase} htmlFor="consultationFee">
                   Consultation Fee
                 </label>
                 <input
@@ -474,15 +467,12 @@ export default function DoctorSignupForm() {
                   placeholder="0"
                   type="number"
                   min="0"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition placeholder:text-slate-400"
+                  className={fieldBase}
                 />
               </div>
 
               <div>
-                <label
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                  htmlFor="consultationDurationMinutes"
-                >
+                <label className={labelBase} htmlFor="consultationDurationMinutes">
                   Consultation Duration (Minutes)
                 </label>
                 <input
@@ -493,15 +483,12 @@ export default function DoctorSignupForm() {
                   placeholder="30"
                   type="number"
                   min="5"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition placeholder:text-slate-400"
+                  className={fieldBase}
                 />
               </div>
 
               <div className="sm:col-span-2">
-                <label
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                  htmlFor="languages"
-                >
+                <label className={labelBase} htmlFor="languages">
                   Languages Spoken
                 </label>
                 <input
@@ -511,7 +498,7 @@ export default function DoctorSignupForm() {
                   onChange={handleTextChange}
                   placeholder="English, Tagalog"
                   type="text"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition placeholder:text-slate-400"
+                  className={fieldBase}
                 />
                 <p className="mt-1 text-xs text-slate-500">
                   Separate with commas.
@@ -541,10 +528,7 @@ export default function DoctorSignupForm() {
 
                 <div className="mt-4 space-y-3">
                   {form.workingHours.map((slot, index) => (
-                    <div
-                      key={index}
-                      className="rounded-2xl border border-slate-200 bg-white p-4"
-                    >
+                    <div key={index} className={sectionCard}>
                       <div className="grid gap-3 sm:grid-cols-4">
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-600">
@@ -555,7 +539,7 @@ export default function DoctorSignupForm() {
                             onChange={(e) =>
                               updateWorkingHour(index, "day", e.target.value)
                             }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
                           >
                             {DAYS.map((day) => (
                               <option key={day} value={day}>
@@ -576,10 +560,10 @@ export default function DoctorSignupForm() {
                               updateWorkingHour(
                                 index,
                                 "startTime",
-                                e.target.value
+                                e.target.value,
                               )
                             }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
                           />
                         </div>
 
@@ -593,7 +577,7 @@ export default function DoctorSignupForm() {
                             onChange={(e) =>
                               updateWorkingHour(index, "endTime", e.target.value)
                             }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
                           />
                         </div>
 
@@ -603,7 +587,7 @@ export default function DoctorSignupForm() {
                             onClick={() =>
                               updateWorkingHour(index, "isAvailable", true)
                             }
-                            className="flex-1 rounded-xl bg-[#008081] px-3 py-2 text-sm font-medium text-white"
+                            className="flex-1 rounded-xl bg-[#008081] px-3 py-2 text-sm font-medium text-white shadow-sm"
                           >
                             Available
                           </button>
@@ -612,7 +596,7 @@ export default function DoctorSignupForm() {
                             <button
                               type="button"
                               onClick={() => removeWorkingHour(index)}
-                              className="rounded-xl border border-rose-200 px-3 py-2 text-rose-600 hover:bg-rose-50"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-500 hover:border-rose-200 hover:text-rose-600"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -653,10 +637,7 @@ export default function DoctorSignupForm() {
 
                 <div className="mt-4 space-y-3">
                   {form.unavailableSlots.map((slot, index) => (
-                    <div
-                      key={index}
-                      className="rounded-2xl border border-slate-200 bg-white p-4"
-                    >
+                    <div key={index} className={sectionCard}>
                       <div className="grid gap-3 sm:grid-cols-4">
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-600">
@@ -666,13 +647,9 @@ export default function DoctorSignupForm() {
                             type="date"
                             value={slot.date}
                             onChange={(e) =>
-                              updateUnavailableSlot(
-                                index,
-                                "date",
-                                e.target.value
-                              )
+                              updateUnavailableSlot(index, "date", e.target.value)
                             }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
                           />
                         </div>
 
@@ -687,10 +664,10 @@ export default function DoctorSignupForm() {
                               updateUnavailableSlot(
                                 index,
                                 "startTime",
-                                e.target.value
+                                e.target.value,
                               )
                             }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
                           />
                         </div>
 
@@ -705,10 +682,10 @@ export default function DoctorSignupForm() {
                               updateUnavailableSlot(
                                 index,
                                 "endTime",
-                                e.target.value
+                                e.target.value,
                               )
                             }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
                           />
                         </div>
 
@@ -720,16 +697,16 @@ export default function DoctorSignupForm() {
                               updateUnavailableSlot(
                                 index,
                                 "reason",
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             placeholder="Reason"
-                            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
+                            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
                           />
                           <button
                             type="button"
                             onClick={() => removeUnavailableSlot(index)}
-                            className="rounded-xl border border-rose-200 px-3 py-2 text-rose-600 hover:bg-rose-50"
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-500 hover:border-rose-200 hover:text-rose-600"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -740,22 +717,117 @@ export default function DoctorSignupForm() {
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label
-                  className="mb-1.5 block text-sm font-medium text-slate-700"
-                  htmlFor="clinicAddress"
-                >
-                  Clinic Address
-                </label>
-                <textarea
-                  id="clinicAddress"
-                  name="clinicAddress"
-                  value={form.clinicAddress}
-                  onChange={handleTextChange}
-                  placeholder="Optional clinic address"
-                  rows={3}
-                  className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 outline-none transition placeholder:text-slate-400"
-                />
+              <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-slate-700">
+                    Clinic Location
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Fill these in so the system can turn your address into map coordinates.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className={labelBase} htmlFor="clinicName">
+                      Clinic / Hospital Name
+                    </label>
+                    <input
+                      id="clinicName"
+                      name="clinicName"
+                      value={form.clinicName}
+                      onChange={handleTextChange}
+                      placeholder="Sevidal Medical Clinic"
+                      type="text"
+                      className={`${fieldBase} ${
+                        errors.clinicName ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                      }`}
+                    />
+                    {errors.clinicName && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.clinicName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className={labelBase} htmlFor="clinicStreetAddress">
+                      Street / Building / Landmark
+                    </label>
+                    <input
+                      id="clinicStreetAddress"
+                      name="clinicStreetAddress"
+                      value={form.clinicStreetAddress}
+                      onChange={handleTextChange}
+                      placeholder="Near town hall, beside pharmacy"
+                      type="text"
+                      className={fieldBase}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelBase} htmlFor="clinicBarangay">
+                      Barangay
+                    </label>
+                    <input
+                      id="clinicBarangay"
+                      name="clinicBarangay"
+                      value={form.clinicBarangay}
+                      onChange={handleTextChange}
+                      placeholder="Sevidal"
+                      type="text"
+                      className={fieldBase}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={labelBase} htmlFor="clinicCityMunicipality">
+                      City / Municipality
+                    </label>
+                    <input
+                      id="clinicCityMunicipality"
+                      name="clinicCityMunicipality"
+                      value={form.clinicCityMunicipality}
+                      onChange={handleTextChange}
+                      placeholder="San Fabian"
+                      type="text"
+                      className={`${fieldBase} ${
+                        errors.clinicCityMunicipality
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                          : ""
+                      }`}
+                    />
+                    {errors.clinicCityMunicipality && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.clinicCityMunicipality}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className={labelBase} htmlFor="clinicProvince">
+                      Province
+                    </label>
+                    <input
+                      id="clinicProvince"
+                      name="clinicProvince"
+                      value={form.clinicProvince}
+                      onChange={handleTextChange}
+                      placeholder="Pangasinan"
+                      type="text"
+                      className={`${fieldBase} ${
+                        errors.clinicProvince
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                          : ""
+                      }`}
+                    />
+                    {errors.clinicProvince && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.clinicProvince}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -788,7 +860,7 @@ export default function DoctorSignupForm() {
         <div className="py-6 text-center">
           <p className="text-sm text-slate-500">
             Already have an account?
-            <Link className="ml-1 font-bold text-primary hover:underline" href="/login">
+            <Link className="ml-1 font-bold text-[#008081] hover:underline" href="/login">
               Log In
             </Link>
           </p>

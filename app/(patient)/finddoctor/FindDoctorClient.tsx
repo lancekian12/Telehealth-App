@@ -14,71 +14,11 @@ import {
   Video,
   Globe,
   X,
-  Check,
 } from "lucide-react";
 
 import SearchBar from "@/components/patient/SearchBar";
 import FilterModal from "@/components/patient/FilterModal";
-
-type Doctor = {
-  id: string;
-  name: string;
-  specialty: string;
-  hospital: string;
-  locationLabel: string;
-  coords: LatLngExpression;
-  fee: number;
-  rating: number;
-  reviews?: number;
-  img: string;
-  tags?: string[];
-  status?: "accepting" | "fully_booked" | "online";
-};
-
-const DOCTORS: Doctor[] = [
-  {
-    id: "jose",
-    name: "Dr. Jose Rizalino",
-    specialty: "Dermatologist",
-    hospital: "Brokenshire Hospital",
-    locationLabel: "Madrazo, Davao",
-    coords: [7.0823, 125.606],
-    fee: 850,
-    rating: 4.8,
-    reviews: 98,
-    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBMPLH6AiqZo2CNmJ-QhTW7k3IfwbTMurO72EjZ8IRBv5Hh_Hk-jqll4zAujtT7xkOjW_k55WrtOaR7BcWKw3TCIXfqKiqqzvygY4KFinJSPWH95InVzycL5N6Ce8pAFgY_6ABrSXS6V-ByQwOyirAozBXueuCU18evY99kM-glKcwlHrbxgSTefsUH2tSOz-cG1KIijNw0ygg88kjh13FtwDVBDWhJ3_rBnndjWNTgtXI6p_yvHNdTO_qEFjCyFSBZq4PLk2LF3GU",
-    tags: ["Board Certified", "Online Available"],
-    status: "online",
-  },
-  {
-    id: "clara",
-    name: "Dr. Clara Dalisay",
-    specialty: "General Practitioner",
-    hospital: "SPMC",
-    locationLabel: "San Fabian, Pangasinan",
-    coords: [16.1536, 120.45],
-    fee: 500,
-    rating: 5.0,
-    reviews: 60,
-    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBDrj1F02-pexsQB1E-9R4adtGrUGEkApM_kYDIhf1bb5ukw5NekxAovZFfrGQTAAFDdupLkYC4c7gD9RbnHWf0i0-LzUrapI0x_43EpgSFiDu7ssbY464zAcoNxLvwWldgnkd4Q4UxrRXZAE6a23_ouTxS20QTLMVw1GZt_oGTvFVd0nvOA-SQuUmTKY1XS9VMiMDJWFC3p1Bz0dHOb8ZPTV9ZiUz0oenXmoVawvE422z7rMSAO-TJn5wtsW1CoOULMYW1kBZ-LxU",
-    tags: ["Bisaya/Tagalog", "Mon - Fri only"],
-    status: "fully_booked",
-  },
-  {
-    id: "ramon",
-    name: "Dr. Ramon Bautista",
-    specialty: "Cardiologist",
-    hospital: "San Pedro Hospital",
-    locationLabel: "Guzman St, Davao",
-    coords: [7.0705, 125.612],
-    fee: 1200,
-    rating: 4.9,
-    reviews: 210,
-    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBWXQK7vHeouwdt9SoVel2so3JcS22I3Q4UGhKoM-CFZA_x-H2LsqOsbee3q57h6nSVlEAvwz-0b9TdllIW2fiqMuClPlQW9Wh4IFbbHAz8I0s5o6kMYw5GNXvtt5N40SRmrHMB33p0crMB7TErsWSouxvLsz05b8GmyjYlal1Lotgkx6xKGhKqCJPD7kxmxzz2Pmv9HtERshx3G3YqjRBerf4-8ovZ-6e4A6LZLE1mMoQ919IQnd-dc4SpOOv_nTFAGm_m0LF_eEw",
-    tags: ["20+ Yrs Exp.", "Accepting patients"],
-    status: "accepting",
-  },
-];
+import { DoctorApiItem, FindDoctor } from "@/types/doctor";
 
 declare global {
   interface Window {
@@ -94,7 +34,7 @@ function MapControls({
   onSearchArea: () => void;
 }) {
   return (
-    <div className="absolute top-6 right-6 z-20 flex flex-col gap-2">
+    <div className="absolute right-6 top-6 z-20 flex flex-col gap-2">
       <button
         onClick={() => window.__doctorMap?.zoomIn()}
         className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -127,7 +67,7 @@ function MapControls({
 
       <button
         onClick={onSearchArea}
-        className="mt-2 w-max rounded-2xl border border-slate-100 bg-white/90 px-4 py-2 backdrop-blur-md shadow-lg transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800/90"
+        className="mt-2 w-max rounded-2xl border border-slate-100 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800/90"
       >
         <div className="flex items-center gap-3 text-sm font-medium">
           <MapIcon size={18} className="text-[#008081]" />
@@ -171,18 +111,82 @@ export default function FindDoctorClient(): JSX.Element {
   const [maxPrice, setMaxPrice] = useState(5000);
 
   const [panelOpen, setPanelOpen] = useState(false);
-  const [activeDoctor, setActiveDoctor] = useState<Doctor | null>(null);
+  const [activeDoctor, setActiveDoctor] = useState<FindDoctor | null>(null);
   const [selectedTime, setSelectedTime] = useState("11:00 AM");
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
+  const [doctors, setDoctors] = useState<FindDoctor[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [doctorError, setDoctorError] = useState<string | null>(null);
+
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
+  const markerLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
 
   const center = useMemo<LatLngExpression>(() => [7.1907, 125.4553], []);
   const philippinesCenter = useMemo<LatLngExpression>(
     () => [12.8797, 121.774],
     [],
   );
+
+  useEffect(() => {
+    const loadDoctors = async () => {
+      try {
+        setLoadingDoctors(true);
+        setDoctorError(null);
+
+        const res = await fetch("/api/doctor");
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Failed to load doctors");
+        }
+
+        const mappedDoctors: FindDoctor[] = (data.doctors as DoctorApiItem[]).map(
+          (doctor) => {
+            const tags = [
+              ...(doctor.verified ? ["Verified"] : []),
+              ...(doctor.acceptsNewPatients ? ["Accepting patients"] : []),
+              ...(doctor.consultationModes.includes("video")
+                ? ["Online Available"]
+                : []),
+              ...(doctor.languages || []),
+            ];
+
+            return {
+              id: doctor.id,
+              name: doctor.fullName,
+              specialty: doctor.specialization,
+              hospital: doctor.clinicAddress || "Clinic",
+              locationLabel: doctor.clinicAddress || "Unknown location",
+              coords:
+                typeof doctor.latitude === "number" &&
+                typeof doctor.longitude === "number"
+                  ? [doctor.latitude, doctor.longitude]
+                  : null,
+              fee: doctor.consultationFee ?? 0,
+              rating: doctor.rating ?? 0,
+              reviews: 0,
+              img: doctor.profilePicture || "/doctor-placeholder.png",
+              tags,
+              status: doctor.acceptsNewPatients ? "accepting" : "fully_booked",
+            };
+          },
+        );
+
+        setDoctors(mappedDoctors);
+      } catch (error) {
+        setDoctorError(
+          error instanceof Error ? error.message : "Failed to load doctors",
+        );
+        setDoctors([]);
+      } finally {
+        setLoadingDoctors(false);
+      }
+    };
+
+    void loadDoctors();
+  }, []);
 
   const selectedDate = useMemo(() => {
     const days: {
@@ -220,41 +224,44 @@ export default function FindDoctorClient(): JSX.Element {
     const loc = locationQuery.trim().toLowerCase();
     const spec = specialtyFilter.trim().toLowerCase();
 
-    return DOCTORS.filter((d) => {
-      const matchesQuery =
-        !q ||
-        d.name.toLowerCase().includes(q) ||
-        d.specialty.toLowerCase().includes(q) ||
-        d.hospital.toLowerCase().includes(q) ||
-        d.locationLabel.toLowerCase().includes(q);
+    return doctors
+      .filter((d) => {
+        const matchesQuery =
+          !q ||
+          d.name.toLowerCase().includes(q) ||
+          d.specialty.toLowerCase().includes(q) ||
+          d.hospital.toLowerCase().includes(q) ||
+          d.locationLabel.toLowerCase().includes(q);
 
-      const matchesLocation =
-        !loc ||
-        loc === "all areas" ||
-        d.locationLabel.toLowerCase().includes(loc) ||
-        d.hospital.toLowerCase().includes(loc);
+        const matchesLocation =
+          !loc ||
+          loc === "all areas" ||
+          d.locationLabel.toLowerCase().includes(loc) ||
+          d.hospital.toLowerCase().includes(loc);
 
-      const matchesSpecialty =
-        !spec ||
-        spec === "all specialties" ||
-        d.specialty.toLowerCase().includes(spec);
+        const matchesSpecialty =
+          !spec ||
+          spec === "all specialties" ||
+          d.specialty.toLowerCase().includes(spec);
 
-      const matchesRating = d.rating >= minRating;
-      const matchesPrice = d.fee >= minPrice && d.fee <= maxPrice;
+        const matchesRating = d.rating >= minRating;
+        const matchesPrice = d.fee >= minPrice && d.fee <= maxPrice;
 
-      return (
-        matchesQuery &&
-        matchesLocation &&
-        matchesSpecialty &&
-        matchesRating &&
-        matchesPrice
-      );
-    }).sort((a, b) => {
-      if (sort === "Highest Rated") return b.rating - a.rating;
-      if (sort === "Consultation Fee") return a.fee - b.fee;
-      return b.rating - a.rating;
-    });
+        return (
+          matchesQuery &&
+          matchesLocation &&
+          matchesSpecialty &&
+          matchesRating &&
+          matchesPrice
+        );
+      })
+      .sort((a, b) => {
+        if (sort === "Highest Rated") return b.rating - a.rating;
+        if (sort === "Consultation Fee") return a.fee - b.fee;
+        return b.rating - a.rating;
+      });
   }, [
+    doctors,
     query,
     locationQuery,
     sort,
@@ -273,12 +280,10 @@ export default function FindDoctorClient(): JSX.Element {
   }, [filteredAll, page]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasMounted(true);
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [
     query,
@@ -289,28 +294,27 @@ export default function FindDoctorClient(): JSX.Element {
     minPrice,
     maxPrice,
   ]);
+
   async function createDoctorIcon(img: string): Promise<DivIcon> {
     const L = await import("leaflet");
 
     return L.divIcon({
       className: "custom-doctor-icon",
       html: `
-      <div class="w-12 h-12 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white">
-        <img
-          src="${img}"
-          alt="Doctor"
-          class="w-full h-full object-cover"
-        />
-      </div>
-    `,
+        <div class="h-12 w-12 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
+          <img src="${img}" alt="Doctor" class="h-full w-full object-cover" />
+        </div>
+      `,
       iconSize: [48, 48],
       iconAnchor: [24, 48],
       popupAnchor: [0, -48],
     });
   }
+
   useEffect(() => {
     if (!hasMounted) return;
-    if (!mapHostRef.current || mapRef.current) return;
+    if (!mapHostRef.current) return;
+    if (mapRef.current) return;
 
     let cancelled = false;
 
@@ -329,36 +333,8 @@ export default function FindDoctorClient(): JSX.Element {
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
-      const bounds = L.latLngBounds(DOCTORS.map((d) => d.coords));
-      if (bounds.isValid()) {
-        map.fitBounds(bounds.pad(0.45));
-      } else {
-        map.setView(philippinesCenter, 5);
-      }
-
-      for (const d of DOCTORS) {
-        const icon = await createDoctorIcon(d.img);
-
-        L.marker(d.coords, { icon }).addTo(map).bindPopup(`
-      <div class="rounded-lg w-64">
-        <div class="flex gap-3 items-start">
-          <img src="${d.img}" alt="${d.name}" class="w-16 h-16 object-cover rounded-md" />
-          <div class="flex-1">
-            <h4 class="font-bold">${d.name}</h4>
-            <div class="text-xs text-[#008081] font-bold uppercase">${d.specialty}</div>
-            <div class="text-xs text-slate-500">${d.hospital}</div>
-            <div class="flex items-center gap-2 text-sm mt-2">
-              <span class="font-bold">${d.rating}</span>
-              <span class="text-xs text-slate-400">(${d.reviews ?? 0} reviews)</span>
-            </div>
-          </div>
-        </div>
-        <div class="mt-3 text-right">
-          <div class="text-lg font-bold">₱${d.fee}</div>
-        </div>
-      </div>
-    `);
-      }
+      markerLayerRef.current = L.layerGroup().addTo(map);
+      map.setView(philippinesCenter, 5);
 
       const handleResize = () => map.invalidateSize();
       window.addEventListener("resize", handleResize);
@@ -376,6 +352,7 @@ export default function FindDoctorClient(): JSX.Element {
         window.removeEventListener("resize", handleResize);
         map.remove();
         mapRef.current = null;
+        markerLayerRef.current = null;
         if (window.__doctorMap === map) delete window.__doctorMap;
       };
 
@@ -394,15 +371,74 @@ export default function FindDoctorClient(): JSX.Element {
         }
       }
       mapRef.current = null;
+      markerLayerRef.current = null;
       if (window.__doctorMap) delete window.__doctorMap;
     };
   }, [hasMounted, philippinesCenter]);
 
   useEffect(() => {
+    const syncMarkers = async () => {
+      const map = mapRef.current;
+      const markerLayer = markerLayerRef.current;
+
+      if (!map || !markerLayer) return;
+
+      const L = await import("leaflet");
+      markerLayer.clearLayers();
+
+      const doctorsWithCoords = doctors.filter(
+        (doctor) => Array.isArray(doctor.coords) && doctor.coords.length === 2,
+      );
+
+      if (doctorsWithCoords.length === 0) {
+        return;
+      }
+
+      const bounds = L.latLngBounds(
+        doctorsWithCoords.map((doctor) => doctor.coords as [number, number]),
+      );
+
+      if (bounds.isValid()) {
+        map.fitBounds(bounds.pad(0.45));
+      }
+
+      for (const doctor of doctorsWithCoords) {
+        const icon = await createDoctorIcon(doctor.img);
+
+        const marker = L.marker(doctor.coords as LatLngExpression, {
+          icon,
+        }).bindPopup(`
+          <div class="w-64 rounded-lg">
+            <div class="flex items-start gap-3">
+              <img src="${doctor.img}" alt="${doctor.name}" class="h-16 w-16 rounded-md object-cover" />
+              <div class="flex-1">
+                <h4 class="font-bold">${doctor.name}</h4>
+                <div class="text-xs font-bold uppercase text-[#008081]">${doctor.specialty}</div>
+                <div class="text-xs text-slate-500">${doctor.hospital}</div>
+                <div class="mt-2 flex items-center gap-2 text-sm">
+                  <span class="font-bold">${doctor.rating.toFixed(1)}</span>
+                  <span class="text-xs text-slate-400">(${doctor.reviews ?? 0} reviews)</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 text-right">
+              <div class="text-lg font-bold">₱${doctor.fee}</div>
+            </div>
+          </div>
+        `);
+
+        marker.addTo(markerLayer);
+      }
+    };
+
+    void syncMarkers();
+  }, [doctors]);
+
+  useEffect(() => {
     mapRef.current?.invalidateSize();
   }, [page]);
 
-  function openAvailabilityPanel(doctor: Doctor) {
+  function openAvailabilityPanel(doctor: FindDoctor) {
     if (doctor.status === "fully_booked") return;
 
     setActiveDoctor(doctor);
@@ -415,10 +451,6 @@ export default function FindDoctorClient(): JSX.Element {
     setPanelOpen(false);
   }
 
-  function handleBook(doctor: Doctor) {
-    openAvailabilityPanel(doctor);
-  }
-
   function loadMore() {
     if (page < totalPages) setPage((p) => p + 1);
     else setPage(1);
@@ -428,9 +460,9 @@ export default function FindDoctorClient(): JSX.Element {
 
   return (
     <div className="flex min-h-screen flex-col text-slate-900 dark:bg-[#0f172a] dark:text-slate-100">
-      <main className="relative flex flex-1 overflow-hidden">
-        <section className="relative h-screen w-full overflow-y-auto p-4 no-scrollbar sm:p-6 lg:w-1/2 lg:p-8 dark:bg-[#0f172a]">
-          <div className="relative z-10 mx-auto mt-20 max-w-4xl">
+      <main className="isolate relative flex min-h-screen flex-col overflow-hidden lg:flex-row">
+        <section className="relative z-30 h-screen w-full min-w-0 overflow-y-auto p-4 no-scrollbar sm:p-6 lg:w-1/2 lg:flex-none lg:p-8 dark:bg-[#0f172a]">
+          <div className="relative z-[120] mx-auto mt-20 max-w-4xl">
             <SearchBar
               query={query}
               setQuery={(value) => {
@@ -472,11 +504,16 @@ export default function FindDoctorClient(): JSX.Element {
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {filteredAll.length} Doctors in Davao
+                  {loadingDoctors
+                    ? "Loading doctors..."
+                    : `${filteredAll.length} Doctors in Davao`}
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
                   Found near Poblacion District &amp; Matina
                 </p>
+                {doctorError ? (
+                  <p className="mt-1 text-sm text-red-500">{doctorError}</p>
+                ) : null}
               </div>
 
               <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800">
@@ -501,7 +538,7 @@ export default function FindDoctorClient(): JSX.Element {
                 <article
                   key={d.id}
                   data-doctor={d.id}
-                  className="doctor-card group flex gap-6 rounded-2xl border border-slate-100 bg-white p-6 transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 flex-col sm:flex-row"
+                  className="doctor-card group flex flex-col gap-6 rounded-2xl border border-slate-100 bg-white p-6 transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:flex-row"
                 >
                   <div className="relative h-36 w-full flex-shrink-0 sm:w-36">
                     <img
@@ -559,7 +596,7 @@ export default function FindDoctorClient(): JSX.Element {
                           >
                             {tag.includes("Online") ? (
                               <Video size={14} />
-                            ) : tag.includes("Bisaya") ? (
+                            ) : tag.toLowerCase().includes("language") ? (
                               <Globe size={14} />
                             ) : (
                               <Stethoscope size={14} />
@@ -602,7 +639,7 @@ export default function FindDoctorClient(): JSX.Element {
                               </button>
                             ) : (
                               <button
-                                onClick={() => handleBook(d)}
+                                onClick={() => openAvailabilityPanel(d)}
                                 className="rounded-full bg-[#008081] px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#00736f] hover:shadow-xl"
                               >
                                 Book Consultation
@@ -629,7 +666,7 @@ export default function FindDoctorClient(): JSX.Element {
           </div>
         </section>
 
-        <aside className="relative hidden h-screen w-1/2 overflow-hidden bg-slate-100 dark:bg-[#0f172a] lg:block">
+        <aside className="relative z-0 hidden h-screen w-1/2 overflow-hidden bg-slate-100 dark:bg-[#0f172a] lg:block">
           <div ref={mapHostRef} className="h-full w-full" />
           <MapControls
             center={center}
@@ -643,14 +680,14 @@ export default function FindDoctorClient(): JSX.Element {
 
       {panelOpen && (
         <div
-          className="fixed inset-0 z-[60] bg-black/30"
+          className="fixed inset-0 z-[200] bg-black/30"
           onClick={closePanel}
         />
       )}
 
       <aside
         className={[
-          "fixed right-0 top-0 z-[70] flex h-full w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300",
+          "fixed right-0 top-0 z-[210] flex h-full w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300",
           panelOpen ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
