@@ -125,7 +125,6 @@ export default function Navigation() {
               { href: "/finddoctor", label: "Find Doctor" },
               { href: "/appointments", label: "Appointments" },
               { href: "/messages", label: "Messages" },
-              { href: "/contact", label: "Contact Us" },
             ].map((item) => (
               <Link
                 key={item.href}
