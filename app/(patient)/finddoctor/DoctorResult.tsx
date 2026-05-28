@@ -1,0 +1,593 @@
+
+//This file contains the map, cards, booking panel, and the load more button.
+
+"use client";
+
+import React, { JSX, useEffect, useMemo, useRef, useState } from "react";
+import type { DivIcon, LatLngExpression, Map as LeafletMap } from "leaflet";
+import {
+  Star,
+  Heart,
+  Plus,
+  Minus,
+  Navigation2,
+  Map as MapIcon,
+  RefreshCw,
+  Stethoscope,
+  Video,
+  Globe,
+  X,
+} from "lucide-react";
+import { FindDoctor } from "@/types/doctor";
+
+declare global {
+  interface Window {
+    __doctorMap?: LeafletMap;
+  }
+}
+
+const TIME_SLOTS = [
+  "9:00 AM",
+  "9:30 AM",
+  "10:00 AM",
+  "10:30 AM",
+  "11:00 AM",
+  "1:00 PM",
+  "1:30 PM",
+  "2:00 PM",
+];
+
+function MapControls({
+  center,
+  onSearchArea,
+}: {
+  center: LatLngExpression;
+  onSearchArea: () => void;
+}) {
+  return (
+    <div className="absolute right-6 top-6 z-20 flex flex-col gap-2">
+      <button
+        onClick={() => window.__doctorMap?.zoomIn()}
+        className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        aria-label="zoom in"
+      >
+        <Plus size={18} />
+      </button>
+
+      <button
+        onClick={() => window.__doctorMap?.zoomOut()}
+        className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        aria-label="zoom out"
+      >
+        <Minus size={18} />
+      </button>
+
+      <button
+        onClick={() => {
+          const map = window.__doctorMap;
+          if (map) {
+            map.panTo(center);
+            map.setZoom(14);
+          }
+        }}
+        className="mt-2 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        aria-label="locate center"
+      >
+        <Navigation2 size={18} />
+      </button>
+
+      <button
+        onClick={onSearchArea}
+        className="mt-2 w-max rounded-2xl border border-slate-100 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800/90"
+      >
+        <div className="flex items-center gap-3 text-sm font-medium">
+          <MapIcon size={18} className="text-[#008081]" />
+          <div className="text-left">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Searching in
+            </p>
+            <p className="font-bold text-slate-900 dark:text-white">
+              Davao City, PH
+            </p>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+export default function DoctorResults({
+  doctors,
+  totalCount,
+  loadingDoctors,
+  doctorError,
+  locationQuery,
+  page,
+  totalPages,
+  setPage,
+  sort,
+  setSort,
+}: {
+  doctors: FindDoctor[];
+  totalCount: number;
+  loadingDoctors: boolean;
+  doctorError: string | null;
+  locationQuery: string;
+  page: number;
+  totalPages: number;
+  setPage: React.Dispatch<React.SetStateAction<number>>;
+  sort: string;
+  setSort: React.Dispatch<React.SetStateAction<string>>;
+}) {
+  const [hasMounted, setHasMounted] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [activeDoctor, setActiveDoctor] = useState<FindDoctor | null>(null);
+  const [selectedTime, setSelectedTime] = useState("11:00 AM");
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+
+  const mapHostRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markerLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
+
+  const center = useMemo<LatLngExpression>(() => [7.1907, 125.4553], []);
+  const philippinesCenter = useMemo<LatLngExpression>(() => [12.8797, 121.774], []);
+
+  const selectedDate = useMemo(() => {
+    const days: {
+      key: string;
+      day: string;
+      date: number;
+      active: boolean;
+      muted: boolean;
+    }[] = [];
+
+    const now = new Date();
+
+    for (let i = 0; i < 7; i += 1) {
+      const d = new Date(now);
+      d.setDate(now.getDate() + i);
+
+      const day = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+
+      days.push({
+        key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+        day,
+        date: d.getDate(),
+        active: i === selectedDayIndex,
+        muted: day === "SAT" || day === "SUN",
+      });
+    }
+
+    return days;
+  }, [selectedDayIndex]);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  async function createDoctorIcon(img: string): Promise<DivIcon> {
+    const L = await import("leaflet");
+
+    return L.divIcon({
+      className: "custom-doctor-icon",
+      html: `
+        <div class="h-12 w-12 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
+          <img src="${img}" alt="Doctor" class="h-full w-full object-cover" />
+        </div>
+      `,
+      iconSize: [48, 48],
+      iconAnchor: [24, 48],
+      popupAnchor: [0, -48],
+    });
+  }
+
+  useEffect(() => {
+    if (!hasMounted) return;
+    if (!mapHostRef.current) return;
+    if (mapRef.current) return;
+
+    let cancelled = false;
+
+    const initMap = async () => {
+      const L = await import("leaflet");
+      if (cancelled || !mapHostRef.current || mapRef.current) return;
+
+      const map = L.map(mapHostRef.current, { zoomControl: false });
+
+      mapRef.current = map;
+      window.__doctorMap = map;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      markerLayerRef.current = L.layerGroup().addTo(map);
+      map.setView(philippinesCenter, 5);
+
+      const handleResize = () => map.invalidateSize();
+      window.addEventListener("resize", handleResize);
+
+      const timeout = window.setTimeout(() => {
+        try {
+          map.invalidateSize();
+        } catch {
+          // ignore
+        }
+      }, 200);
+
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        window.removeEventListener("resize", handleResize);
+        map.remove();
+        mapRef.current = null;
+        markerLayerRef.current = null;
+        if (window.__doctorMap === map) delete window.__doctorMap;
+      };
+
+      map.on("unload", cleanup);
+    };
+
+    void initMap();
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        try {
+          mapRef.current.remove();
+        } catch {
+          // ignore
+        }
+      }
+      mapRef.current = null;
+      markerLayerRef.current = null;
+      if (window.__doctorMap) delete window.__doctorMap;
+    };
+  }, [hasMounted, philippinesCenter]);
+
+  useEffect(() => {
+    const syncMarkers = async () => {
+      const map = mapRef.current;
+      const markerLayer = markerLayerRef.current;
+
+      if (!map || !markerLayer) return;
+
+      const L = await import("leaflet");
+      markerLayer.clearLayers();
+
+      const doctorsWithCoords = doctors.filter(
+        (doctor) => Array.isArray(doctor.coords) && doctor.coords.length === 2,
+      );
+
+      if (doctorsWithCoords.length === 0) return;
+
+      const bounds = L.latLngBounds(
+        doctorsWithCoords.map((doctor) => doctor.coords as [number, number]),
+      );
+
+      if (bounds.isValid()) {
+        map.fitBounds(bounds.pad(0.45));
+      }
+
+      for (const doctor of doctorsWithCoords) {
+        const icon = await createDoctorIcon(doctor.img);
+
+        const marker = L.marker(doctor.coords as LatLngExpression, { icon }).bindPopup(`
+          <div class="w-64 rounded-lg">
+            <div class="flex items-start gap-3">
+              <img src="${doctor.img}" alt="${doctor.name}" class="h-16 w-16 rounded-md object-cover" />
+              <div class="flex-1">
+                <h4 class="font-bold">${doctor.name}</h4>
+                <div class="text-xs font-bold uppercase text-[#008081]">${doctor.specialty}</div>
+                <div class="text-xs text-slate-500">${doctor.hospital}</div>
+                <div class="mt-2 flex items-center gap-2 text-sm">
+                  <span class="font-bold">${doctor.rating.toFixed(1)}</span>
+                  <span class="text-xs text-slate-400">(${doctor.reviews ?? 0} reviews)</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 text-right">
+              <div class="text-lg font-bold">₱${doctor.fee}</div>
+            </div>
+          </div>
+        `);
+
+        marker.addTo(markerLayer);
+      }
+    };
+
+    void syncMarkers();
+  }, [doctors]);
+
+  useEffect(() => {
+    mapRef.current?.invalidateSize();
+  }, [page]);
+
+  function openAvailabilityPanel(doctor: FindDoctor) {
+    if (doctor.status === "fully_booked") return;
+    setActiveDoctor(doctor);
+    setSelectedTime("11:00 AM");
+    setSelectedDayIndex(0);
+    setPanelOpen(true);
+  }
+
+  function loadMore() {
+    if (page < totalPages) setPage((p) => p + 1);
+    else setPage(1);
+  }
+
+  const isAllLoaded = page >= totalPages;
+
+  return (
+    <>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            {loadingDoctors
+              ? "Loading doctors..."
+              : `${totalCount} Doctors in ${locationQuery === "All areas" ? "All Areas" : locationQuery}`}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Found near Poblacion District &amp; Matina
+          </p>
+          {doctorError ? <p className="mt-1 text-sm text-red-500">{doctorError}</p> : null}
+        </div>
+
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800">
+          <span>Sort:</span>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="cursor-pointer border-none bg-transparent p-0 pr-6 text-sm font-semibold text-slate-700 focus:ring-0 dark:text-slate-300"
+          >
+            <option>Recommended</option>
+            <option>Highest Rated</option>
+            <option>Consultation Fee</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {doctors.map((d) => (
+          <article
+            key={d.id}
+            className="doctor-card group flex flex-col gap-6 rounded-2xl border border-slate-100 bg-white p-6 transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:flex-row"
+          >
+            <div className="relative h-36 w-full flex-shrink-0 sm:w-36">
+              <img
+                src={d.img}
+                alt={d.name}
+                className="h-full w-full rounded-xl object-cover shadow-md"
+              />
+              <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-slate-100 bg-white/95 px-2 py-0.5 text-xs font-bold shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
+                <Star size={14} className="text-yellow-400" />
+                <span>{d.rating.toFixed(1)}</span>
+              </div>
+            </div>
+
+            <div className="z-10 flex flex-1 flex-col justify-between">
+              <div>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 transition-colors group-hover:text-[#008081] dark:text-white">
+                      {d.name}
+                    </h3>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className="text-sm font-bold text-[#008081]">
+                        {d.specialty}
+                      </p>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <p className="text-xs text-slate-500">{d.hospital}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    className="p-1 text-slate-300 transition-colors hover:text-red-500"
+                    aria-label="favorite"
+                  >
+                    <Heart size={18} />
+                  </button>
+                </div>
+
+                <p className="mt-3 line-clamp-2 text-sm text-slate-500">
+                  {d.specialty} with years of experience — patient-centered care,
+                  board certifications and community trust.
+                </p>
+
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-500">
+                  {d.tags?.map((tag) => (
+                    <div
+                      key={tag}
+                      className={`flex items-center gap-1.5 rounded px-2 py-1 ${
+                        tag.includes("Accepting")
+                          ? "bg-green-50 text-[#81B641] dark:bg-green-900/20"
+                          : "bg-slate-100 dark:bg-slate-700/50"
+                      }`}
+                    >
+                      {tag.includes("Online") ? (
+                        <Video size={14} />
+                      ) : tag.toLowerCase().includes("language") ? (
+                        <Globe size={14} />
+                      ) : (
+                        <Stethoscope size={14} />
+                      )}
+                      <span className="text-[11px]">{tag}</span>
+                    </div>
+                  ))}
+
+                  <div className="flex items-center gap-1.5 rounded bg-slate-100 px-2 py-1 dark:bg-slate-700/50">
+                    <span className="text-[#008081]">
+                      <MapIcon size={14} />
+                    </span>
+                    <span className="text-[11px]">{d.locationLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-5 dark:border-slate-700">
+                <div>
+                  <span className="mb-0.5 block text-xs text-slate-400">
+                    Consultation Fee
+                  </span>
+                  <div className="text-lg font-bold text-slate-900 dark:text-white">
+                    ₱{d.fee}{" "}
+                    <span className="text-xs font-normal text-slate-400">
+                      / visit
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {d.status === "fully_booked" ? (
+                    <button
+                      className="cursor-not-allowed rounded-full bg-slate-100 px-6 py-2.5 text-sm font-bold text-slate-400"
+                      disabled
+                    >
+                      Fully Booked
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => openAvailabilityPanel(d)}
+                      className="rounded-full bg-[#008081] px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#00736f] hover:shadow-xl"
+                    >
+                      Book Consultation
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="mb-10 mt-6 flex justify-center">
+        <button
+          onClick={loadMore}
+          className="flex items-center gap-2 rounded-full border border-[#008081]/20 px-8 py-3 font-bold text-[#008081] transition-colors hover:bg-[#008081]/5"
+        >
+          {isAllLoaded ? "Show Less" : "Load More Specialists"}
+          <RefreshCw size={18} />
+        </button>
+      </div>
+
+      <aside className="relative z-0 hidden h-screen w-1/2 overflow-hidden bg-slate-100 dark:bg-[#0f172a] lg:block">
+        <div ref={mapHostRef} className="h-full w-full" />
+        <MapControls
+          center={center}
+          onSearchArea={() => {
+            const el = document.querySelector("section");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }}
+        />
+      </aside>
+
+      {panelOpen && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/30"
+          onClick={() => setPanelOpen(false)}
+        />
+      )}
+
+      <aside
+        className={[
+          "fixed right-0 top-0 z-[210] flex h-full w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300",
+          panelOpen ? "translate-x-0" : "translate-x-full",
+        ].join(" ")}
+      >
+        <div className="sticky top-0 flex items-start justify-between border-b border-[#e8e8e8] bg-white px-8 py-6">
+          <div>
+            <h3 className="font-['Manrope'] text-2xl font-bold text-[#0f766e]">
+              {activeDoctor?.name ?? "Doctor Schedule"}
+            </h3>
+            <p className="mt-1 text-sm text-[#5a6664]">
+              Select an available time
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPanelOpen(false)}
+            className="rounded-full p-2 text-[#6d7a77] transition hover:bg-[#f2f4f4] hover:text-[#1a1c1c]"
+            aria-label="Close panel"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-grow space-y-8 overflow-y-auto px-8 py-6">
+          <div>
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
+              This Week
+            </h4>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {selectedDate.map((item, index) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setSelectedDayIndex(index)}
+                  className={[
+                    "flex min-w-[60px] flex-col items-center rounded-lg p-3 transition-colors",
+                    item.active
+                      ? "bg-[#0f766e] text-white"
+                      : item.muted
+                        ? "bg-[#f3f3f4] text-[#bcc9c6]"
+                        : "bg-[#f3f3f4] text-[#1a1c1c] hover:bg-[#e8e8e8]",
+                  ].join(" ")}
+                >
+                  <span className="text-xs uppercase">{item.day}</span>
+                  <span className="text-lg font-bold">{item.date}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
+              Available Slots
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              {TIME_SLOTS.map((time) => {
+                const selected = time === selectedTime;
+
+                return (
+                  <button
+                    key={time}
+                    type="button"
+                    onClick={() => setSelectedTime(time)}
+                    className={[
+                      "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
+                      selected
+                        ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
+                        : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
+                    ].join(" ")}
+                  >
+                    {time}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                className="rounded-lg border border-[#bcc9c6]/30 bg-[#e8e8e8] px-4 py-3 text-center text-sm font-medium text-[#6d7a77] opacity-50"
+                disabled
+              >
+                10:00 AM (Booked)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-auto border-t border-[#e8e8e8] bg-[#f9f9f9] p-8">
+          <button
+            type="button"
+            className="w-full rounded-full bg-[#0f766e] py-4 text-lg font-bold text-white transition hover:bg-[#0b5f59]"
+          >
+            Confirm {selectedTime}
+          </button>
+          <p className="mt-4 text-center text-xs text-[#5a6664]">
+            A confirmation will be sent to your registered email.
+          </p>
+        </div>
+      </aside>
+    </>
+  );
+}

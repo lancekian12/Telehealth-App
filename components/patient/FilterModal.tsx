@@ -6,22 +6,42 @@ import {
   Plus,
   Stethoscope,
   Star,
-  CalendarCheck2,
   Wallet,
+  Video,
+  Globe,
+  ShieldCheck,
+  UserCheck,
   X,
 } from "lucide-react";
 
 type FilterModalProps = {
   open: boolean;
   onClose: () => void;
+
   specialty: string;
   setSpecialty: (value: string) => void;
+
   minRating: number;
   setMinRating: (value: number) => void;
+
   minPrice: number;
   setMinPrice: (value: number) => void;
+
   maxPrice: number;
   setMaxPrice: (value: number) => void;
+
+  consultationMode: "all" | "video" | "in_person";
+  setConsultationMode: (value: "all" | "video" | "in_person") => void;
+
+  language: string;
+  setLanguage: (value: string) => void;
+
+  verifiedOnly: boolean;
+  setVerifiedOnly: (value: boolean) => void;
+
+  acceptingOnly: boolean;
+  setAcceptingOnly: (value: boolean) => void;
+
   onApply: () => void;
   onReset: () => void;
 };
@@ -36,6 +56,14 @@ const SPECIALTY_OPTIONS = [
   "Neurologist",
 ];
 
+const LANGUAGE_OPTIONS = [
+  "All languages",
+  "English",
+  "Tagalog",
+  "Cebuano",
+  "Bisaya",
+];
+
 export default function FilterModal({
   open,
   onClose,
@@ -47,6 +75,14 @@ export default function FilterModal({
   setMinPrice,
   maxPrice,
   setMaxPrice,
+  consultationMode,
+  setConsultationMode,
+  language,
+  setLanguage,
+  verifiedOnly,
+  setVerifiedOnly,
+  acceptingOnly,
+  setAcceptingOnly,
   onApply,
   onReset,
 }: FilterModalProps) {
@@ -56,11 +92,11 @@ export default function FilterModal({
 
   return (
     <div
-      className="fixed mt-10 inset-0 z-[999] flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm"
+      className="fixed inset-0 z-[999] mt-10 flex items-center justify-center bg-black/40 p-3 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-[600px] max-h-[85vh] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        className="flex max-h-[85vh] w-full max-w-[600px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
@@ -230,28 +266,110 @@ export default function FilterModal({
 
           <div className="h-px w-full bg-slate-200" />
 
+          <section>
+            <div className="mb-4 flex items-center gap-2">
+              <Video className="text-[#008081]" size={20} />
+              <h3 className="text-lg font-semibold text-slate-900">
+                Consultation Type
+              </h3>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {[
+                { value: "all", label: "All" },
+                { value: "video", label: "Video" },
+                { value: "in_person", label: "In Person" },
+              ].map((item) => {
+                const active = consultationMode === item.value;
+
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() =>
+                      setConsultationMode(
+                        item.value as "all" | "video" | "in_person",
+                      )
+                    }
+                    className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                      active
+                        ? "bg-[#008081] text-white shadow-md"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="h-px w-full bg-slate-200" />
+
+          <section>
+            <div className="mb-4 flex items-center gap-2">
+              <Globe className="text-[#008081]" size={20} />
+              <h3 className="text-lg font-semibold text-slate-900">
+                Language
+              </h3>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {LANGUAGE_OPTIONS.map((item) => {
+                const active = language === item;
+
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setLanguage(item)}
+                    className={`rounded-full px-4 py-2.5 text-sm font-medium transition-all ${
+                      active
+                        ? "bg-[#008081] text-white shadow-md"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="h-px w-full bg-slate-200" />
+
           <section className="pb-2">
             <div className="mb-4 flex items-center gap-2">
-              <CalendarCheck2 className="text-[#008081]" size={20} />
+              <ShieldCheck className="text-[#008081]" size={20} />
               <h3 className="text-lg font-semibold text-slate-900">
-                Availability
+                Doctor Status
               </h3>
             </div>
 
             <div className="grid gap-3">
               {[
-                "Accepting New Patients",
-                "Available Today",
-                "In-Person Consultation",
-                "Video Call Only",
+                {
+                  label: "Verified Only",
+                  desc: "Doctors with verified profiles",
+                  checked: verifiedOnly,
+                  setChecked: setVerifiedOnly,
+                },
+                {
+                  label: "Accepting New Patients",
+                  desc: "Doctors currently open for booking",
+                  checked: acceptingOnly,
+                  setChecked: setAcceptingOnly,
+                },
               ].map((item) => (
                 <label
-                  key={item}
+                  key={item.label}
                   className="flex cursor-pointer items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:border-[#008081]/30 hover:bg-slate-50"
                 >
                   <div className="relative flex items-center justify-center">
                     <input
                       type="checkbox"
+                      checked={item.checked}
+                      onChange={(e) => item.setChecked(e.target.checked)}
                       className="peer h-5 w-5 appearance-none rounded-md border-2 border-slate-300 bg-white transition-all checked:border-[#008081] checked:bg-[#008081]"
                     />
                     <Check
@@ -262,17 +380,9 @@ export default function FilterModal({
 
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-slate-800">
-                      {item}
+                      {item.label}
                     </span>
-                    <span className="text-xs text-slate-500">
-                      {item === "Video Call Only"
-                        ? "Online consultation appointments only"
-                        : item === "In-Person Consultation"
-                        ? "Clinic or hospital visit appointments"
-                        : item === "Available Today"
-                        ? "Doctors with open schedules today"
-                        : "Doctors currently accepting bookings"}
-                    </span>
+                    <span className="text-xs text-slate-500">{item.desc}</span>
                   </div>
                 </label>
               ))}

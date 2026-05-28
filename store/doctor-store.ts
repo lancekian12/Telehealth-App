@@ -308,7 +308,7 @@ export const useDoctorStore = create<DoctorStore>((set, get) => ({
         throw new Error(data.message || "Failed to load doctor profile");
       }
 
-      const doctor = Array.isArray(data.doctors) ? data.doctors[0] : null;
+      const doctor = Array.isArray(data.doctor) ? data.doctor[0] : null;
 
       set({
         currentDoctor: doctor,

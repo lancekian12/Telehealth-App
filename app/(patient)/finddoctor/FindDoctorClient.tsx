@@ -103,6 +103,12 @@ export default function FindDoctorClient(): JSX.Element {
   const [page, setPage] = useState(1);
   const [hasMounted, setHasMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [consultationMode, setConsultationMode] = useState<
+    "all" | "video" | "in_person"
+  >("all");
+  const [language, setLanguage] = useState("All languages");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [acceptingOnly, setAcceptingOnly] = useState(false);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [specialtyFilter, setSpecialtyFilter] = useState("All specialties");
@@ -135,44 +141,44 @@ export default function FindDoctorClient(): JSX.Element {
         setLoadingDoctors(true);
         setDoctorError(null);
 
-        const res = await fetch("/api/doctor");
+        const res = await fetch("/api/doctors");
         const data = await res.json();
 
         if (!res.ok || !data.success) {
           throw new Error(data.message || "Failed to load doctors");
         }
 
-        const mappedDoctors: FindDoctor[] = (data.doctors as DoctorApiItem[]).map(
-          (doctor) => {
-            const tags = [
-              ...(doctor.verified ? ["Verified"] : []),
-              ...(doctor.acceptsNewPatients ? ["Accepting patients"] : []),
-              ...(doctor.consultationModes.includes("video")
-                ? ["Online Available"]
-                : []),
-              ...(doctor.languages || []),
-            ];
+        const mappedDoctors: FindDoctor[] = (
+          data.doctors as DoctorApiItem[]
+        ).map((doctor) => {
+          const tags = [
+            ...(doctor.verified ? ["Verified"] : []),
+            ...(doctor.acceptsNewPatients ? ["Accepting patients"] : []),
+            ...(doctor.consultationModes.includes("video")
+              ? ["Online Available"]
+              : []),
+            ...(doctor.languages || []),
+          ];
 
-            return {
-              id: doctor.id,
-              name: doctor.fullName,
-              specialty: doctor.specialization,
-              hospital: doctor.clinicAddress || "Clinic",
-              locationLabel: doctor.clinicAddress || "Unknown location",
-              coords:
-                typeof doctor.latitude === "number" &&
-                typeof doctor.longitude === "number"
-                  ? [doctor.latitude, doctor.longitude]
-                  : null,
-              fee: doctor.consultationFee ?? 0,
-              rating: doctor.rating ?? 0,
-              reviews: 0,
-              img: doctor.profilePicture || "/doctor-placeholder.png",
-              tags,
-              status: doctor.acceptsNewPatients ? "accepting" : "fully_booked",
-            };
-          },
-        );
+          return {
+            id: doctor.id,
+            name: doctor.fullName,
+            specialty: doctor.specialization,
+            hospital: doctor.clinicAddress || "Clinic",
+            locationLabel: doctor.clinicAddress || "Unknown location",
+            coords:
+              typeof doctor.latitude === "number" &&
+              typeof doctor.longitude === "number"
+                ? [doctor.latitude, doctor.longitude]
+                : null,
+            fee: doctor.consultationFee ?? 0,
+            rating: doctor.rating ?? 0,
+            reviews: 0,
+            img: doctor.profilePicture || "/doctor-placeholder.png",
+            tags,
+            status: doctor.acceptsNewPatients ? "accepting" : "fully_booked",
+          };
+        });
 
         setDoctors(mappedDoctors);
       } catch (error) {
@@ -492,12 +498,24 @@ export default function FindDoctorClient(): JSX.Element {
               setMinPrice={setMinPrice}
               maxPrice={maxPrice}
               setMaxPrice={setMaxPrice}
+              consultationMode={consultationMode}
+              setConsultationMode={setConsultationMode}
+              language={language}
+              setLanguage={setLanguage}
+              verifiedOnly={verifiedOnly}
+              setVerifiedOnly={setVerifiedOnly}
+              acceptingOnly={acceptingOnly}
+              setAcceptingOnly={setAcceptingOnly}
               onApply={() => setFiltersOpen(false)}
               onReset={() => {
                 setSpecialtyFilter("All specialties");
                 setMinRating(0);
                 setMinPrice(0);
                 setMaxPrice(5000);
+                setConsultationMode("all");
+                setLanguage("All languages");
+                setVerifiedOnly(false);
+                setAcceptingOnly(false);
               }}
             />
 
@@ -506,7 +524,7 @@ export default function FindDoctorClient(): JSX.Element {
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
                   {loadingDoctors
                     ? "Loading doctors..."
-                    : `${filteredAll.length} Doctors in Davao`}
+                    : `${filteredAll.length} Doctors in ${locationQuery === "All areas" ? "All Areas" : locationQuery}`}
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
                   Found near Poblacion District &amp; Matina

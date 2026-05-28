@@ -120,18 +120,25 @@ async function geocodeAddress(address: string) {
         headers: {
           "User-Agent": "AppointCare/1.0",
         },
-      },
+      }
     );
 
+    if (!response.ok) {
+      console.error("Geocode request failed:", response.status);
+      return null;
+    }
+
     const data = await response.json();
+
+    console.log("Geocode result:", data);
 
     if (!Array.isArray(data) || data.length === 0) {
       return null;
     }
 
     return {
-      latitude: Number(data[0].lat),
-      longitude: Number(data[0].lon),
+      latitude: parseFloat(data[0].lat),
+      longitude: parseFloat(data[0].lon),
     };
   } catch (error) {
     console.error("Geocoding failed:", error);
