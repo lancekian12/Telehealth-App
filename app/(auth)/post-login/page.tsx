@@ -1,6 +1,10 @@
+// app/post-login/page.tsx
+
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+
 import { connectDB } from "@/config/mongodb";
+import { Doctor } from "@/models/doctor";
 import { Patient } from "@/models/patient";
 
 export default async function PostLoginPage() {
@@ -12,21 +16,60 @@ export default async function PostLoginPage() {
 
   await connectDB();
 
-  const patient = await Patient.findOne({ clerkId: userId });
+  const doctor = await Doctor.findOne({
+    clerkId: userId,
+    role: "doctor",
+  }).lean();
 
-  const needsDetails =
-    !patient ||
-    !patient.fullName ||
-    !patient.birthday ||
-    !patient.weight ||
-    !patient.height ||
-    !patient.email ||
-    !patient.phone ||
-    !patient.basicMedicalHistory;
+  const patient = await Patient.findOne({
+    clerkId: userId,
+    role: "patient",
+  }).lean();
 
-  if (needsDetails) {
-    redirect("/patientsignup/patientsignupdetails");
+  /**
+   * ======================
+   * DOCTOR FLOW
+   * ======================
+   */
+  if (doctor) {
+    const needsDoctorDetails =
+      !doctor.fullName ||
+      !doctor.specialization ||
+      !doctor.bio ||
+      !doctor.email ||
+      !doctor.phone ||
+      !doctor.licenseNumber ||
+      !doctor.profilePicture ||
+      !doctor.clinicAddress;
+
+    if (needsDoctorDetails) {
+      redirect("/doctorsignup/doctorsignupdetails");
+    }
+
+    redirect("/doctor/home");
   }
 
-  redirect("/");
+  /**
+   * ======================
+   * PATIENT FLOW
+   * ======================
+   */
+  if (patient) {
+    const needsPatientDetails =
+      !patient.fullName ||
+      !patient.birthday ||
+      !patient.weight ||
+      !patient.height ||
+      !patient.email ||
+      !patient.phone ||
+      !patient.basicMedicalHistory;
+
+    if (needsPatientDetails) {
+      redirect("/patientsignup/patientsignupdetails");
+    }
+
+    redirect("/");
+  }
+
+  redirect("/"); 
 }

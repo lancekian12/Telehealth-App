@@ -15,23 +15,49 @@ export async function GET() {
     if (!userId) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
     await connectDB();
 
-    const patient = await Patient.findOne({ clerkId: userId });
+    const patient = await Patient.findOne({
+      clerkId: userId,
+      role: "patient",
+    }).lean();
 
-    return NextResponse.json({
-      success: true,
-      patient,
-    });
+    if (!patient) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Patient not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        patient: {
+          role: patient.role,
+          fullName: patient.fullName,
+          profilePicture:
+            patient.profilePicture || "",
+          email: patient.email,
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.log(error);
+
     return NextResponse.json(
-      { success: false, message: "Server Error" },
-      { status: 500 },
+      {
+        success: false,
+        message: "Server Error",
+      },
+      { status: 500 }
     );
   }
 }

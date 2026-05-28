@@ -1,5 +1,8 @@
+export type UserRole = "patient" | "doctor";
+
 export type FormFields = {
-  
+  role: UserRole;
+
   fullName: string;
   birthday: string;
   weight: string;
@@ -14,6 +17,8 @@ export interface Patient {
   _id?: string;
 
   clerkId: string;
+
+  role: UserRole;
 
   fullName: string;
 

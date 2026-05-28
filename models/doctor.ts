@@ -19,7 +19,7 @@ const TimeSlotSchema = new Schema(
       default: true,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const DoctorSchema = new Schema(
@@ -114,6 +114,11 @@ const DoctorSchema = new Schema(
       type: [TimeSlotSchema],
       default: [],
     },
+    role: {
+      type: String,
+      enum: ["patient", "doctor"],
+      default: "doctor",
+    },
 
     unavailableSlots: [
       {
@@ -153,7 +158,7 @@ const DoctorSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export const Doctor = models.Doctor || model("Doctor", DoctorSchema);

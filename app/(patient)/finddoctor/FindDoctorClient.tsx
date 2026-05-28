@@ -273,10 +273,12 @@ export default function FindDoctorClient(): JSX.Element {
   }, [filteredAll, page]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasMounted(true);
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [
     query,

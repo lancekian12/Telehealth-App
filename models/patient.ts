@@ -1,4 +1,4 @@
-import  { Schema, models, model } from "mongoose";
+import { Schema, models, model } from "mongoose";
 
 const PatientSchema = new Schema(
   {
@@ -6,6 +6,11 @@ const PatientSchema = new Schema(
       type: String,
       required: true,
       unique: true,
+    },
+    role: {
+      type: String,
+      enum: ["patient", "doctor"],
+      default: "patient",
     },
 
     fullName: {
@@ -54,8 +59,7 @@ const PatientSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-export const Patient =
-  models.Patient || model("Patient", PatientSchema);
+export const Patient = models.Patient || model("Patient", PatientSchema);
