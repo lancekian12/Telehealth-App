@@ -1,5 +1,27 @@
 import { Schema, models, model } from "mongoose";
 
+const TimeSlotSchema = new Schema(
+  {
+    day: {
+      type: String,
+      required: true,
+    },
+    startTime: {
+      type: String,
+      required: true,
+    },
+    endTime: {
+      type: String,
+      required: true,
+    },
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { _id: false }
+);
+
 const DoctorSchema = new Schema(
   {
     clerkId: {
@@ -42,6 +64,91 @@ const DoctorSchema = new Schema(
     phone: {
       type: String,
       required: true,
+    },
+
+    licenseNumber: {
+      type: String,
+      default: "",
+    },
+
+    experienceYears: {
+      type: Number,
+      default: 0,
+    },
+
+    rating: {
+      type: Number,
+      default: 0,
+    },
+
+    consultationFee: {
+      type: Number,
+      default: 0,
+    },
+
+    consultationModes: [
+      {
+        type: String,
+        enum: ["video", "in_person", "phone"],
+      },
+    ],
+
+    languages: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    acceptsNewPatients: {
+      type: Boolean,
+      default: true,
+    },
+
+    workingHours: {
+      type: [TimeSlotSchema],
+      default: [],
+    },
+
+    unavailableSlots: [
+      {
+        date: {
+          type: Date,
+          required: true,
+        },
+        startTime: {
+          type: String,
+          required: true,
+        },
+        endTime: {
+          type: String,
+          required: true,
+        },
+        reason: {
+          type: String,
+          default: "Blocked",
+        },
+      },
+    ],
+
+    consultationDurationMinutes: {
+      type: Number,
+      default: 30,
+    },
+
+    clinicAddress: {
+      type: String,
+      default: "",
+    },
+
+    pushNotificationToken: {
+      type: String,
+      default: "",
     },
   },
   {

@@ -17,6 +17,8 @@
     "@fullcalendar/react": "^6.1.20",
     "@fullcalendar/timegrid": "^6.1.20",
     "@heroicons/react": "^2.2.0",
+    "@stream-io/node-sdk": "^0.7.59",
+    "@stream-io/video-react-sdk": "^1.37.3",
     "cloudinary": "^1.41.3",
     "lucide-react": "^1.16.0",
     "mongoose": "^9.6.2",
