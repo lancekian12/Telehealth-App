@@ -142,3 +142,66 @@ export type FindDoctor = {
   consultationModes?: Array<"video" | "in_person">;
   languages?: string[];
 };
+
+export type WorkingHour = {
+  day: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+};
+
+export type UnavailableSlot = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  reason?: string;
+};
+
+export type ScheduleOverride = {
+  date: string; // YYYY-MM-DD
+  status: "available" | "blocked";
+  startTime?: string | null;
+  endTime?: string | null;
+  reason?: string;
+};
+
+export type AppointmentType = "online" | "clinic";
+
+export type AppointmentRecord = {
+  id: string;
+  patientName: string;
+  patientAvatar?: string;
+  date: string;
+  time: string;
+  type: AppointmentType;
+  reason?: string;
+  status?: "pending" | "confirmed" | "completed" | "cancelled";
+};
+
+export type DoctorResponse = {
+  success: boolean;
+  message?: string;
+  doctor?: {
+    workingHours?: WorkingHour[];
+    unavailableSlots?: UnavailableSlot[];
+    appointments?: unknown;
+    bookings?: unknown;
+    scheduledPatients?: unknown;
+    consultationDurationMinutes?: number;
+  };
+};
+
+export type ScheduleResponse = {
+  scheduleOverrides: any;
+  success: boolean;
+  message?: string;
+  workingHours?: WorkingHour[];
+  unavailableSlots?: UnavailableSlot[];
+};
+
+export type AppointmentEventProps = {
+  type: AppointmentType;
+  description?: string;
+  patientName?: string;
+  status?: string;
+};

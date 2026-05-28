@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import FullCalendar from "@fullcalendar/react";
 import type { DateClickArg } from "@fullcalendar/interaction";
 import type { EventInput } from "@fullcalendar/core";
@@ -20,54 +27,21 @@ import {
   RefreshCw,
   Clock3,
   Ban,
-  UserRound,
+  X,
+  Repeat,
+  Check,
+  CalendarDays,
 } from "lucide-react";
-
-type WorkingHour = {
-  day: string;
-  startTime: string;
-  endTime: string;
-  isAvailable: boolean;
-};
-
-type UnavailableSlot = {
-  date: string;
-  startTime: string;
-  endTime: string;
-  reason?: string;
-};
-
-type AppointmentType = "online" | "clinic";
-
-type AppointmentRecord = {
-  id: string;
-  patientName: string;
-  patientAvatar?: string;
-  date: string;
-  time: string;
-  type: AppointmentType;
-  reason?: string;
-  status?: "pending" | "confirmed" | "completed" | "cancelled";
-};
-
-type DoctorResponse = {
-  success: boolean;
-  message?: string;
-  doctor?: {
-    workingHours?: WorkingHour[];
-    unavailableSlots?: UnavailableSlot[];
-    appointments?: unknown;
-    bookings?: unknown;
-    scheduledPatients?: unknown;
-  };
-};
-
-type AppointmentEventProps = {
-  type: AppointmentType;
-  description?: string;
-  patientName?: string;
-  status?: string;
-};
+import {
+  AppointmentEventProps,
+  AppointmentRecord,
+  AppointmentType,
+  DoctorResponse,
+  ScheduleResponse,
+  UnavailableSlot,
+  WorkingHour,
+} from "@/types/doctor";
+import CreateSchedule from "@/components/doctor/create-schedule";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -105,6 +79,23 @@ function formatShortDate(dateStr: string) {
 
 function formatTimeRange(startTime: string, endTime: string) {
   return `${startTime} - ${endTime}`;
+}
+
+function formatDateAndTime(
+  dateStr: string,
+  startTime: string,
+  endTime: string,
+) {
+  return `${formatShortDate(dateStr)} • ${formatTimeRange(startTime, endTime)}`;
+}
+
+function addMinutesToTime(time: string, minutes: number) {
+  const [h, m] = time.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  const normalized = ((total % 1440) + 1440) % 1440;
+  const nextH = Math.floor(normalized / 60);
+  const nextM = normalized % 60;
+  return `${String(nextH).padStart(2, "0")}:${String(nextM).padStart(2, "0")}`;
 }
 
 function normalizeAppointments(input: unknown): AppointmentRecord[] {
@@ -172,50 +163,107 @@ function normalizeAppointments(input: unknown): AppointmentRecord[] {
     .filter((x): x is AppointmentRecord => x !== null);
 }
 
-function normalizeSchedule(doctor: DoctorResponse["doctor"]) {
-  const workingHours = Array.isArray(doctor?.workingHours) ? doctor!.workingHours! : [];
-  const unavailableSlots = Array.isArray(doctor?.unavailableSlots)
-    ? doctor!.unavailableSlots!
-    : [];
+type WorkingHourView = WorkingHour & {
+  date?: string;
+  day?: string;
+  isAvailable?: boolean;
+};
 
-  return { workingHours, unavailableSlots };
-}
+type ScheduleListItem = {
+  id: string;
+  kind: "appointment" | "blocked";
+  date: string;
+  startTime: string;
+  endTime: string;
+  title: string;
+  description: string;
+  badgeText: string;
+  badgeClassName: string;
+  avatar?: string;
+  appointmentType?: AppointmentType;
+};
 
 export default function DoctorAppointmentClient() {
   const calendarRef = useRef<FullCalendar | null>(null);
 
-  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString(new Date()));
+  const [selectedDate, setSelectedDate] = useState(() =>
+    getLocalDateString(new Date()),
+  );
   const [workingHours, setWorkingHours] = useState<WorkingHour[]>([]);
-  const [unavailableSlots, setUnavailableSlots] = useState<UnavailableSlot[]>([]);
+  const [unavailableSlots, setUnavailableSlots] = useState<UnavailableSlot[]>(
+    [],
+  );
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [consultationDurationMinutes, setConsultationDurationMinutes] =
+    useState(30);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showCreateSchedule, setShowCreateSchedule] = useState(false);
+
+  const [showNewSlot, setShowNewSlot] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<AppointmentRecord | null>(null);
+
+  const [slotDate, setSlotDate] = useState("");
+  const [slotStatus, setSlotStatus] = useState<"available" | "blocked">(
+    "available",
+  );
+  const [slotStartTime, setSlotStartTime] = useState("00:00");
+  const [slotEndTime, setSlotEndTime] = useState("23:59");
+  const [slotReason, setSlotReason] = useState("");
+
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleStartTime, setRescheduleStartTime] = useState("09:00");
+  const [rescheduleEndTime, setRescheduleEndTime] = useState("09:30");
+  const [saving, setSaving] = useState(false);
+  const [showAllSchedule, setShowAllSchedule] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
 
     try {
-      const res = await fetch("/api/doctor", { method: "GET" });
-      const json: DoctorResponse = await res.json();
+      const [doctorRes, scheduleRes] = await Promise.all([
+        fetch("/api/doctor", { method: "GET" }),
+        fetch("/api/doctor/schedule-settings", { method: "GET" }),
+      ]);
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to load doctor data");
+      const doctorJson: DoctorResponse = await doctorRes.json();
+      const scheduleJson: ScheduleResponse = await scheduleRes.json();
+
+      if (!doctorRes.ok || !doctorJson.success) {
+        throw new Error(doctorJson.message || "Failed to load doctor data");
       }
 
-      const schedule = normalizeSchedule(json.doctor);
-      setWorkingHours(schedule.workingHours);
-      setUnavailableSlots(schedule.unavailableSlots);
+      if (!scheduleRes.ok || !scheduleJson.success) {
+        throw new Error(scheduleJson.message || "Failed to load schedule data");
+      }
+
+      setWorkingHours(
+        scheduleJson.workingHours || doctorJson.doctor?.workingHours || [],
+      );
+      setUnavailableSlots(
+        scheduleJson.unavailableSlots ||
+          doctorJson.doctor?.unavailableSlots ||
+          [],
+      );
+
+      setConsultationDurationMinutes(
+        doctorJson.doctor?.consultationDurationMinutes || 30,
+      );
 
       const rawAppointments =
-        json.doctor?.appointments ??
-        json.doctor?.bookings ??
-        json.doctor?.scheduledPatients ??
+        doctorJson.doctor?.appointments ??
+        doctorJson.doctor?.bookings ??
+        doctorJson.doctor?.scheduledPatients ??
         [];
 
       setAppointments(normalizeAppointments(rawAppointments));
     } catch (error: unknown) {
-      setLoadError(error instanceof Error ? error.message : "Something went wrong");
+      setLoadError(
+        error instanceof Error ? error.message : "Something went wrong",
+      );
       setWorkingHours([]);
       setUnavailableSlots([]);
       setAppointments([]);
@@ -232,15 +280,33 @@ export default function DoctorAppointmentClient() {
     calendarRef.current?.getApi().gotoDate(selectedDate);
   }, [selectedDate]);
 
+  useEffect(() => {
+    if (!showCreateSchedule && !showReschedule) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowCreateSchedule(false);
+        setShowReschedule(false);
+        setShowAllSchedule(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showCreateSchedule, showReschedule]);
+
   const handleDateClick = (arg: DateClickArg) => {
     setSelectedDate(arg.dateStr);
+    setShowAllSchedule(false);
   };
 
   const appointmentEvents = useMemo<EventInput[]>(() => {
     return appointments.map((appt) => ({
       id: appt.id,
       title: appt.patientName,
-      start: `${appt.date}T${appt.time.length === 5 ? `${appt.time}:00` : appt.time}`,
+      start: `${appt.date}T${
+        appt.time.length === 5 ? `${appt.time}:00` : appt.time
+      }`,
       backgroundColor: appt.type === "clinic" ? "#81B641" : "#008081",
       borderColor: appt.type === "clinic" ? "#81B641" : "#008081",
       textColor: "#ffffff",
@@ -266,14 +332,53 @@ export default function DoctorAppointmentClient() {
     }));
   }, [unavailableSlots]);
 
-  const calendarEvents = useMemo<EventInput[]>(
-    () => [...appointmentEvents, ...blockedEvents],
-    [appointmentEvents, blockedEvents]
-  );
+  const calendarEvents = useMemo<EventInput[]>(() => {
+    return [...appointmentEvents, ...blockedEvents];
+  }, [appointmentEvents, blockedEvents]);
 
-  const eventsForSelectedDate = useMemo(() => {
-    return appointments.filter((appt) => appt.date === selectedDate);
-  }, [appointments, selectedDate]);
+  const selectedDaySchedule = useMemo<ScheduleListItem[]>(() => {
+    const selectedAppointments: ScheduleListItem[] = appointments
+      .filter((appt) => appt.date === selectedDate)
+      .map((appt) => ({
+        id: appt.id,
+        kind: "appointment",
+        date: appt.date,
+        startTime: appt.time,
+        endTime: addMinutesToTime(appt.time, consultationDurationMinutes),
+        title: appt.patientName,
+        description: appt.reason || "Booked appointment",
+        badgeText: appt.type === "online" ? "Online" : "Clinic",
+        badgeClassName:
+          appt.type === "online"
+            ? "bg-primary/10 text-primary"
+            : "bg-secondary/10 text-secondary",
+        avatar: appt.patientAvatar,
+        appointmentType: appt.type,
+      }));
+
+    const blockedItems: ScheduleListItem[] = unavailableSlots
+      .filter((slot) => slot.date === selectedDate)
+      .map((slot) => ({
+        id: `blocked-${slot.date}-${slot.startTime}-${slot.endTime}`,
+        kind: "blocked",
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        title: "Blocked Slot",
+        description: slot.reason || "Unavailable",
+        badgeText: "Blocked",
+        badgeClassName: "bg-red-100 text-red-700",
+      }));
+
+    return [...selectedAppointments, ...blockedItems].sort((a, b) =>
+      a.startTime.localeCompare(b.startTime),
+    );
+  }, [
+    appointments,
+    consultationDurationMinutes,
+    selectedDate,
+    unavailableSlots,
+  ]);
 
   const today = getLocalDateString(new Date());
   const todayAppointments = useMemo(() => {
@@ -283,6 +388,71 @@ export default function DoctorAppointmentClient() {
   const selectedUnavailableSlots = useMemo(() => {
     return unavailableSlots.filter((slot) => slot.date === selectedDate);
   }, [selectedDate, unavailableSlots]);
+
+  const workingHoursPreview = useMemo(() => {
+    return workingHours.slice(0, 9);
+  }, [workingHours]);
+
+  const handleOpenNewSlot = () => {
+    setSlotDate(selectedDate);
+    setSlotStatus("available");
+    setSlotStartTime("00:00");
+    setSlotEndTime("23:59");
+    setSlotReason("");
+    setShowCreateSchedule(true);
+  };
+
+  const handleReschedule = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedAppointment) return;
+
+    setSaving(true);
+
+    try {
+      const res = await fetch(
+        `/api/doctor/appointments/${selectedAppointment.id}/reschedule`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            appointmentDate: rescheduleDate,
+            startTime: rescheduleStartTime,
+            endTime: rescheduleEndTime,
+          }),
+        },
+      );
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || "Failed to reschedule appointment");
+      }
+
+      await loadData();
+      setShowReschedule(false);
+      setSelectedAppointment(null);
+    } catch (error: unknown) {
+      setLoadError(
+        error instanceof Error ? error.message : "Something went wrong",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openRescheduleModal = (appt: AppointmentRecord) => {
+    setSelectedAppointment(appt);
+    setRescheduleDate(appt.date);
+    setRescheduleStartTime(appt.time);
+    setRescheduleEndTime(
+      addMinutesToTime(appt.time, consultationDurationMinutes),
+    );
+    setShowReschedule(true);
+  };
+
+  const previewItems = selectedDaySchedule.slice(0, 9);
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -355,7 +525,10 @@ export default function DoctorAppointmentClient() {
                     Filters
                   </button>
 
-                  <button className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-lg transition-all flex items-center gap-2">
+                  <button
+                    onClick={handleOpenNewSlot}
+                    className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 shadow-lg transition-all flex items-center gap-2"
+                  >
                     <Plus size={14} />
                     New Slot
                   </button>
@@ -429,7 +602,9 @@ export default function DoctorAppointmentClient() {
                               ) : (
                                 <CheckCircle size={14} />
                               )}
-                              <span>{appt.type === "online" ? "Online" : "Clinic"}</span>
+                              <span>
+                                {appt.type === "online" ? "Online" : "Clinic"}
+                              </span>
                             </span>
                           </div>
 
@@ -451,7 +626,9 @@ export default function DoctorAppointmentClient() {
                   <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
                       <Clock3 size={16} className="text-primary" />
-                      <h4 className="font-semibold text-slate-800">Working Hours</h4>
+                      <h4 className="font-semibold text-slate-800">
+                        Working Hours
+                      </h4>
                     </div>
 
                     {workingHours.length === 0 ? (
@@ -460,28 +637,44 @@ export default function DoctorAppointmentClient() {
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {workingHours.map((item, index) => (
-                          <div
-                            key={`${item.day}-${index}`}
-                            className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"
-                          >
-                            <div>
-                              <p className="font-medium text-slate-800">{item.day}</p>
-                              <p className="text-slate-500">
-                                {formatTimeRange(item.startTime, item.endTime)}
-                              </p>
-                            </div>
-                            <span
-                              className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                                item.isAvailable
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-slate-200 text-slate-600"
-                              }`}
+                        {workingHoursPreview.map((item, index) => {
+                          const workingHour = item as WorkingHourView;
+                          const dateLabel = workingHour.date
+                            ? formatShortDate(workingHour.date)
+                            : workingHour.day || "Working hour";
+
+                          return (
+                            <div
+                              key={`${workingHour.date || workingHour.day || "working"}-${index}`}
+                              className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"
                             >
-                              {item.isAvailable ? "Available" : "Unavailable"}
-                            </span>
-                          </div>
-                        ))}
+                              <div>
+                                <p className="font-medium text-slate-800">
+                                  {dateLabel}
+                                </p>
+                                <p className="text-slate-500">
+                                  {workingHour.startTime && workingHour.endTime
+                                    ? formatTimeRange(
+                                        workingHour.startTime,
+                                        workingHour.endTime,
+                                      )
+                                    : "No time set"}
+                                </p>
+                              </div>
+                              <span
+                                className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                                  workingHour.isAvailable
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : "bg-slate-200 text-slate-600"
+                                }`}
+                              >
+                                {workingHour.isAvailable
+                                  ? "Available"
+                                  : "Unavailable"}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -489,7 +682,9 @@ export default function DoctorAppointmentClient() {
                   <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-3">
                       <Ban size={16} className="text-secondary" />
-                      <h4 className="font-semibold text-slate-800">Blocked Slots</h4>
+                      <h4 className="font-semibold text-slate-800">
+                        Blocked Slots
+                      </h4>
                     </div>
 
                     {selectedUnavailableSlots.length === 0 ? (
@@ -583,88 +778,160 @@ export default function DoctorAppointmentClient() {
                   </div>
 
                   <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                         <span className="w-2 h-6 bg-primary rounded-full" />
                         Schedule for {formatDateLabel(selectedDate)}
                       </h3>
-                      <span className="text-sm text-slate-500">
-                        {eventsForSelectedDate.length} appointment
-                        {eventsForSelectedDate.length !== 1 ? "s" : ""}
-                      </span>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-slate-500">
+                          {selectedDaySchedule.length} item
+                          {selectedDaySchedule.length !== 1 ? "s" : ""}
+                        </span>
+
+                        {selectedDaySchedule.length > 9 ? (
+                          <button
+                            onClick={() => setShowAllSchedule(true)}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
+                          >
+                            View all
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div className="space-y-3">
-                      {eventsForSelectedDate.length === 0 ? (
+                      {selectedDaySchedule.length === 0 ? (
                         <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-slate-500">
                           {selectedDate === today
                             ? "No patients today."
                             : `No appointments on ${formatDateLabel(selectedDate)}.`}
                         </div>
                       ) : (
-                        eventsForSelectedDate.map((appt) => (
-                          <div
-                            key={appt.id}
-                            className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all"
-                          >
-                            <div className="flex sm:flex-col items-center sm:items-start justify-center min-w-[5rem] text-center sm:text-left border-r sm:border-r-0 border-slate-100 pr-4 sm:pr-0">
-                              <span
-                                className={`text-xl font-bold ${
-                                  appt.type === "online"
-                                    ? "text-primary"
-                                    : "text-slate-700"
-                                }`}
-                              >
-                                {appt.time}
-                              </span>
-                              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                                {appt.type === "online" ? "ONLINE" : "CLINIC"}
-                              </span>
-                            </div>
-
-                            <div className="flex-1 flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-sm">
-                                {appt.patientName
-                                  .split(" ")
-                                  .slice(0, 2)
-                                  .map((s) => s[0])
-                                  .join("")}
-                              </div>
-
-                              <div className="min-w-0">
-                                <h4 className="font-bold text-slate-800 text-sm">
-                                  {appt.patientName}
-                                </h4>
-                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5 flex-wrap">
-                                  <span
-                                    className={`${
-                                      appt.type === "clinic"
+                        <>
+                          {previewItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all"
+                            >
+                              <div className="flex sm:flex-col items-center sm:items-start justify-center min-w-[8rem] text-center sm:text-left border-r sm:border-r-0 border-slate-100 pr-4 sm:pr-0">
+                                <span className="text-lg font-bold text-slate-800">
+                                  {item.startTime}
+                                </span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                                  {formatShortDate(item.date)}
+                                </span>
+                                <span
+                                  className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                    item.kind === "blocked"
+                                      ? "bg-red-100 text-red-700"
+                                      : item.appointmentType === "clinic"
                                         ? "bg-secondary/10 text-secondary"
                                         : "bg-primary/10 text-primary"
-                                    } px-1.5 py-0.5 rounded text-[10px] font-bold uppercase`}
-                                  >
-                                    {appt.type === "clinic" ? "Clinic" : "Online"}
-                                  </span>
-                                  <span>• {appt.reason || "Booked appointment"}</span>
+                                  }`}
+                                >
+                                  {item.kind === "blocked"
+                                    ? "Blocked"
+                                    : item.appointmentType === "clinic"
+                                      ? "Clinic"
+                                      : "Online"}
+                                </span>
+                              </div>
+
+                              <div className="flex-1 flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-sm overflow-hidden">
+                                  {item.kind === "blocked" ? (
+                                    <Ban size={16} className="text-red-500" />
+                                  ) : item.avatar ? (
+                                    <img
+                                      src={item.avatar}
+                                      alt={item.title}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    item.title
+                                      .split(" ")
+                                      .slice(0, 2)
+                                      .map((s) => s[0])
+                                      .join("")
+                                  )}
+                                </div>
+
+                                <div className="min-w-0">
+                                  <h4 className="font-bold text-slate-800 text-sm">
+                                    {item.title}
+                                  </h4>
+                                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5 flex-wrap">
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                        item.kind === "blocked"
+                                          ? "bg-red-100 text-red-700"
+                                          : item.badgeClassName
+                                      }`}
+                                    >
+                                      {item.badgeText}
+                                    </span>
+                                    <span>• {item.description}</span>
+                                    <span>
+                                      •{" "}
+                                      {formatDateAndTime(
+                                        item.date,
+                                        item.startTime,
+                                        item.endTime,
+                                      )}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="flex items-center">
-                              {appt.type === "online" ? (
-                                <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:opacity-90 shadow-lg transition-all flex items-center justify-center gap-2">
-                                  <Video size={14} />
-                                  Start Tele-Consult
-                                </button>
+                              {item.kind === "appointment" ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      const appt = appointments.find(
+                                        (a) => a.id === item.id,
+                                      );
+                                      if (appt) openRescheduleModal(appt);
+                                    }}
+                                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+                                  >
+                                    <RefreshCw size={14} />
+                                    Reschedule
+                                  </button>
+
+                                  {item.appointmentType === "online" ? (
+                                    <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:opacity-90 shadow-lg transition-all flex items-center justify-center gap-2">
+                                      <Video size={14} />
+                                      Start Tele-Consult
+                                    </button>
+                                  ) : (
+                                    <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-secondary text-white text-xs font-bold hover:opacity-90 shadow-lg transition-all flex items-center justify-center gap-2">
+                                      <CheckCircle size={14} />
+                                      Clinic Check-in
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
-                                <button className="w-full sm:w-auto px-4 py-2 rounded-xl bg-secondary text-white text-xs font-bold hover:opacity-90 shadow-lg transition-all flex items-center justify-center gap-2">
-                                  <CheckCircle size={14} />
-                                  Clinic Check-in
-                                </button>
+                                <div className="flex items-center">
+                                  <span className="text-xs font-semibold px-3 py-2 rounded-xl bg-red-50 text-red-700">
+                                    Schedule blocked
+                                  </span>
+                                </div>
                               )}
                             </div>
-                          </div>
-                        ))
+                          ))}
+
+                          {selectedDaySchedule.length > 9 ? (
+                            <button
+                              onClick={() => setShowAllSchedule(true)}
+                              className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                            >
+                              View all {selectedDaySchedule.length} schedule
+                              items
+                            </button>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </div>
@@ -681,6 +948,195 @@ export default function DoctorAppointmentClient() {
           </div>
         </main>
       </div>
+
+      {showCreateSchedule && (
+        <CreateSchedule
+          selectedDate={selectedDate}
+          onClose={() => setShowCreateSchedule(false)}
+          onSaved={async () => {
+            await loadData();
+            setShowCreateSchedule(false);
+          }}
+        />
+      )}
+
+      {showAllSchedule ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+          onClick={() => setShowAllSchedule(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-4xl rounded-[32px] border border-slate-200 bg-white shadow-2xl overflow-hidden"
+          >
+            <button
+              onClick={() => setShowAllSchedule(false)}
+              className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg"
+            >
+              <X className="h-5 w-5 text-slate-700" />
+            </button>
+
+            <div className="p-6 sm:p-8">
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-xs font-bold tracking-wide text-primary">
+                  <CalendarDays className="h-4 w-4" />
+                  FULL SCHEDULE
+                </div>
+
+                <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900">
+                  Schedule for {formatDateLabel(selectedDate)}
+                </h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  All appointments and blocked slots for the selected date.
+                </p>
+              </div>
+
+              <div className="max-h-[65vh] overflow-y-auto pr-1 space-y-3">
+                {selectedDaySchedule.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col md:flex-row gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="md:min-w-[10rem]">
+                      <p className="text-sm font-bold text-slate-900">
+                        {formatShortDate(item.date)}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        {item.startTime} - {item.endTime}
+                      </p>
+                      <span
+                        className={`mt-2 inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          item.kind === "blocked"
+                            ? "bg-red-100 text-red-700"
+                            : item.appointmentType === "clinic"
+                              ? "bg-secondary/10 text-secondary"
+                              : "bg-primary/10 text-primary"
+                        }`}
+                      >
+                        {item.badgeText}
+                      </span>
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="font-bold text-slate-900">{item.title}</p>
+                      <p className="text-sm text-slate-600 mt-1">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setShowAllSchedule(false)}
+                  className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showReschedule && selectedAppointment ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm"
+          onClick={() => setShowReschedule(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-2xl rounded-[32px] border border-slate-200 bg-white shadow-2xl"
+          >
+            <button
+              onClick={() => setShowReschedule(false)}
+              className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg"
+            >
+              <X className="h-5 w-5 text-slate-700" />
+            </button>
+
+            <div className="p-6 sm:p-8">
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-xs font-bold tracking-wide text-primary">
+                  <Repeat className="h-4 w-4" />
+                  RESCHEDULE APPOINTMENT
+                </div>
+
+                <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-900">
+                  Reschedule {selectedAppointment.patientName}
+                </h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Move this appointment to a new date and time.
+                </p>
+              </div>
+
+              <form className="space-y-6" onSubmit={handleReschedule}>
+                <div>
+                  <label className="mb-3 block text-sm font-bold text-slate-900">
+                    New Date
+                  </label>
+                  <input
+                    type="date"
+                    value={rescheduleDate}
+                    onChange={(e) => setRescheduleDate(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <label className="mb-3 block text-sm font-bold text-slate-900">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={rescheduleStartTime}
+                      onChange={(e) => setRescheduleStartTime(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-3 block text-sm font-bold text-slate-900">
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={rescheduleEndTime}
+                      onChange={(e) => setRescheduleEndTime(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-4 border-t border-slate-200 pt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowReschedule(false)}
+                    className="flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg disabled:opacity-70"
+                  >
+                    <Check className="h-4 w-4" />
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

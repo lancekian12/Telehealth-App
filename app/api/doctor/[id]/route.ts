@@ -1,3 +1,5 @@
+//doctor/[id]/route.ts
+
 import { NextResponse } from "next/server";
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
@@ -38,6 +40,7 @@ export async function GET(
           acceptsNewPatients: doctor.acceptsNewPatients ?? true,
           workingHours: doctor.workingHours ?? [],
           unavailableSlots: doctor.unavailableSlots ?? [],
+          scheduleOverrides: doctor.scheduleOverrides ?? [],
           consultationDurationMinutes: doctor.consultationDurationMinutes ?? 30,
           clinicAddress: doctor.clinicAddress || "",
         },

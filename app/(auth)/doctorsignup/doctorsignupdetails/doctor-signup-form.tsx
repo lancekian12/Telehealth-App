@@ -7,27 +7,12 @@ import { useUser } from "@clerk/nextjs";
 import {
   ChevronDown,
   ChevronUp,
-  Plus,
-  Trash2,
   UploadCloud,
 } from "lucide-react";
 import type { DoctorFormFields } from "@/types/doctor";
 import { useDoctorStore } from "@/store/doctor-store";
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-] as const;
-
-const accent = "#008081";
 const accentSoft = "bg-[#008081]/10";
-const accentBorder = "border-[#008081]/20";
-const neutralCard = "bg-white";
 const neutralPage = "bg-white";
 
 export default function DoctorSignupForm() {
@@ -46,12 +31,6 @@ export default function DoctorSignupForm() {
     setEmailFromClerk,
     setProfilePicture,
     toggleConsultationMode,
-    addWorkingHour,
-    updateWorkingHour,
-    removeWorkingHour,
-    addUnavailableSlot,
-    updateUnavailableSlot,
-    removeUnavailableSlot,
     setField,
     resetForm,
   } = useDoctorStore();
@@ -93,9 +72,6 @@ export default function DoctorSignupForm() {
     if (!form.phone.trim()) nextErrors.phone = "Contact number is required";
     if (form.consultationModes.length === 0) {
       nextErrors.consultationModes = "Choose at least one consultation mode";
-    }
-    if (form.workingHours.length === 0) {
-      nextErrors.workingHours = "Add at least one working hour";
     }
 
     if (!form.clinicName.trim()) {
@@ -147,8 +123,6 @@ export default function DoctorSignupForm() {
         ),
       );
 
-      formData.append("workingHours", JSON.stringify(form.workingHours));
-      formData.append("unavailableSlots", JSON.stringify(form.unavailableSlots));
       formData.append(
         "consultationDurationMinutes",
         form.consultationDurationMinutes || "30",
@@ -193,7 +167,6 @@ export default function DoctorSignupForm() {
   const fieldBase =
     "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition placeholder:text-slate-400 focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10";
   const labelBase = "mb-1.5 block text-sm font-medium text-slate-700";
-  const sectionCard = "rounded-2xl border border-slate-200 bg-white p-4";
 
   return (
     <div className={`min-h-screen ${neutralPage} text-slate-900`}>
@@ -218,7 +191,9 @@ export default function DoctorSignupForm() {
       <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-4 py-8 sm:py-12">
         <div className="mb-8 text-center">
           <div className="mb-3 flex items-center justify-center">
-            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${accentSoft}`}>
+            <div
+              className={`flex h-14 w-14 items-center justify-center rounded-2xl ${accentSoft}`}
+            >
               <UploadCloud className="h-7 w-7 text-[#008081]" />
             </div>
           </div>
@@ -259,7 +234,9 @@ export default function DoctorSignupForm() {
                 placeholder="Dr. Juan Dela Cruz"
                 type="text"
                 className={`${fieldBase} ${
-                  errors.fullName ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                  errors.fullName
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                    : ""
                 }`}
               />
               {errors.fullName && (
@@ -279,7 +256,9 @@ export default function DoctorSignupForm() {
                 placeholder="Cardiology, Pediatrics, Dermatology..."
                 type="text"
                 className={`${fieldBase} ${
-                  errors.specialization ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                  errors.specialization
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                    : ""
                 }`}
               />
               {errors.specialization && (
@@ -301,7 +280,9 @@ export default function DoctorSignupForm() {
                 placeholder="+63 900 000 0000"
                 type="tel"
                 className={`${fieldBase} ${
-                  errors.phone ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                  errors.phone
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                    : ""
                 }`}
               />
               {errors.phone && (
@@ -321,7 +302,9 @@ export default function DoctorSignupForm() {
                 placeholder="Write a short professional bio, experience, and expertise..."
                 rows={5}
                 className={`${fieldBase} resize-none ${
-                  errors.bio ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                  errors.bio
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                    : ""
                 }`}
               />
               {errors.bio && (
@@ -472,7 +455,10 @@ export default function DoctorSignupForm() {
               </div>
 
               <div>
-                <label className={labelBase} htmlFor="consultationDurationMinutes">
+                <label
+                  className={labelBase}
+                  htmlFor="consultationDurationMinutes"
+                >
                   Consultation Duration (Minutes)
                 </label>
                 <input
@@ -505,225 +491,14 @@ export default function DoctorSignupForm() {
                 </p>
               </div>
 
-              <div className="sm:col-span-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Working Hours
-                    </label>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Add your available days and times.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={addWorkingHour}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#008081]/20 bg-white px-3 py-2 text-sm font-medium text-[#008081] hover:border-[#008081]/40"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </button>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {form.workingHours.map((slot, index) => (
-                    <div key={index} className={sectionCard}>
-                      <div className="grid gap-3 sm:grid-cols-4">
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-600">
-                            Day
-                          </label>
-                          <select
-                            value={slot.day}
-                            onChange={(e) =>
-                              updateWorkingHour(index, "day", e.target.value)
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
-                          >
-                            {DAYS.map((day) => (
-                              <option key={day} value={day}>
-                                {day}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-600">
-                            Start
-                          </label>
-                          <input
-                            type="time"
-                            value={slot.startTime}
-                            onChange={(e) =>
-                              updateWorkingHour(
-                                index,
-                                "startTime",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-600">
-                            End
-                          </label>
-                          <input
-                            type="time"
-                            value={slot.endTime}
-                            onChange={(e) =>
-                              updateWorkingHour(index, "endTime", e.target.value)
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
-                          />
-                        </div>
-
-                        <div className="flex items-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateWorkingHour(index, "isAvailable", true)
-                            }
-                            className="flex-1 rounded-xl bg-[#008081] px-3 py-2 text-sm font-medium text-white shadow-sm"
-                          >
-                            Available
-                          </button>
-
-                          {form.workingHours.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeWorkingHour(index)}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-500 hover:border-rose-200 hover:text-rose-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {errors.workingHours && (
-                  <p className="mt-2 text-xs text-rose-600">
-                    {errors.workingHours}
-                  </p>
-                )}
-              </div>
-
-              <div className="sm:col-span-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Unavailable Slots
-                    </label>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Add breaks or blocked time.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={addUnavailableSlot}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#008081]/20 bg-white px-3 py-2 text-sm font-medium text-[#008081] hover:border-[#008081]/40"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </button>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {form.unavailableSlots.map((slot, index) => (
-                    <div key={index} className={sectionCard}>
-                      <div className="grid gap-3 sm:grid-cols-4">
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-600">
-                            Date
-                          </label>
-                          <input
-                            type="date"
-                            value={slot.date}
-                            onChange={(e) =>
-                              updateUnavailableSlot(index, "date", e.target.value)
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-600">
-                            Start
-                          </label>
-                          <input
-                            type="time"
-                            value={slot.startTime}
-                            onChange={(e) =>
-                              updateUnavailableSlot(
-                                index,
-                                "startTime",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-600">
-                            End
-                          </label>
-                          <input
-                            type="time"
-                            value={slot.endTime}
-                            onChange={(e) =>
-                              updateUnavailableSlot(
-                                index,
-                                "endTime",
-                                e.target.value,
-                              )
-                            }
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
-                          />
-                        </div>
-
-                        <div className="flex items-end gap-2">
-                          <input
-                            type="text"
-                            value={slot.reason}
-                            onChange={(e) =>
-                              updateUnavailableSlot(
-                                index,
-                                "reason",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Reason"
-                            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeUnavailableSlot(index)}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-500 hover:border-rose-200 hover:text-rose-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="mb-3">
                   <h3 className="text-sm font-semibold text-slate-700">
                     Clinic Location
                   </h3>
                   <p className="mt-1 text-xs text-slate-500">
-                    Fill these in so the system can turn your address into map coordinates.
+                    Fill these in so the system can turn your address into map
+                    coordinates.
                   </p>
                 </div>
 
@@ -740,7 +515,9 @@ export default function DoctorSignupForm() {
                       placeholder="Sevidal Medical Clinic"
                       type="text"
                       className={`${fieldBase} ${
-                        errors.clinicName ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10" : ""
+                        errors.clinicName
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                          : ""
                       }`}
                     />
                     {errors.clinicName && (
@@ -781,7 +558,10 @@ export default function DoctorSignupForm() {
                   </div>
 
                   <div>
-                    <label className={labelBase} htmlFor="clinicCityMunicipality">
+                    <label
+                      className={labelBase}
+                      htmlFor="clinicCityMunicipality"
+                    >
                       City / Municipality
                     </label>
                     <input
@@ -860,7 +640,10 @@ export default function DoctorSignupForm() {
         <div className="py-6 text-center">
           <p className="text-sm text-slate-500">
             Already have an account?
-            <Link className="ml-1 font-bold text-[#008081] hover:underline" href="/login">
+            <Link
+              className="ml-1 font-bold text-[#008081] hover:underline"
+              href="/login"
+            >
               Log In
             </Link>
           </p>

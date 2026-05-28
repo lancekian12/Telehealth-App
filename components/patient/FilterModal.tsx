@@ -189,7 +189,7 @@ export default function FilterModal({
                 Consultation Fee
               </h3>
             </div>
-
+ 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label

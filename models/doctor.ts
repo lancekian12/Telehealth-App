@@ -1,10 +1,19 @@
 import { Schema, models, model } from "mongoose";
 
-const TimeSlotSchema = new Schema(
+function timeToMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function isOneHourSlot(startTime: string, endTime: string) {
+  return timeToMinutes(endTime) - timeToMinutes(startTime) === 60;
+}
+
+const WorkingHourSchema = new Schema(
   {
-    day: {
+    date: {
       type: String,
-      required: true,
+      required: true, // YYYY-MM-DD
     },
     startTime: {
       type: String,
@@ -13,10 +22,73 @@ const TimeSlotSchema = new Schema(
     endTime: {
       type: String,
       required: true,
+      validate: {
+        validator: function (this: { startTime?: string }, value: string) {
+          if (!this.startTime) return true;
+          return isOneHourSlot(this.startTime, value);
+        },
+        message: "Each working hour slot must be exactly 1 hour",
+      },
     },
     isAvailable: {
       type: Boolean,
       default: true,
+    },
+  },
+  { _id: false },
+);
+
+const UnavailableSlotSchema = new Schema(
+  {
+    date: {
+      type: String,
+      required: true, // YYYY-MM-DD
+    },
+  },
+  { _id: false },
+);
+
+const ScheduleOverrideSchema = new Schema(
+  {
+    date: {
+      type: String,
+      required: true, // YYYY-MM-DD
+    },
+
+    startTime: {
+      type: String,
+      default: null,
+    },
+
+    endTime: {
+      type: String,
+      default: null,
+    },
+
+    action: {
+      type: String,
+      enum: ["rescheduled", "cancelled"],
+      required: true,
+    },
+
+    newDate: {
+      type: String,
+      default: null, // YYYY-MM-DD if rescheduled
+    },
+
+    newStartTime: {
+      type: String,
+      default: null,
+    },
+
+    newEndTime: {
+      type: String,
+      default: null,
+    },
+
+    reason: {
+      type: String,
+      default: "",
     },
   },
   { _id: false },
@@ -28,6 +100,11 @@ const DoctorSchema = new Schema(
       type: String,
       required: true,
       unique: true,
+    },
+
+    workingHours: {
+      type: [WorkingHourSchema],
+      default: [],
     },
 
     fullName: {
@@ -110,8 +187,14 @@ const DoctorSchema = new Schema(
       default: true,
     },
 
-    workingHours: {
-      type: [TimeSlotSchema],
+
+    unavailableSlots: {
+      type: [UnavailableSlotSchema],
+      default: [],
+    },
+
+    scheduleOverrides: {
+      type: [ScheduleOverrideSchema],
       default: [],
     },
 
@@ -120,27 +203,6 @@ const DoctorSchema = new Schema(
       enum: ["patient", "doctor"],
       default: "doctor",
     },
-
-    unavailableSlots: [
-      {
-        date: {
-          type: Date,
-          required: true,
-        },
-        startTime: {
-          type: String,
-          required: true,
-        },
-        endTime: {
-          type: String,
-          required: true,
-        },
-        reason: {
-          type: String,
-          default: "Blocked",
-        },
-      },
-    ],
 
     consultationDurationMinutes: {
       type: Number,

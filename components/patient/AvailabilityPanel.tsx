@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { X } from "lucide-react";
 import { FindDoctor } from "@/types/doctor";
 
@@ -8,9 +8,30 @@ type SelectedDateItem = {
   key: string;
   day: string;
   date: number;
+  fullDate: string; // YYYY-MM-DD
   active: boolean;
   muted: boolean;
 };
+
+type WorkingHour = {
+  day: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+};
+
+type ScheduleOverride = {
+  date: string; // YYYY-MM-DD
+  status: "available" | "blocked";
+  startTime?: string | null;
+  endTime?: string | null;
+  reason?: string;
+};
+
+type AvailabilitySchedule = {
+  workingHours: WorkingHour[];
+  scheduleOverrides: ScheduleOverride[];
+} | null;
 
 type AvailabilityPanelProps = {
   open: boolean;
@@ -21,54 +42,48 @@ type AvailabilityPanelProps = {
   setSelectedDayIndex: React.Dispatch<React.SetStateAction<number>>;
   selectedTime: string;
   setSelectedTime: React.Dispatch<React.SetStateAction<string>>;
-  schedule: {
-    workingHours: {
-      day: string;
-      start: string;
-      end: string;
-    }[];
-    unavailableSlots: {
-      date: string;
-      time: string;
-    }[];
-  } | null;
+  schedule: AvailabilitySchedule;
 };
+
+function parseTimeToMinutes(value: string) {
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === "PM" && hour !== 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+
+  return hour * 60 + minute;
+}
+
+function formatMinutesToTime(totalMinutes: number) {
+  const hour24 = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  const meridiem = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${minute.toString().padStart(2, "0")} ${meridiem}`;
+}
 
 function generateTimeSlots(start: string, end: string) {
   const slots: string[] = [];
 
-  const parseTime = (value: string) => {
-    const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-    if (!match) return null;
+  const startMinutes = parseTimeToMinutes(start);
+  const endMinutes = parseTimeToMinutes(end);
 
-    let hour = Number(match[1]);
-    const minute = Number(match[2]);
-    const meridiem = match[3]?.toUpperCase();
-
-    if (meridiem === "PM" && hour !== 12) hour += 12;
-    if (meridiem === "AM" && hour === 12) hour = 0;
-
-    return hour * 60 + minute;
-  };
-
-  const formatTime = (totalMinutes: number) => {
-    const hour24 = Math.floor(totalMinutes / 60);
-    const minute = totalMinutes % 60;
-    const meridiem = hour24 >= 12 ? "PM" : "AM";
-    const hour12 = hour24 % 12 || 12;
-
-    return `${hour12}:${minute.toString().padStart(2, "0")} ${meridiem}`;
-  };
-
-  const startMinutes = parseTime(start);
-  const endMinutes = parseTime(end);
-
-  if (startMinutes === null || endMinutes === null || startMinutes >= endMinutes) {
+  if (
+    startMinutes === null ||
+    endMinutes === null ||
+    startMinutes >= endMinutes
+  ) {
     return slots;
   }
 
   for (let minutes = startMinutes; minutes < endMinutes; minutes += 30) {
-    slots.push(formatTime(minutes));
+    slots.push(formatMinutesToTime(minutes));
   }
 
   return slots;
@@ -85,16 +100,51 @@ export default function AvailabilityPanel({
   setSelectedTime,
   schedule,
 }: AvailabilityPanelProps) {
-  if (!open) return null;
-
   const selectedDay = selectedDate[selectedDayIndex];
-  const doctorDaySchedule = schedule?.workingHours.find(
-    (item) => item.day === selectedDay?.day,
+  const selectedFullDate = selectedDay?.fullDate;
+  const selectedDayName = selectedDay?.day;
+
+  const workingHour = schedule?.workingHours?.find(
+    (item) => item.day === selectedDayName && item.isAvailable,
   );
 
-  const availableSlots = doctorDaySchedule
-    ? generateTimeSlots(doctorDaySchedule.start, doctorDaySchedule.end)
-    : [];
+  const dateOverride = schedule?.scheduleOverrides?.find(
+    (item) => item.date === selectedFullDate,
+  );
+
+  const availableSlots = useMemo(() => {
+    if (!selectedDay || !selectedFullDate) return [];
+
+    if (dateOverride?.status === "blocked") {
+      return [];
+    }
+
+    const isAvailableOverride = dateOverride?.status === "available";
+
+    let startTime = "";
+    let endTime = "";
+
+    if (
+      isAvailableOverride &&
+      dateOverride?.startTime &&
+      dateOverride?.endTime
+    ) {
+      startTime = dateOverride.startTime;
+      endTime = dateOverride.endTime;
+    } else if (workingHour) {
+      startTime = workingHour.startTime;
+      endTime = workingHour.endTime;
+    } else if (isAvailableOverride) {
+      startTime = "00:00";
+      endTime = "23:59";
+    }
+
+    if (!startTime || !endTime) return [];
+
+    return generateTimeSlots(startTime, endTime);
+  }, [selectedDay, selectedFullDate, dateOverride, workingHour]);
+
+  if (!open) return null;
 
   return (
     <>
@@ -131,6 +181,7 @@ export default function AvailabilityPanel({
             <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
               This Week
             </h4>
+
             <div className="flex gap-2 overflow-x-auto pb-2">
               {selectedDate.map((item, index) => (
                 <button
@@ -158,41 +209,40 @@ export default function AvailabilityPanel({
               Available Slots
             </h4>
 
-            <div className="grid grid-cols-2 gap-3">
-              {availableSlots.length > 0 ? (
-                availableSlots.map((time) => {
-                  const selected = time === selectedTime;
+            {dateOverride?.status === "blocked" ? (
+              <div className="rounded-lg border border-dashed border-[#bcc9c6]/50 px-4 py-6 text-center text-sm text-[#6d7a77]">
+                Doctor is unavailable on this date
+                {dateOverride.reason ? `: ${dateOverride.reason}` : "."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {availableSlots.length > 0 ? (
+                  availableSlots.map((time) => {
+                    const selected = time === selectedTime;
 
-                  return (
-                    <button
-                      key={time}
-                      type="button"
-                      onClick={() => setSelectedTime(time)}
-                      className={[
-                        "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
-                        selected
-                          ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
-                          : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
-                      ].join(" ")}
-                    >
-                      {time}
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="col-span-2 rounded-lg border border-dashed border-[#bcc9c6]/50 px-4 py-6 text-center text-sm text-[#6d7a77]">
-                  No available slots for this day
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="rounded-lg border border-[#bcc9c6]/30 bg-[#e8e8e8] px-4 py-3 text-center text-sm font-medium text-[#6d7a77] opacity-50"
-                disabled
-              >
-                10:00 AM (Booked)
-              </button>
-            </div>
+                    return (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => setSelectedTime(time)}
+                        className={[
+                          "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
+                          selected
+                            ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
+                            : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
+                        ].join(" ")}
+                      >
+                        {time}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-2 rounded-lg border border-dashed border-[#bcc9c6]/50 px-4 py-6 text-center text-sm text-[#6d7a77]">
+                    No available slots for this day
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
