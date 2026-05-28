@@ -86,19 +86,6 @@ declare global {
   }
 }
 
-async function createDivIcon(label?: string): Promise<DivIcon> {
-  const L = await import("leaflet");
-  return L.divIcon({
-    className: "custom-div-icon",
-    html: `<div class="rounded-full ring-4 ring-white dark:ring-slate-800 bg-[#008081] text-white w-10 h-10 flex items-center justify-center text-xs font-bold">${
-      label ?? ""
-    }</div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-    popupAnchor: [0, -40],
-  });
-}
-
 function MapControls({
   center,
   onSearchArea,
@@ -300,7 +287,25 @@ export default function FindDoctorClient(): JSX.Element {
     minPrice,
     maxPrice,
   ]);
+  async function createDoctorIcon(img: string): Promise<DivIcon> {
+    const L = await import("leaflet");
 
+    return L.divIcon({
+      className: "custom-doctor-icon",
+      html: `
+      <div class="w-12 h-12 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white">
+        <img
+          src="${img}"
+          alt="Doctor"
+          class="w-full h-full object-cover"
+        />
+      </div>
+    `,
+      iconSize: [48, 48],
+      iconAnchor: [24, 48],
+      popupAnchor: [0, -48],
+    });
+  }
   useEffect(() => {
     if (!hasMounted) return;
     if (!mapHostRef.current || mapRef.current) return;
@@ -329,37 +334,28 @@ export default function FindDoctorClient(): JSX.Element {
         map.setView(philippinesCenter, 5);
       }
 
-      const firstDoctor = DOCTORS[0];
-      if (firstDoctor) {
-        const firstIcon = await createDivIcon("M");
-        L.marker(firstDoctor.coords, { icon: firstIcon })
-          .addTo(map)
-          .bindPopup(
-            `<div class="font-bold">${firstDoctor.name}</div><div class="text-xs text-slate-500">${firstDoctor.specialty}</div>`,
-          );
-      }
-
       for (const d of DOCTORS) {
-        const icon = await createDivIcon(String(Math.round(d.rating)));
+        const icon = await createDoctorIcon(d.img);
+
         L.marker(d.coords, { icon }).addTo(map).bindPopup(`
-          <div class="rounded-lg w-64">
-            <div class="flex gap-3 items-start">
-              <img src="${d.img}" alt="${d.name}" class="w-16 h-16 object-cover rounded-md" />
-              <div class="flex-1">
-                <h4 class="font-bold">${d.name}</h4>
-                <div class="text-xs text-[#008081] font-bold uppercase">${d.specialty}</div>
-                <div class="text-xs text-slate-500">${d.hospital}</div>
-                <div class="flex items-center gap-2 text-sm mt-2">
-                  <span class="font-bold">${d.rating}</span>
-                  <span class="text-xs text-slate-400">(${d.reviews ?? 0} reviews)</span>
-                </div>
-              </div>
-            </div>
-            <div class="mt-3 text-right">
-              <div class="text-lg font-bold">₱${d.fee}</div>
+      <div class="rounded-lg w-64">
+        <div class="flex gap-3 items-start">
+          <img src="${d.img}" alt="${d.name}" class="w-16 h-16 object-cover rounded-md" />
+          <div class="flex-1">
+            <h4 class="font-bold">${d.name}</h4>
+            <div class="text-xs text-[#008081] font-bold uppercase">${d.specialty}</div>
+            <div class="text-xs text-slate-500">${d.hospital}</div>
+            <div class="flex items-center gap-2 text-sm mt-2">
+              <span class="font-bold">${d.rating}</span>
+              <span class="text-xs text-slate-400">(${d.reviews ?? 0} reviews)</span>
             </div>
           </div>
-        `);
+        </div>
+        <div class="mt-3 text-right">
+          <div class="text-lg font-bold">₱${d.fee}</div>
+        </div>
+      </div>
+    `);
       }
 
       const handleResize = () => map.invalidateSize();
@@ -529,7 +525,9 @@ export default function FindDoctorClient(): JSX.Element {
                               {d.specialty}
                             </p>
                             <span className="h-1 w-1 rounded-full bg-slate-300" />
-                            <p className="text-xs text-slate-500">{d.hospital}</p>
+                            <p className="text-xs text-slate-500">
+                              {d.hospital}
+                            </p>
                           </div>
                         </div>
 
@@ -542,8 +540,9 @@ export default function FindDoctorClient(): JSX.Element {
                       </div>
 
                       <p className="mt-3 line-clamp-2 text-sm text-slate-500">
-                        {d.specialty} with years of experience — patient-centered care,
-                        board certifications and community trust.
+                        {d.specialty} with years of experience —
+                        patient-centered care, board certifications and
+                        community trust.
                       </p>
 
                       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-500">

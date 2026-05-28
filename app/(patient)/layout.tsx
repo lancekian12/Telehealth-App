@@ -3,6 +3,8 @@ import "@/app/globals.css";
 import Navigation from "@/components/navigation/navigation";
 import Footer from "@/components/navigation/footer";
 import { Geist, Geist_Mono } from "next/font/google";
+import "leaflet/dist/leaflet.css";
+
 
 
 const geistSans = Geist({
