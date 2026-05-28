@@ -19,7 +19,7 @@ import {
 import SearchBar from "@/components/patient/SearchBar";
 import FilterModal from "@/components/patient/FilterModal";
 import { DoctorApiItem, FindDoctor } from "@/types/doctor";
-
+import AvailabilityPanel from "@/components/patient/AvailabilityPanel";
 declare global {
   interface Window {
     __doctorMap?: LeafletMap;
@@ -85,17 +85,6 @@ function MapControls({
   );
 }
 
-const TIME_SLOTS = [
-  "9:00 AM",
-  "9:30 AM",
-  "10:00 AM",
-  "10:30 AM",
-  "11:00 AM",
-  "1:00 PM",
-  "1:30 PM",
-  "2:00 PM",
-];
-
 export default function FindDoctorClient(): JSX.Element {
   const [query, setQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("All areas");
@@ -113,8 +102,8 @@ export default function FindDoctorClient(): JSX.Element {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [specialtyFilter, setSpecialtyFilter] = useState("All specialties");
   const [minRating, setMinRating] = useState(0);
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(5000);
+  const [minPrice, setMinPrice] = useState<number | "">("");
+  const [maxPrice, setMaxPrice] = useState<number | "">(5000);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [activeDoctor, setActiveDoctor] = useState<FindDoctor | null>(null);
@@ -134,6 +123,18 @@ export default function FindDoctorClient(): JSX.Element {
     () => [12.8797, 121.774],
     [],
   );
+
+  const [doctorSchedule, setDoctorSchedule] = useState<{
+    workingHours: {
+      day: string;
+      start: string;
+      end: string;
+    }[];
+    unavailableSlots: {
+      date: string;
+      time: string;
+    }[];
+  } | null>(null);
 
   useEffect(() => {
     const loadDoctors = async () => {
@@ -165,6 +166,7 @@ export default function FindDoctorClient(): JSX.Element {
             name: doctor.fullName,
             specialty: doctor.specialization,
             hospital: doctor.clinicAddress || "Clinic",
+            clinicAddress: doctor.clinicAddress || "",
             locationLabel: doctor.clinicAddress || "Unknown location",
             coords:
               typeof doctor.latitude === "number" &&
@@ -177,6 +179,14 @@ export default function FindDoctorClient(): JSX.Element {
             img: doctor.profilePicture || "/doctor-placeholder.png",
             tags,
             status: doctor.acceptsNewPatients ? "accepting" : "fully_booked",
+
+            bio: doctor.bio || "",
+            verified: doctor.verified ?? false,
+            acceptsNewPatients: doctor.acceptsNewPatients ?? false,
+            consultationModes: (doctor.consultationModes || []) as Array<
+              "video" | "in_person"
+            >,
+            languages: doctor.languages || [],
           };
         });
 
@@ -193,6 +203,115 @@ export default function FindDoctorClient(): JSX.Element {
 
     void loadDoctors();
   }, []);
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const matchesAny = (text: string, terms: string[]) => {
+    const normalizedText = normalize(text);
+    return terms.every((term) => normalizedText.includes(normalize(term)));
+  };
+
+  const specialtyOptions = useMemo(() => {
+    const items = doctors.map((d) => d.specialty?.trim()).filter(Boolean);
+
+    return ["All specialties", ...Array.from(new Set(items)).sort()];
+  }, [doctors]);
+
+  const languageOptions = useMemo(() => {
+    const items = doctors
+      .flatMap((d) => d.languages || [])
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return ["All languages", ...Array.from(new Set(items)).sort()];
+  }, [doctors]);
+
+  const filteredAll = useMemo(() => {
+    const queryText = normalize(query);
+    const locationText = normalize(locationQuery);
+    const specialtyText = normalize(specialtyFilter);
+    const languageText = normalize(language);
+
+    return doctors
+      .filter((d) => {
+        const searchPool = normalize(
+          [
+            d.name,
+            d.specialty,
+            d.hospital,
+            d.locationLabel,
+            d.clinicAddress,
+            d.bio || "",
+            ...(d.languages || []),
+            ...(d.consultationModes || []),
+            ...(d.tags || []),
+          ].join(" "),
+        );
+
+        const matchesQuery = !queryText || searchPool.includes(queryText);
+
+        const matchesLocation =
+          !locationText ||
+          locationQuery === "All areas" ||
+          searchPool.includes(locationText);
+
+        const matchesSpecialty =
+          !specialtyText ||
+          specialtyFilter === "All specialties" ||
+          normalize(d.specialty).includes(specialtyText);
+
+        const matchesLanguage =
+          !languageText ||
+          language === "All languages" ||
+          (d.languages || []).some((item) =>
+            normalize(item).includes(languageText),
+          );
+
+        const matchesConsultationMode =
+          consultationMode === "all" ||
+          (d.consultationModes || []).includes(consultationMode);
+
+        const matchesVerified = !verifiedOnly || !!d.verified;
+        const matchesAccepting = !acceptingOnly || !!d.acceptsNewPatients;
+
+        const matchesRating = d.rating >= minRating;
+        const matchesPrice = d.fee >= minPrice && d.fee <= maxPrice;
+
+        return (
+          matchesQuery &&
+          matchesLocation &&
+          matchesSpecialty &&
+          matchesLanguage &&
+          matchesConsultationMode &&
+          matchesVerified &&
+          matchesAccepting &&
+          matchesRating &&
+          matchesPrice
+        );
+      })
+      .sort((a, b) => {
+        if (sort === "Highest Rated") return b.rating - a.rating;
+        if (sort === "Consultation Fee") return a.fee - b.fee;
+        return b.rating - a.rating;
+      });
+  }, [
+    doctors,
+    query,
+    locationQuery,
+    sort,
+    specialtyFilter,
+    language,
+    consultationMode,
+    verifiedOnly,
+    acceptingOnly,
+    minRating,
+    minPrice,
+    maxPrice,
+  ]);
 
   const selectedDate = useMemo(() => {
     const days: {
@@ -224,58 +343,6 @@ export default function FindDoctorClient(): JSX.Element {
 
     return days;
   }, [selectedDayIndex]);
-
-  const filteredAll = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const loc = locationQuery.trim().toLowerCase();
-    const spec = specialtyFilter.trim().toLowerCase();
-
-    return doctors
-      .filter((d) => {
-        const matchesQuery =
-          !q ||
-          d.name.toLowerCase().includes(q) ||
-          d.specialty.toLowerCase().includes(q) ||
-          d.hospital.toLowerCase().includes(q) ||
-          d.locationLabel.toLowerCase().includes(q);
-
-        const matchesLocation =
-          !loc ||
-          loc === "all areas" ||
-          d.locationLabel.toLowerCase().includes(loc) ||
-          d.hospital.toLowerCase().includes(loc);
-
-        const matchesSpecialty =
-          !spec ||
-          spec === "all specialties" ||
-          d.specialty.toLowerCase().includes(spec);
-
-        const matchesRating = d.rating >= minRating;
-        const matchesPrice = d.fee >= minPrice && d.fee <= maxPrice;
-
-        return (
-          matchesQuery &&
-          matchesLocation &&
-          matchesSpecialty &&
-          matchesRating &&
-          matchesPrice
-        );
-      })
-      .sort((a, b) => {
-        if (sort === "Highest Rated") return b.rating - a.rating;
-        if (sort === "Consultation Fee") return a.fee - b.fee;
-        return b.rating - a.rating;
-      });
-  }, [
-    doctors,
-    query,
-    locationQuery,
-    sort,
-    specialtyFilter,
-    minRating,
-    minPrice,
-    maxPrice,
-  ]);
 
   const PAGE_SIZE = 2;
   const totalPages = Math.max(1, Math.ceil(filteredAll.length / PAGE_SIZE));
@@ -444,14 +511,32 @@ export default function FindDoctorClient(): JSX.Element {
     mapRef.current?.invalidateSize();
   }, [page]);
 
-  function openAvailabilityPanel(doctor: FindDoctor) {
-    if (doctor.status === "fully_booked") return;
+  const openAvailabilityPanel = async (doctor: FindDoctor) => {
+    try {
+      if (doctor.status === "fully_booked") return;
 
-    setActiveDoctor(doctor);
-    setSelectedTime("11:00 AM");
-    setSelectedDayIndex(0);
-    setPanelOpen(true);
-  }
+      const res = await fetch(`/api/doctor/${doctor.id}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to load doctor schedule");
+      }
+
+      setActiveDoctor(doctor);
+
+      setDoctorSchedule({
+        workingHours: data.doctor.workingHours || [],
+        unavailableSlots: data.doctor.unavailableSlots || [],
+      });
+
+      setSelectedTime("");
+      setSelectedDayIndex(0);
+
+      setPanelOpen(true);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   function closePanel() {
     setPanelOpen(false);
@@ -492,6 +577,7 @@ export default function FindDoctorClient(): JSX.Element {
               onClose={() => setFiltersOpen(false)}
               specialty={specialtyFilter}
               setSpecialty={setSpecialtyFilter}
+              specialties={specialtyOptions}
               minRating={minRating}
               setMinRating={setMinRating}
               minPrice={minPrice}
@@ -502,6 +588,7 @@ export default function FindDoctorClient(): JSX.Element {
               setConsultationMode={setConsultationMode}
               language={language}
               setLanguage={setLanguage}
+              languages={languageOptions}
               verifiedOnly={verifiedOnly}
               setVerifiedOnly={setVerifiedOnly}
               acceptingOnly={acceptingOnly}
@@ -703,107 +790,17 @@ export default function FindDoctorClient(): JSX.Element {
         />
       )}
 
-      <aside
-        className={[
-          "fixed right-0 top-0 z-[210] flex h-full w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300",
-          panelOpen ? "translate-x-0" : "translate-x-full",
-        ].join(" ")}
-      >
-        <div className="sticky top-0 flex items-start justify-between border-b border-[#e8e8e8] bg-white px-8 py-6">
-          <div>
-            <h3 className="font-['Manrope'] text-2xl font-bold text-[#0f766e]">
-              {activeDoctor?.name ?? "Doctor Schedule"}
-            </h3>
-            <p className="mt-1 text-sm text-[#5a6664]">
-              Select an available time
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={closePanel}
-            className="rounded-full p-2 text-[#6d7a77] transition hover:bg-[#f2f4f4] hover:text-[#1a1c1c]"
-            aria-label="Close panel"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="flex-grow space-y-8 overflow-y-auto px-8 py-6">
-          <div>
-            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
-              This Week
-            </h4>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {selectedDate.map((item, index) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setSelectedDayIndex(index)}
-                  className={[
-                    "flex min-w-[60px] flex-col items-center rounded-lg p-3 transition-colors",
-                    item.active
-                      ? "bg-[#0f766e] text-white"
-                      : item.muted
-                        ? "bg-[#f3f3f4] text-[#bcc9c6]"
-                        : "bg-[#f3f3f4] text-[#1a1c1c] hover:bg-[#e8e8e8]",
-                  ].join(" ")}
-                >
-                  <span className="text-xs uppercase">{item.day}</span>
-                  <span className="text-lg font-bold">{item.date}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
-              Available Slots
-            </h4>
-            <div className="grid grid-cols-2 gap-3">
-              {TIME_SLOTS.map((time) => {
-                const selected = time === selectedTime;
-
-                return (
-                  <button
-                    key={time}
-                    type="button"
-                    onClick={() => setSelectedTime(time)}
-                    className={[
-                      "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
-                      selected
-                        ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
-                        : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
-                    ].join(" ")}
-                  >
-                    {time}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                className="rounded-lg border border-[#bcc9c6]/30 bg-[#e8e8e8] px-4 py-3 text-center text-sm font-medium text-[#6d7a77] opacity-50"
-                disabled
-              >
-                10:00 AM (Booked)
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-auto border-t border-[#e8e8e8] bg-[#f9f9f9] p-8">
-          <button
-            type="button"
-            className="w-full rounded-full bg-[#0f766e] py-4 text-lg font-bold text-white transition hover:bg-[#0b5f59]"
-          >
-            Confirm {selectedTime}
-          </button>
-          <p className="mt-4 text-center text-xs text-[#5a6664]">
-            A confirmation will be sent to your registered email.
-          </p>
-        </div>
-      </aside>
+      <AvailabilityPanel
+        open={panelOpen}
+        onClose={closePanel}
+        activeDoctor={activeDoctor}
+        selectedDate={selectedDate}
+        selectedDayIndex={selectedDayIndex}
+        setSelectedDayIndex={setSelectedDayIndex}
+        selectedTime={selectedTime}
+        setSelectedTime={setSelectedTime}
+        schedule={doctorSchedule}
+      />
     </div>
   );
 }

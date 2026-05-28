@@ -126,12 +126,19 @@ export type FindDoctor = {
   name: string;
   specialty: string;
   hospital: string;
+  clinicAddress: string;
   locationLabel: string;
-  coords?: LatLngExpression | null;
+  coords: [number, number] | null;
   fee: number;
   rating: number;
-  reviews?: number;
+  reviews: number;
   img: string;
-  tags?: string[];
-  status?: "accepting" | "fully_booked" | "online";
+  tags: string[];
+  status: "accepting" | "fully_booked";
+
+  bio?: string;
+  verified?: boolean;
+  acceptsNewPatients?: boolean;
+  consultationModes?: Array<"video" | "in_person">;
+  languages?: string[];
 };

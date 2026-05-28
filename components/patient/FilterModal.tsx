@@ -13,38 +13,7 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
-
-type FilterModalProps = {
-  open: boolean;
-  onClose: () => void;
-
-  specialty: string;
-  setSpecialty: (value: string) => void;
-
-  minRating: number;
-  setMinRating: (value: number) => void;
-
-  minPrice: number;
-  setMinPrice: (value: number) => void;
-
-  maxPrice: number;
-  setMaxPrice: (value: number) => void;
-
-  consultationMode: "all" | "video" | "in_person";
-  setConsultationMode: (value: "all" | "video" | "in_person") => void;
-
-  language: string;
-  setLanguage: (value: string) => void;
-
-  verifiedOnly: boolean;
-  setVerifiedOnly: (value: boolean) => void;
-
-  acceptingOnly: boolean;
-  setAcceptingOnly: (value: boolean) => void;
-
-  onApply: () => void;
-  onReset: () => void;
-};
+import { FilterModalProps } from "@/types/patient";
 
 const SPECIALTY_OPTIONS = [
   "All specialties",
@@ -164,14 +133,20 @@ export default function FilterModal({
           <section>
             <div className="mb-5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Star className="text-[#008081]" size={20} fill="currentColor" />
+                <Star
+                  className="text-[#008081]"
+                  size={20}
+                  fill="currentColor"
+                />
                 <h3 className="text-lg font-semibold text-slate-900">
                   Minimum Rating
                 </h3>
               </div>
 
               <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-[#008081]">
-                {minRating.toFixed(1)} &amp; Up
+                {minRating === 0
+                  ? "Any rating"
+                  : `${minRating.toFixed(1)} & up`}
               </span>
             </div>
 
@@ -232,7 +207,11 @@ export default function FilterModal({
                     type="number"
                     min={0}
                     value={minPrice}
-                    onChange={(e) => setMinPrice(Number(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setMinPrice(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                     placeholder="Min"
                     className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-8 pr-4 text-sm font-medium text-slate-900 outline-none transition focus:ring-2 focus:ring-[#008081]"
                   />
@@ -255,7 +234,11 @@ export default function FilterModal({
                     type="number"
                     min={0}
                     value={maxPrice}
-                    onChange={(e) => setMaxPrice(Number(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setMaxPrice(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
                     placeholder="Max"
                     className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-8 pr-4 text-sm font-medium text-slate-900 outline-none transition focus:ring-2 focus:ring-[#008081]"
                   />
@@ -309,9 +292,7 @@ export default function FilterModal({
           <section>
             <div className="mb-4 flex items-center gap-2">
               <Globe className="text-[#008081]" size={20} />
-              <h3 className="text-lg font-semibold text-slate-900">
-                Language
-              </h3>
+              <h3 className="text-lg font-semibold text-slate-900">Language</h3>
             </div>
 
             <div className="flex flex-wrap gap-3">
