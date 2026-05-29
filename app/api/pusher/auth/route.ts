@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import Pusher from "pusher";
 import { connectDB } from "@/config/mongodb";
 import { Patient } from "@/models/patient";
+import { Doctor } from "@/models/doctor";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,6 @@ export async function POST(request: Request) {
     await connectDB();
 
     const { userId } = await auth();
-    console.log("[POST /api/pusher/auth] clerk userId:", userId);
 
     if (!userId) {
       return NextResponse.json(
@@ -34,9 +34,6 @@ export async function POST(request: Request) {
     const socketId = params.get("socket_id") || "";
     const channelName = params.get("channel_name") || "";
 
-    console.log("[POST /api/pusher/auth] socketId:", socketId);
-    console.log("[POST /api/pusher/auth] channelName:", channelName);
-
     if (!socketId || !channelName) {
       return NextResponse.json(
         { success: false, message: "Missing socket_id or channel_name" },
@@ -45,20 +42,27 @@ export async function POST(request: Request) {
     }
 
     const patient = await Patient.findOne({ clerkId: userId }).lean();
-    console.log("[POST /api/pusher/auth] patientId:", patient?._id);
+    const doctor = await Doctor.findOne({ clerkId: userId }).lean();
 
-    if (!patient) {
+    let recipientRole: "patient" | "doctor";
+    let recipientId: string;
+
+    if (patient) {
+      recipientRole = "patient";
+      recipientId = String(patient._id);
+    } else if (doctor) {
+      recipientRole = "doctor";
+      recipientId = String(doctor._id);
+    } else {
       return NextResponse.json(
-        { success: false, message: "Patient not found" },
+        { success: false, message: "User not found" },
         { status: 404 },
       );
     }
 
-    const expectedChannel = `private-patient-${patient._id}`;
-    console.log("[POST /api/pusher/auth] expectedChannel:", expectedChannel);
+    const expectedChannel = `private-${recipientRole}-${recipientId}`;
 
     if (channelName !== expectedChannel) {
-      console.log("[POST /api/pusher/auth] forbidden channel mismatch");
       return NextResponse.json(
         { success: false, message: "Forbidden" },
         { status: 403 },
@@ -66,7 +70,6 @@ export async function POST(request: Request) {
     }
 
     const authResponse = pusher.authorizeChannel(socketId, channelName);
-    console.log("[POST /api/pusher/auth] authorized");
 
     return NextResponse.json(authResponse);
   } catch (error) {

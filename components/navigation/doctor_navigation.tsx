@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useClerk } from "@clerk/nextjs";
 
 import {
@@ -20,36 +20,60 @@ import {
 } from "@heroicons/react/24/solid";
 
 import { Menu, Calendar as CalendarIcon } from "lucide-react";
+import { useRealtimeNotifications } from "@/hooks/use-realtime-notification";
 
 type NavItemProps = {
   to: string;
   icon: ReactNode;
   label: string;
   exact?: boolean;
+  badge?: number;
+  alert?: boolean;
 };
 
 type DoctorProfile = {
+  id?: string;
+  _id?: string;
   fullName: string;
   specialization: string;
   profilePicture: string;
 };
 
-function NavItem({ to, icon, label, exact }: NavItemProps) {
+function NavItem({ to, icon, label, exact, badge, alert }: NavItemProps) {
   const pathname = usePathname();
-
   const active = exact ? pathname === to : pathname.startsWith(to);
+
+  const showBadge = typeof badge === "number" && badge > 0;
 
   return (
     <Link
       href={to}
-      className={`flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all duration-200 ${
-        active
-          ? "bg-primary/10 text-primary"
-          : "text-slate-600 hover:bg-slate-50 hover:text-primary"
-      }`}
+      className={[
+        "group flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all duration-200",
+        active || alert
+          ? "bg-[#008081]/10 text-[#008081]"
+          : "text-slate-600 hover:bg-slate-50 hover:text-[#008081]",
+      ].join(" ")}
     >
-      <span className="h-5 w-5 flex-shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
+      <span
+        className={[
+          "relative h-5 w-5 flex-shrink-0",
+          active || alert ? "text-[#008081]" : "",
+        ].join(" ")}
+      >
+        {icon}
+        {alert && !active && (
+          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#008081] ring-2 ring-white animate-pulse" />
+        )}
+      </span>
+
+      <span className="truncate flex-1">{label}</span>
+
+      {showBadge && (
+        <span className="ml-auto flex min-w-6 items-center justify-center rounded-full bg-[#008081] px-2 py-0.5 text-[11px] font-bold leading-none text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -66,6 +90,7 @@ export default function DoctorNavigation({
 
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
   const [loadingDoctor, setLoadingDoctor] = useState(true);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -75,20 +100,29 @@ export default function DoctorNavigation({
         const res = await fetch("/api/doctor", {
           method: "GET",
           cache: "no-store",
+          credentials: "include",
         });
 
         const data = await res.json();
 
         if (!mounted) return;
 
-        if (res.ok && data.success) {
+        if (res.ok && data.success && data.doctor) {
           setDoctor(data.doctor);
+
+          const resolvedId =
+            String(data.doctor.id || data.doctor._id || "").trim() || null;
+          setDoctorId(resolvedId);
         } else {
           setDoctor(null);
+          setDoctorId(null);
         }
       } catch (error) {
         console.error("Failed to load doctor profile:", error);
-        if (mounted) setDoctor(null);
+        if (mounted) {
+          setDoctor(null);
+          setDoctorId(null);
+        }
       } finally {
         if (mounted) setLoadingDoctor(false);
       }
@@ -100,6 +134,20 @@ export default function DoctorNavigation({
       mounted = false;
     };
   }, []);
+
+  const {
+    notifications,
+    markAllAsRead,
+  } = useRealtimeNotifications({
+    role: "doctor",
+    userId: doctorId,
+    enabled: !!doctorId,
+  });
+
+  const unreadCount = useMemo(
+    () => notifications.filter((item) => !item.read).length,
+    [notifications],
+  );
 
   const handleSignOut = async () => {
     try {
@@ -186,7 +234,10 @@ export default function DoctorNavigation({
             to="/doctor/notifications"
             icon={<Bell weight="fill" size={20} />}
             label="Notifications"
+            badge={unreadCount}
+            alert={unreadCount > 0}
           />
+
 
           <NavItem
             to="/doctor/settings"
@@ -244,8 +295,14 @@ export default function DoctorNavigation({
             </span>
           </div>
 
-          <button className="text-slate-500 transition-colors hover:text-primary">
+          <button className="relative text-slate-500 transition-colors hover:text-primary">
             <Menu />
+
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-[#008081] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </button>
         </header>
 

@@ -49,6 +49,8 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      recipientRole,
+      recipientId,
       notifications,
     });
   } catch (error) {
@@ -59,7 +61,6 @@ export async function GET() {
     );
   }
 }
-
 export async function PATCH(req: Request) {
   try {
     await connectDB();
