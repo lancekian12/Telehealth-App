@@ -451,14 +451,20 @@ export async function PATCH(req: Request) {
     const body = await req.json();
 
     const appointmentId = String(body.appointmentId || "");
-    const status = body.status as AppointmentStatus;
+    const action = String(body.action || "");
     const rejectionReason = String(body.rejectionReason || "");
     const notes = String(body.notes || "");
     const consultationSessionLink = String(body.consultationSessionLink || "");
 
-    if (!appointmentId || !status) {
+    const newAppointmentDate = String(body.newAppointmentDate || "");
+    const newStartTime = String(body.newStartTime || "");
+    const newEndTime = String(body.newEndTime || "");
+    const cancellationReason = String(body.cancellationReason || "");
+    const rescheduleReason = String(body.rescheduleReason || "");
+
+    if (!appointmentId || !action) {
       return NextResponse.json(
-        { success: false, message: "appointmentId and status are required" },
+        { success: false, message: "appointmentId and action are required" },
         { status: 400 },
       );
     }
@@ -466,13 +472,6 @@ export async function PATCH(req: Request) {
     if (!Types.ObjectId.isValid(appointmentId)) {
       return NextResponse.json(
         { success: false, message: "Invalid appointmentId" },
-        { status: 400 },
-      );
-    }
-
-    if (!appointmentStatusAllowed(status)) {
-      return NextResponse.json(
-        { success: false, message: "Invalid status" },
         { status: 400 },
       );
     }
@@ -493,50 +492,14 @@ export async function PATCH(req: Request) {
       );
     }
 
-    appointment.status = status;
+    const oldAppointmentDate = new Date(appointment.appointmentDate)
+      .toISOString()
+      .slice(0, 10);
 
-    if (notes) appointment.notes = notes;
-
-    if (status === "accepted") {
-      appointment.acceptedAt = new Date();
-      appointment.rejectedAt = null;
-      appointment.cancelledAt = null;
-      if (consultationSessionLink) {
-        appointment.consultationSessionLink = consultationSessionLink;
-      }
-
-      // Keep slot locked
+    const unlockOldSlot = () => {
       doctor.workingHours = (doctor.workingHours || []).map((slot) => {
         const matchesThisSlot =
-          slot.date ===
-            new Date(appointment.appointmentDate).toISOString().slice(0, 10) &&
-          slot.startTime === appointment.startTime &&
-          slot.endTime === appointment.endTime;
-
-        return matchesThisSlot
-          ? { ...slot.toObject?.(), isAvailable: false }
-          : slot;
-      });
-    }
-
-    if (status === "rejected" || status === "cancelled") {
-      if (status === "rejected") {
-        appointment.rejectedAt = new Date();
-        appointment.rejectionReason = rejectionReason || "Rejected by doctor";
-      }
-
-      if (status === "cancelled") {
-        appointment.cancelledAt = new Date();
-      }
-
-      appointment.acceptedAt = null;
-      appointment.completedAt = null;
-
-      // Unlock the matching slot
-      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
-        const matchesThisSlot =
-          slot.date ===
-            new Date(appointment.appointmentDate).toISOString().slice(0, 10) &&
+          slot.date === oldAppointmentDate &&
           slot.startTime === appointment.startTime &&
           slot.endTime === appointment.endTime;
 
@@ -544,16 +507,12 @@ export async function PATCH(req: Request) {
           ? { ...slot.toObject?.(), isAvailable: true }
           : slot;
       });
-    }
+    };
 
-    if (status === "completed") {
-      appointment.completedAt = new Date();
-
-      // keep it unavailable because it's already used
+    const lockOldSlot = () => {
       doctor.workingHours = (doctor.workingHours || []).map((slot) => {
         const matchesThisSlot =
-          slot.date ===
-            new Date(appointment.appointmentDate).toISOString().slice(0, 10) &&
+          slot.date === oldAppointmentDate &&
           slot.startTime === appointment.startTime &&
           slot.endTime === appointment.endTime;
 
@@ -561,29 +520,289 @@ export async function PATCH(req: Request) {
           ? { ...slot.toObject?.(), isAvailable: false }
           : slot;
       });
+    };
+
+    if (notes) appointment.notes = notes;
+
+    if (action === "cancel") {
+      appointment.status = "cancelled";
+      appointment.cancelledAt = new Date();
+      appointment.cancellationReason =
+        cancellationReason || "Cancelled by patient";
+      appointment.rescheduleReason = "";
+      appointment.acceptedAt = null;
+      appointment.completedAt = null;
+      appointment.rejectedAt = null;
+
+      unlockOldSlot();
+
+      await appointment.save();
+      await doctor.save();
+
+      const populated = await Appointment.findById(appointment._id)
+        .populate(
+          "doctor",
+          "fullName specialization profilePicture clinicAddress",
+        )
+        .populate(
+          "patient",
+          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+        )
+        .lean();
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Appointment cancelled successfully",
+          appointment: populated,
+        },
+        { status: 200 },
+      );
     }
 
-    await appointment.save();
-    await doctor.save();
+    if (action === "reschedule") {
+      if (
+        !newAppointmentDate ||
+        !newStartTime ||
+        !newEndTime ||
+        !isYmd(newAppointmentDate)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "newAppointmentDate, newStartTime, and newEndTime are required for reschedule",
+          },
+          { status: 400 },
+        );
+      }
 
-    const populated = await Appointment.findById(appointment._id)
-      .populate(
-        "doctor",
-        "fullName specialization profilePicture clinicAddress",
-      )
-      .populate(
-        "patient",
-        "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-      )
-      .lean();
+      const slotStart = parseTimeToMinutes(newStartTime);
+      const slotEnd = parseTimeToMinutes(newEndTime);
+
+      if (slotStart === null || slotEnd === null || slotEnd <= slotStart) {
+        return NextResponse.json(
+          { success: false, message: "Invalid reschedule time range" },
+          { status: 400 },
+        );
+      }
+
+      const consultationDurationMinutes =
+        doctor.consultationDurationMinutes || 60;
+      const expectedEndTime = addMinutesToTime(
+        newStartTime,
+        consultationDurationMinutes,
+      );
+
+      if (expectedEndTime && expectedEndTime !== newEndTime) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Appointment duration must be exactly ${consultationDurationMinutes} minutes`,
+          },
+          { status: 409 },
+        );
+      }
+
+      if (
+        isDateBlocked(
+          newAppointmentDate,
+          doctor.unavailableSlots || [],
+          doctor.scheduleOverrides || [],
+        )
+      ) {
+        return NextResponse.json(
+          { success: false, message: "Doctor is unavailable on that date" },
+          { status: 409 },
+        );
+      }
+
+      const matchedSlot = getMatchingWorkingHour(
+        doctor,
+        newAppointmentDate,
+        newStartTime,
+        newEndTime,
+      );
+
+      if (!matchedSlot) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Selected time is not within the doctor's working hours",
+          },
+          { status: 409 },
+        );
+      }
+
+      const conflict = await Appointment.findOne({
+        _id: { $ne: appointment._id },
+        doctor: appointment.doctor,
+        appointmentDate: dayStart(newAppointmentDate),
+        status: { $nin: ["rejected", "cancelled"] },
+        startTime: { $lt: newEndTime },
+        endTime: { $gt: newStartTime },
+      }).lean();
+
+      if (conflict) {
+        return NextResponse.json(
+          { success: false, message: "This slot is already booked" },
+          { status: 409 },
+        );
+      }
+
+      unlockOldSlot();
+
+      appointment.appointmentDate = dayStart(newAppointmentDate);
+      appointment.startTime = newStartTime;
+      appointment.endTime = newEndTime;
+      appointment.status = "pending";
+      appointment.acceptedAt = null;
+      appointment.completedAt = null;
+      appointment.rejectedAt = null;
+      appointment.cancelledAt = null;
+      appointment.consultationSessionLink = consultationSessionLink || "";
+      appointment.rescheduleReason =
+        rescheduleReason || "Rescheduled by patient";
+      appointment.cancellationReason = "";
+
+      lockOldSlot();
+
+      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
+        const matchesNewSlot =
+          slot.date === newAppointmentDate &&
+          slot.startTime === newStartTime &&
+          slot.endTime === newEndTime;
+
+        return matchesNewSlot
+          ? { ...slot.toObject?.(), isAvailable: false }
+          : slot;
+      });
+
+      await appointment.save();
+      await doctor.save();
+
+      const populated = await Appointment.findById(appointment._id)
+        .populate(
+          "doctor",
+          "fullName specialization profilePicture clinicAddress",
+        )
+        .populate(
+          "patient",
+          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+        )
+        .lean();
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Appointment rescheduled successfully",
+          appointment: populated,
+        },
+        { status: 200 },
+      );
+    }
+
+    if (action === "accept") {
+      appointment.status = "accepted";
+      appointment.acceptedAt = new Date();
+      appointment.rejectedAt = null;
+      appointment.cancelledAt = null;
+
+      if (consultationSessionLink) {
+        appointment.consultationSessionLink = consultationSessionLink;
+      }
+
+      lockOldSlot();
+
+      await appointment.save();
+      await doctor.save();
+
+      const populated = await Appointment.findById(appointment._id)
+        .populate(
+          "doctor",
+          "fullName specialization profilePicture clinicAddress",
+        )
+        .populate(
+          "patient",
+          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+        )
+        .lean();
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Appointment accepted successfully",
+          appointment: populated,
+        },
+        { status: 200 },
+      );
+    }
+
+    if (action === "reject") {
+      appointment.status = "rejected";
+      appointment.rejectedAt = new Date();
+      appointment.rejectionReason = rejectionReason || "Rejected by doctor";
+      appointment.acceptedAt = null;
+      appointment.completedAt = null;
+
+      unlockOldSlot();
+
+      await appointment.save();
+      await doctor.save();
+
+      const populated = await Appointment.findById(appointment._id)
+        .populate(
+          "doctor",
+          "fullName specialization profilePicture clinicAddress",
+        )
+        .populate(
+          "patient",
+          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+        )
+        .lean();
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Appointment rejected successfully",
+          appointment: populated,
+        },
+        { status: 200 },
+      );
+    }
+
+    if (action === "complete") {
+      appointment.status = "completed";
+      appointment.completedAt = new Date();
+      lockOldSlot();
+
+      await appointment.save();
+      await doctor.save();
+
+      const populated = await Appointment.findById(appointment._id)
+        .populate(
+          "doctor",
+          "fullName specialization profilePicture clinicAddress",
+        )
+        .populate(
+          "patient",
+          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+        )
+        .lean();
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Appointment completed successfully",
+          appointment: populated,
+        },
+        { status: 200 },
+      );
+    }
 
     return NextResponse.json(
-      {
-        success: true,
-        message: "Appointment updated successfully",
-        appointment: populated,
-      },
-      { status: 200 },
+      { success: false, message: "Invalid action" },
+      { status: 400 },
     );
   } catch (error: unknown) {
     console.error("[PATCH /api/appointments] error:", error);

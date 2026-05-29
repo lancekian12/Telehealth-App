@@ -55,6 +55,15 @@ const AppointmentSchema = new Schema(
       type: String,
       default: "",
     },
+    cancellationReason: {
+      type: String,
+      default: "",
+    },
+
+    rescheduleReason: {
+      type: String,
+      default: "",
+    },
 
     acceptedAt: {
       type: Date,

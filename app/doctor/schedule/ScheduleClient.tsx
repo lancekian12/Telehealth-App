@@ -15,7 +15,9 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { useSearchParams } from "next/navigation";
 import AppointmentDetailsModal from "@/components/appointments/AppointmentDetailsModal";
+import RejectAppointmentModal from "@/components/appointments/RejectAppointmentModal";
 
 type AppointmentStatus =
   | "pending"
@@ -27,6 +29,7 @@ type AppointmentStatus =
 type ConsultationType = "video" | "in_person";
 
 type PopulatedPerson = {
+  _id?: string;
   fullName?: string;
   email?: string;
   profilePicture?: string;
@@ -52,6 +55,8 @@ type Appointment = {
   consultationSessionLink?: string;
   reasonForVisit?: string;
   rejectionReason?: string;
+  rescheduleReason?: string;
+  cancellationReason?: string;
   notes?: string;
   doctor?: PopulatedDoctor | string;
   patient?: PopulatedPerson | string;
@@ -100,49 +105,28 @@ function getDoctorSubtitle(doctor: Appointment["doctor"]) {
   return doctor.specialization || doctor.clinicAddress || "";
 }
 
-function getStatusLabel(status: AppointmentStatus) {
-  switch (status) {
-    case "pending":
-      return "Pending";
-    case "accepted":
-      return "Accepted";
-    case "rejected":
-      return "Rejected";
-    case "completed":
-      return "Completed";
-    case "cancelled":
-      return "Cancelled";
-    default:
-      return status;
-  }
-}
-
 function StatusBadge({ status }: { status: AppointmentStatus }) {
   const styles = {
     pending: {
       className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-      icon: <Loader2 className="h-3.5 w-3.5" />,
+      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
       label: "Pending",
     },
-
     accepted: {
       className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
       icon: <CheckCircle2 className="h-3.5 w-3.5" />,
       label: "Accepted",
     },
-
     rejected: {
       className: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
       icon: <XCircle className="h-3.5 w-3.5" />,
       label: "Rejected",
     },
-
     cancelled: {
       className: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
       icon: <XCircle className="h-3.5 w-3.5" />,
       label: "Cancelled",
     },
-
     completed: {
       className:
         "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
@@ -181,7 +165,7 @@ function AppointmentCard({
 }: {
   appointment: Appointment;
   onAccept: (appointmentId: string) => void;
-  onReject: (appointmentId: string) => void;
+  onReject: (appointment: Appointment) => void;
   onJoin: (link?: string) => void;
   onShowDetails: (appointment: Appointment) => void;
   loadingId: string | null;
@@ -253,13 +237,17 @@ function AppointmentCard({
                 <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {patientName}
                 </h3>
+
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                   <TypeIcon type={appointment.consultationType} />
                   <span>
                     {appointment.consultationType === "video"
                       ? "Online Consultation"
-                      : "In-Clinic"}{" "}
+                      : "In-Clinic"}
                   </span>
+                  {doctorSubtitle && (
+                    <span className="text-slate-400">• {doctorSubtitle}</span>
+                  )}
                 </div>
               </div>
 
@@ -271,6 +259,45 @@ function AppointmentCard({
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-400">
               {appointment.reasonForVisit || "No reason provided."}
             </p>
+
+            {appointment.status === "pending" &&
+              appointment.rescheduleReason && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                    <CalendarDays className="h-4 w-4" />
+                    Reschedule request
+                  </div>
+                  <p className="text-sm leading-7 text-amber-800 dark:text-amber-200">
+                    {appointment.rescheduleReason}
+                  </p>
+                </div>
+              )}
+
+            {appointment.rejectionReason &&
+              appointment.status === "rejected" && (
+                <div className="mt-4 rounded-2xl bg-rose-50 p-4 dark:bg-rose-950/20">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose-600 dark:text-rose-300">
+                    <XCircle className="h-4 w-4" />
+                    Rejection reason
+                  </div>
+                  <p className="text-sm leading-7 text-rose-700 dark:text-rose-300">
+                    {appointment.rejectionReason}
+                  </p>
+                </div>
+              )}
+
+            {appointment.cancellationReason &&
+              appointment.status === "cancelled" && (
+                <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900/50">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    <XCircle className="h-4 w-4" />
+                    Cancellation reason
+                  </div>
+                  <p className="text-sm leading-7 text-slate-700 dark:text-slate-300">
+                    {appointment.cancellationReason}
+                  </p>
+                </div>
+              )}
 
             {appointment.notes && (
               <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900/50">
@@ -299,12 +326,13 @@ function AppointmentCard({
                     )}
                     Accept
                   </button>
+
                   <button
-                    onClick={() => onReject(appointment._id)}
+                    onClick={() => onReject(appointment)}
                     disabled={isLoading}
                     className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-5 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <Video className="h-4 w-4 rotate-180" />
+                    <XCircle className="h-4 w-4" />
                     Reject
                   </button>
                 </>
@@ -335,7 +363,11 @@ function AppointmentCard({
   );
 }
 
-export default function ClinicalAppointmentsPage() {
+export default function ScheduleClient() {
+  const searchParams = useSearchParams();
+  const doctorId = searchParams.get("doctorId") || "";
+  const patientId = searchParams.get("patientId") || "";
+
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -344,15 +376,27 @@ export default function ClinicalAppointmentsPage() {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectLoading, setRejectLoading] = useState(false);
+  const [selectedRejectAppointment, setSelectedRejectAppointment] =
+    useState<Appointment | null>(null);
+
   async function loadAppointments() {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch("/api/appointments", {
-        method: "GET",
-        cache: "no-store",
-      });
+      const params = new URLSearchParams();
+      if (doctorId) params.set("doctorId", doctorId);
+      if (patientId) params.set("patientId", patientId);
+
+      const res = await fetch(
+        `/api/appointments${params.toString() ? `?${params.toString()}` : ""}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        },
+      );
 
       const data = (await res.json()) as ApiResponse;
 
@@ -375,31 +419,72 @@ export default function ClinicalAppointmentsPage() {
   }
 
   useEffect(() => {
-    void loadAppointments();
-  }, []);
+    const controller = new AbortController();
+
+    async function fetchAppointments() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams();
+        if (doctorId) params.set("doctorId", doctorId);
+        if (patientId) params.set("patientId", patientId);
+
+        const res = await fetch(
+          `/api/appointments${params.toString() ? `?${params.toString()}` : ""}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
+
+        const data = (await res.json()) as ApiResponse;
+
+        if (!res.ok || !data.success) {
+          throw new Error(
+            data.success
+              ? "Failed to load appointments"
+              : data.message || "Failed to load appointments",
+          );
+        }
+
+        setAppointments(data.appointments || []);
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return;
+        setError(
+          err instanceof Error ? err.message : "Failed to load appointments",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void fetchAppointments();
+
+    return () => controller.abort();
+  }, [doctorId, patientId]);
 
   const filteredAppointments = useMemo(() => {
     const selectedDateString = selectedDate.toDateString();
 
     return appointments
-      .filter(
-        (appointment) =>
-          new Date(appointment.appointmentDate).toDateString() ===
-          selectedDateString,
-      )
+      .filter((appointment) => {
+        const appointmentDate = new Date(appointment.appointmentDate);
+        return appointmentDate.toDateString() === selectedDateString;
+      })
       .sort((a, b) => {
         const aDate = new Date(a.appointmentDate).getTime();
         const bDate = new Date(b.appointmentDate).getTime();
 
         if (aDate !== bDate) return aDate - bDate;
-
         return a.startTime.localeCompare(b.startTime);
       });
   }, [appointments, selectedDate]);
 
   async function patchAppointment(
     appointmentId: string,
-    status: Exclude<AppointmentStatus, "completed">,
+    action: "accept" | "reject",
     rejectionReason?: string,
   ) {
     try {
@@ -410,7 +495,7 @@ export default function ClinicalAppointmentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           appointmentId,
-          status,
+          action,
           rejectionReason: rejectionReason || "Rejected by doctor",
         }),
       });
@@ -440,20 +525,62 @@ export default function ClinicalAppointmentsPage() {
   }
 
   function handleAccept(appointmentId: string) {
-    void patchAppointment(appointmentId, "accepted");
+    void patchAppointment(appointmentId, "accept");
   }
 
-  function handleReject(appointmentId: string) {
-    const reason = window.prompt(
-      "Enter rejection reason:",
-      "Rejected by doctor",
-    );
-    if (reason === null) return;
-    void patchAppointment(
-      appointmentId,
-      "rejected",
-      reason.trim() || "Rejected by doctor",
-    );
+  function handleReject(appointment: Appointment) {
+    setSelectedRejectAppointment(appointment);
+    setRejectOpen(true);
+  }
+
+  async function handleConfirmReject(reason: string) {
+    if (!selectedRejectAppointment) return;
+
+    try {
+      setRejectLoading(true);
+
+      const res = await fetch("/api/appointments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appointmentId: selectedRejectAppointment._id,
+          action: "reject",
+          rejectionReason: reason,
+        }),
+      });
+
+      const data = (await res.json()) as {
+        success: boolean;
+        message?: string;
+        appointment?: Appointment;
+      };
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Unable to reject appointment");
+      }
+
+      setAppointments((current) =>
+        current.map((item) =>
+          item._id === selectedRejectAppointment._id
+            ? {
+                ...item,
+                ...(data.appointment || {}),
+                status: "rejected",
+                rejectionReason: reason,
+              }
+            : item,
+        ),
+      );
+
+      setRejectOpen(false);
+      setSelectedRejectAppointment(null);
+    } catch (err) {
+      alert(
+        err instanceof Error ? err.message : "Unable to reject appointment",
+      );
+    } finally {
+      setRejectLoading(false);
+    }
   }
 
   function handleJoin(link?: string) {
@@ -477,6 +604,10 @@ export default function ClinicalAppointmentsPage() {
             <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
               Clinical Appointments
             </h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Pending appointments can be accepted or rejected again, including
+              rescheduled requests.
+            </p>
           </div>
 
           <div className="flex items-center gap-3 rounded-full bg-slate-100 p-2 dark:bg-slate-800/70">
@@ -563,6 +694,22 @@ export default function ClinicalAppointmentsPage() {
       <AppointmentDetailsModal
         appointment={selectedAppointment}
         onClose={() => setSelectedAppointment(null)}
+      />
+
+      <RejectAppointmentModal
+        open={rejectOpen}
+        onClose={() => {
+          setRejectOpen(false);
+          setSelectedRejectAppointment(null);
+        }}
+        onConfirm={handleConfirmReject}
+        loading={rejectLoading}
+        appointmentTitle={
+          selectedRejectAppointment
+            ? getPersonName(selectedRejectAppointment.patient, "this appointment")
+            : "this appointment"
+        }
+        defaultReason={selectedRejectAppointment?.rejectionReason || ""}
       />
     </main>
   );
