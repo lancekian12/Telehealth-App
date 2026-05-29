@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
 import { Appointment } from "@/models/appointment";
+import { notifyBothAppointmentSides } from "@/config/notification-service";
 
 export const runtime = "nodejs";
 
@@ -48,7 +49,10 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
   const hours = Math.floor(total / 60);
   const minutes = total % 60;
 
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0",
+  )}`;
 }
 
 function toObjectId(value: string) {
@@ -136,6 +140,16 @@ function consultationTypeAllowed(value: unknown): value is ConsultationType {
   return value === "video" || value === "in_person";
 }
 
+async function populateAppointment(appointmentId: Types.ObjectId | string) {
+  return Appointment.findById(appointmentId)
+    .populate("doctor", "fullName specialization profilePicture clinicAddress")
+    .populate(
+      "patient",
+      "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+    )
+    .lean();
+}
+
 export async function GET(req: Request) {
   try {
     await connectDB();
@@ -154,16 +168,7 @@ export async function GET(req: Request) {
         );
       }
 
-      const appointment = await Appointment.findById(appointmentId)
-        .populate(
-          "doctor",
-          "fullName specialization profilePicture clinicAddress",
-        )
-        .populate(
-          "patient",
-          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-        )
-        .lean();
+      const appointment = await populateAppointment(appointmentId);
 
       if (!appointment) {
         return NextResponse.json(
@@ -412,16 +417,28 @@ export async function POST(req: Request) {
 
     await doctor.save();
 
-    const populated = await Appointment.findById(created._id)
-      .populate(
-        "doctor",
-        "fullName specialization profilePicture clinicAddress",
-      )
-      .populate(
-        "patient",
-        "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-      )
-      .lean();
+    const populated = await populateAppointment(created._id);
+
+    if (populated) {
+      await notifyBothAppointmentSides({
+        appointment: populated as any,
+        type: "appointment_booked",
+        patientTitle: "Appointment booked",
+        patientMessage:
+          "Your appointment request has been booked and is now pending approval.",
+        doctorTitle: "New appointment request",
+        doctorMessage: `You have a new appointment request from ${String(
+          (populated as any)?.patient?.fullName || "a patient",
+        )}.`,
+        metadata: {
+          status: "pending",
+          consultationType,
+          appointmentDate,
+          startTime,
+          endTime,
+        },
+      });
+    }
 
     return NextResponse.json(
       {
@@ -539,16 +556,23 @@ export async function PATCH(req: Request) {
       await appointment.save();
       await doctor.save();
 
-      const populated = await Appointment.findById(appointment._id)
-        .populate(
-          "doctor",
-          "fullName specialization profilePicture clinicAddress",
-        )
-        .populate(
-          "patient",
-          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-        )
-        .lean();
+      const populated = await populateAppointment(appointment._id);
+
+      if (populated) {
+        await notifyBothAppointmentSides({
+          appointment: populated as any,
+          type: "appointment_cancelled",
+          patientTitle: "Appointment cancelled",
+          patientMessage:
+            cancellationReason || "Your appointment has been cancelled.",
+          doctorTitle: "Appointment cancelled",
+          doctorMessage: "The appointment was cancelled.",
+          metadata: {
+            status: "cancelled",
+            cancellationReason,
+          },
+        });
+      }
 
       return NextResponse.json(
         {
@@ -681,16 +705,25 @@ export async function PATCH(req: Request) {
       await appointment.save();
       await doctor.save();
 
-      const populated = await Appointment.findById(appointment._id)
-        .populate(
-          "doctor",
-          "fullName specialization profilePicture clinicAddress",
-        )
-        .populate(
-          "patient",
-          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-        )
-        .lean();
+      const populated = await populateAppointment(appointment._id);
+
+      if (populated) {
+        await notifyBothAppointmentSides({
+          appointment: populated as any,
+          type: "appointment_rescheduled",
+          patientTitle: "Appointment rescheduled",
+          patientMessage: "Your appointment schedule has been updated.",
+          doctorTitle: "Appointment rescheduled",
+          doctorMessage: "The appointment has been rescheduled.",
+          metadata: {
+            status: "pending",
+            newAppointmentDate,
+            newStartTime,
+            newEndTime,
+            rescheduleReason,
+          },
+        });
+      }
 
       return NextResponse.json(
         {
@@ -717,16 +750,21 @@ export async function PATCH(req: Request) {
       await appointment.save();
       await doctor.save();
 
-      const populated = await Appointment.findById(appointment._id)
-        .populate(
-          "doctor",
-          "fullName specialization profilePicture clinicAddress",
-        )
-        .populate(
-          "patient",
-          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-        )
-        .lean();
+      const populated = await populateAppointment(appointment._id);
+
+      if (populated) {
+        await notifyBothAppointmentSides({
+          appointment: populated as any,
+          type: "appointment_accepted",
+          patientTitle: "Appointment accepted",
+          patientMessage: "Your appointment has been accepted by the doctor.",
+          doctorTitle: "Appointment accepted",
+          doctorMessage: "You accepted the appointment successfully.",
+          metadata: {
+            status: "accepted",
+          },
+        });
+      }
 
       return NextResponse.json(
         {
@@ -750,16 +788,23 @@ export async function PATCH(req: Request) {
       await appointment.save();
       await doctor.save();
 
-      const populated = await Appointment.findById(appointment._id)
-        .populate(
-          "doctor",
-          "fullName specialization profilePicture clinicAddress",
-        )
-        .populate(
-          "patient",
-          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-        )
-        .lean();
+      const populated = await populateAppointment(appointment._id);
+
+      if (populated) {
+        await notifyBothAppointmentSides({
+          appointment: populated as any,
+          type: "appointment_rejected",
+          patientTitle: "Appointment rejected",
+          patientMessage:
+            rejectionReason || "Your appointment was rejected by the doctor.",
+          doctorTitle: "Appointment rejected",
+          doctorMessage: "You rejected the appointment successfully.",
+          metadata: {
+            status: "rejected",
+            rejectionReason,
+          },
+        });
+      }
 
       return NextResponse.json(
         {
@@ -779,16 +824,21 @@ export async function PATCH(req: Request) {
       await appointment.save();
       await doctor.save();
 
-      const populated = await Appointment.findById(appointment._id)
-        .populate(
-          "doctor",
-          "fullName specialization profilePicture clinicAddress",
-        )
-        .populate(
-          "patient",
-          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
-        )
-        .lean();
+      const populated = await populateAppointment(appointment._id);
+
+      if (populated) {
+        await notifyBothAppointmentSides({
+          appointment: populated as any,
+          type: "appointment_completed",
+          patientTitle: "Appointment completed",
+          patientMessage: "Your appointment has been marked as completed.",
+          doctorTitle: "Appointment completed",
+          doctorMessage: "You marked the appointment as completed.",
+          metadata: {
+            status: "completed",
+          },
+        });
+      }
 
       return NextResponse.json(
         {

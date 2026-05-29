@@ -80,6 +80,12 @@ const AppointmentSchema = new Schema(
       default: null,
     },
 
+    notifications: {
+      booked: { type: Boolean, default: false },
+      upcoming: { type: Boolean, default: false },
+      scheduleUpdate: { type: Boolean, default: false },
+    },
+
     cancelledAt: {
       type: Date,
       default: null,

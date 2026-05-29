@@ -19,6 +19,15 @@ const PatientSchema = new Schema(
       trim: true,
     },
 
+    pushNotificationToken: {
+      type: String,
+      default: "",
+    },
+    pushNotificationTokens: {
+      type: [String],
+      default: [],
+    },
+
     birthday: {
       type: Date,
       required: true,

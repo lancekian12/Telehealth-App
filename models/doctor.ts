@@ -251,6 +251,10 @@ const DoctorSchema = new Schema(
       type: String,
       default: "",
     },
+    pushNotificationTokens: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,

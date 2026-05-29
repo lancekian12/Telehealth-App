@@ -2,58 +2,60 @@ import { Schema, models, model } from "mongoose";
 
 const NotificationSchema = new Schema(
   {
-    user: {
+    recipientId: {
       type: Schema.Types.ObjectId,
-      refPath: "userModel",
       required: true,
     },
-
-    userModel: {
+    recipientModel: {
       type: String,
+      enum: ["Patient", "Doctor"],
       required: true,
-      enum: ["Doctor", "Patient"],
     },
-
+    recipientRole: {
+      type: String,
+      enum: ["patient", "doctor"],
+      required: true,
+    },
+    appointmentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Appointment",
+      default: null,
+    },
     type: {
       type: String,
       enum: [
         "appointment_booked",
         "appointment_accepted",
         "appointment_rejected",
+        "appointment_cancelled",
+        "appointment_rescheduled",
         "appointment_upcoming",
         "schedule_updated",
-        "prescription_created",
       ],
       required: true,
     },
-
     title: {
       type: String,
       required: true,
     },
-
     message: {
       type: String,
       required: true,
     },
-
     read: {
       type: Boolean,
       default: false,
     },
-
-    appointment: {
-      type: Schema.Types.ObjectId,
-      ref: "Appointment",
-      default: null,
+    metadata: {
+      type: Schema.Types.Mixed,
+      default: {},
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true },
 );
 
-NotificationSchema.index({ user: 1, read: 1 });
+NotificationSchema.index({ recipientId: 1, createdAt: -1 });
+NotificationSchema.index({ appointmentId: 1 });
 
 export const Notification =
   models.Notification || model("Notification", NotificationSchema);
