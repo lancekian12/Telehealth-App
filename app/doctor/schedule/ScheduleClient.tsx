@@ -15,7 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppointmentDetailsModal from "@/components/appointments/AppointmentDetailsModal";
 import RejectAppointmentModal from "@/components/appointments/RejectAppointmentModal";
 
@@ -27,6 +27,9 @@ type AppointmentStatus =
   | "cancelled";
 
 type ConsultationType = "video" | "in_person";
+
+type ViewStatus = AppointmentStatus | "reschedule";
+type StatusFilter = "all" | "accepted" | "pending" | "reschedule" | "completed";
 
 type PopulatedPerson = {
   _id?: string;
@@ -65,6 +68,22 @@ type Appointment = {
 type ApiResponse =
   | { success: true; appointments: Appointment[] }
   | { success: false; message?: string };
+
+const statusPriority: Record<ViewStatus, number> = {
+  accepted: 0,
+  pending: 1,
+  reschedule: 2,
+  completed: 3,
+  rejected: 4,
+  cancelled: 5,
+};
+
+function getViewStatus(appointment: Appointment): ViewStatus {
+  if (appointment.status === "pending" && appointment.rescheduleReason) {
+    return "reschedule";
+  }
+  return appointment.status;
+}
 
 function formatDate(dateValue: string) {
   const date = new Date(dateValue);
@@ -105,7 +124,7 @@ function getDoctorSubtitle(doctor: Appointment["doctor"]) {
   return doctor.specialization || doctor.clinicAddress || "";
 }
 
-function StatusBadge({ status }: { status: AppointmentStatus }) {
+function StatusBadge({ status }: { status: ViewStatus }) {
   const styles = {
     pending: {
       className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
@@ -116,6 +135,11 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
       className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
       icon: <CheckCircle2 className="h-3.5 w-3.5" />,
       label: "Accepted",
+    },
+    reschedule: {
+      className: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+      icon: <CalendarDays className="h-3.5 w-3.5" />,
+      label: "Reschedule",
     },
     rejected: {
       className: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
@@ -160,6 +184,7 @@ function AppointmentCard({
   onAccept,
   onReject,
   onJoin,
+  onComplete,
   onShowDetails,
   loadingId,
 }: {
@@ -167,15 +192,18 @@ function AppointmentCard({
   onAccept: (appointment: Appointment) => void;
   onReject: (appointment: Appointment) => void;
   onJoin: (appointment: Appointment) => void;
+  onComplete: (appointment: Appointment) => void;
   onShowDetails: (appointment: Appointment) => void;
   loadingId: string | null;
 }) {
+  const displayStatus = getViewStatus(appointment);
   const completed = appointment.status === "completed";
   const patientName = getPersonName(appointment.patient, "Unknown Patient");
   const doctorSubtitle = getDoctorSubtitle(appointment.doctor);
   const isPending = appointment.status === "pending";
   const isAccepted = appointment.status === "accepted";
   const isVideo = appointment.consultationType === "video";
+  const isInPerson = appointment.consultationType === "in_person";
   const isLoading = loadingId === appointment._id;
 
   const avatarUrl =
@@ -195,11 +223,12 @@ function AppointmentCard({
       <div
         className={[
           "absolute left-0 top-0 bottom-0 w-1 rounded-r-full transition-all duration-500",
-          appointment.status === "pending" && "bg-amber-400",
-          appointment.status === "accepted" && "bg-emerald-500",
-          appointment.status === "rejected" && "bg-rose-500",
-          appointment.status === "cancelled" && "bg-slate-500",
-          appointment.status === "completed" && "bg-slate-300",
+          displayStatus === "pending" && "bg-amber-400",
+          displayStatus === "accepted" && "bg-emerald-500",
+          displayStatus === "reschedule" && "bg-orange-400",
+          displayStatus === "rejected" && "bg-rose-500",
+          displayStatus === "cancelled" && "bg-slate-500",
+          displayStatus === "completed" && "bg-slate-300",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -216,7 +245,7 @@ function AppointmentCard({
             </p>
           </div>
 
-          <StatusBadge status={appointment.status} />
+          <StatusBadge status={displayStatus} />
         </div>
 
         <div className="flex flex-1 flex-col gap-6 sm:flex-row sm:items-start">
@@ -348,6 +377,21 @@ function AppointmentCard({
                 </button>
               )}
 
+              {isAccepted && isInPerson && (
+                <button
+                  onClick={() => onComplete(appointment)}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:brightness-110 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  Mark as done
+                </button>
+              )}
+
               <button
                 onClick={() => onShowDetails(appointment)}
                 className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-5 py-2.5 text-sm font-bold text-primary transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
@@ -364,6 +408,7 @@ function AppointmentCard({
 }
 
 export default function ScheduleClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const doctorId = searchParams.get("doctorId") || "";
   const patientId = searchParams.get("patientId") || "";
@@ -372,6 +417,7 @@ export default function ScheduleClient() {
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [error, setError] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
@@ -471,16 +517,30 @@ export default function ScheduleClient() {
     return appointments
       .filter((appointment) => {
         const appointmentDate = new Date(appointment.appointmentDate);
-        return appointmentDate.toDateString() === selectedDateString;
+        const matchesDate =
+          appointmentDate.toDateString() === selectedDateString;
+
+        const matchesStatus =
+          statusFilter === "all" ||
+          getViewStatus(appointment) === statusFilter;
+
+        return matchesDate && matchesStatus;
       })
       .sort((a, b) => {
+        const aStatus = getViewStatus(a);
+        const bStatus = getViewStatus(b);
+
+        if (statusPriority[aStatus] !== statusPriority[bStatus]) {
+          return statusPriority[aStatus] - statusPriority[bStatus];
+        }
+
         const aDate = new Date(a.appointmentDate).getTime();
         const bDate = new Date(b.appointmentDate).getTime();
 
         if (aDate !== bDate) return aDate - bDate;
         return a.startTime.localeCompare(b.startTime);
       });
-  }, [appointments, selectedDate]);
+  }, [appointments, selectedDate, statusFilter]);
 
   async function patchAppointment(
     appointment: Appointment,
@@ -627,6 +687,51 @@ export default function ScheduleClient() {
     }
   }
 
+  async function handleComplete(appointment: Appointment) {
+    try {
+      setActionLoadingId(appointment._id);
+
+      const res = await fetch("/api/appointments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appointmentId: appointment._id,
+          action: "complete",
+        }),
+      });
+
+      const data = (await res.json()) as {
+        success: boolean;
+        message?: string;
+        appointment?: Appointment;
+      };
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Unable to complete appointment");
+      }
+
+      setAppointments((current) =>
+        current.map((item) =>
+          item._id === appointment._id
+            ? {
+                ...item,
+                ...(data.appointment || {}),
+                status: "completed",
+              }
+            : item,
+        ),
+      );
+
+      router.push(`/doctor/prescription?appointmentId=${appointment._id}`);
+    } catch (err) {
+      alert(
+        err instanceof Error ? err.message : "Unable to complete appointment",
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
   function handleJoin(appointment: Appointment) {
     const url = `/consultation/${appointment._id}?role=doctor`;
     window.open(url, "_blank", "noopener,noreferrer");
@@ -640,7 +745,7 @@ export default function ScheduleClient() {
       `}</style>
 
       <div className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-10 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-24">
-        <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="mb-2 text-sm font-bold uppercase tracking-[0.3em] text-primary">
               Today&apos;s Roster
@@ -649,8 +754,7 @@ export default function ScheduleClient() {
               Clinical Appointments
             </h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Pending appointments can be accepted or rejected again, including
-              rescheduled requests.
+              Accepted appointments come first, then pending, reschedule, and completed.
             </p>
           </div>
 
@@ -688,6 +792,29 @@ export default function ScheduleClient() {
           </div>
         </div>
 
+        <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-2 dark:bg-slate-800/70">
+          {[
+            { key: "all", label: "All" },
+            { key: "accepted", label: "Accepted" },
+            { key: "pending", label: "Pending" },
+            { key: "reschedule", label: "Reschedule" },
+            { key: "completed", label: "Completed" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setStatusFilter(item.key as StatusFilter)}
+              className={[
+                "rounded-full px-4 py-2 text-sm font-semibold transition",
+                statusFilter === item.key
+                  ? "bg-white text-primary shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white",
+              ].join(" ")}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
@@ -717,6 +844,7 @@ export default function ScheduleClient() {
                 onAccept={handleAccept}
                 onReject={handleReject}
                 onJoin={handleJoin}
+                onComplete={handleComplete}
                 onShowDetails={setSelectedAppointment}
                 loadingId={actionLoadingId}
               />

@@ -14,6 +14,10 @@ import {
   CircleX,
   CircleCheckBig,
   Filter,
+  X,
+  Navigation2,
+  LocateFixed,
+  ArrowRight,
 } from "lucide-react";
 import AppointmentFilterModal from "@/components/patient/AppointmentFilterModal";
 import {
@@ -102,19 +106,14 @@ function statusBadge(status: AppointmentStatus) {
   switch (status) {
     case "accepted":
       return "bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary";
-
     case "pending":
       return "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300";
-
     case "completed":
       return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300";
-
     case "rejected":
       return "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300";
-
     case "cancelled":
       return "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400";
-
     default:
       return "bg-slate-100 text-slate-600";
   }
@@ -150,6 +149,25 @@ function filterIcon(status: FilterStatus) {
     default:
       return <CircleDashed size={14} />;
   }
+}
+
+function getAppointmentPriority(appointment: AppointmentItem) {
+  if (appointment.status === "accepted") return 0;
+  if (appointment.status === "pending" && !appointment.rescheduleReason)
+    return 1;
+  if (appointment.status === "pending" && appointment.rescheduleReason)
+    return 2;
+  if (appointment.status === "rejected") return 3;
+  if (appointment.status === "cancelled") return 4;
+  if (appointment.status === "completed") return 5;
+  return 6;
+}
+
+function getDirectionsUrl(address: string) {
+  if (!address.trim()) return "#";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    address,
+  )}`;
 }
 
 export default function AppointmentHistoryClient(): JSX.Element {
@@ -188,6 +206,10 @@ export default function AppointmentHistoryClient(): JSX.Element {
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
   const [selectedRescheduleAppointment, setSelectedRescheduleAppointment] =
+    useState<AppointmentItem | null>(null);
+
+  const [directionsOpen, setDirectionsOpen] = useState(false);
+  const [selectedDirectionsAppointment, setSelectedDirectionsAppointment] =
     useState<AppointmentItem | null>(null);
 
   function getAppointmentDoctorId(
@@ -425,9 +447,15 @@ export default function AppointmentHistoryClient(): JSX.Element {
         }
 
         const sorted = [...data.appointments].sort((a, b) => {
+          const priorityA = getAppointmentPriority(a);
+          const priorityB = getAppointmentPriority(b);
+          if (priorityA !== priorityB) return priorityA - priorityB;
+
           const aDate = getAppointmentDateTime(a)?.getTime() ?? 0;
           const bDate = getAppointmentDateTime(b)?.getTime() ?? 0;
-          return bDate - aDate;
+          if (aDate !== bDate) return aDate - bDate;
+
+          return a.startTime.localeCompare(b.startTime);
         });
 
         setAppointments(sorted);
@@ -446,10 +474,24 @@ export default function AppointmentHistoryClient(): JSX.Element {
   }, [queryString]);
 
   const visibleAppointments = useMemo(() => {
-    if (activeFilter === "all") return appointments;
-    return appointments.filter(
-      (appointment) => appointment.status === activeFilter,
-    );
+    const filtered =
+      activeFilter === "all"
+        ? appointments
+        : appointments.filter(
+            (appointment) => appointment.status === activeFilter,
+          );
+
+    return [...filtered].sort((a, b) => {
+      const priorityA = getAppointmentPriority(a);
+      const priorityB = getAppointmentPriority(b);
+      if (priorityA !== priorityB) return priorityA - priorityB;
+
+      const aDate = getAppointmentDateTime(a)?.getTime() ?? 0;
+      const bDate = getAppointmentDateTime(b)?.getTime() ?? 0;
+      if (aDate !== bDate) return aDate - bDate;
+
+      return a.startTime.localeCompare(b.startTime);
+    });
   }, [appointments, activeFilter]);
 
   const counts = useMemo(() => {
@@ -530,6 +572,8 @@ export default function AppointmentHistoryClient(): JSX.Element {
             {visibleAppointments.map((a) => {
               const appointmentDateTime = getAppointmentDateTime(a);
               const isVideo = a.consultationType === "video";
+              const isRescheduled =
+                a.status === "pending" && Boolean(a.rescheduleReason);
 
               return (
                 <div
@@ -560,7 +604,9 @@ export default function AppointmentHistoryClient(): JSX.Element {
                         a.status === "accepted"
                           ? "bg-primary text-white"
                           : a.status === "pending"
-                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                            ? isRescheduled
+                              ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                              : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
                             : a.status === "completed"
                               ? "bg-emerald-500 text-white"
                               : a.status === "rejected"
@@ -578,7 +624,9 @@ export default function AppointmentHistoryClient(): JSX.Element {
                         a.status === "accepted"
                           ? "border-l-primary"
                           : a.status === "pending"
-                            ? "border-l-amber-400"
+                            ? isRescheduled
+                              ? "border-l-violet-400"
+                              : "border-l-amber-400"
                             : a.status === "completed"
                               ? "border-l-emerald-500"
                               : a.status === "rejected"
@@ -621,7 +669,9 @@ export default function AppointmentHistoryClient(): JSX.Element {
                               <span
                                 className={`status-badge ${statusBadge(a.status)}`}
                               >
-                                {statusLabel(a.status)}
+                                {isRescheduled
+                                  ? "Rescheduled"
+                                  : statusLabel(a.status)}
                               </span>
                             </div>
 
@@ -666,12 +716,14 @@ export default function AppointmentHistoryClient(): JSX.Element {
 
                           {a.status === "pending" && (
                             <p className="text-sm font-medium text-primary mb-1">
-                              Waiting for doctor confirmation
+                              {isRescheduled
+                                ? "Waiting for new schedule confirmation"
+                                : "Waiting for doctor confirmation"}
                             </p>
                           )}
 
                           {a.status === "pending" && a.rescheduleReason && (
-                            <p className="text-sm text-amber-600 dark:text-amber-300 mb-1">
+                            <p className="text-sm text-violet-600 dark:text-violet-300 mb-1">
                               Reschedule reason: {a.rescheduleReason}
                             </p>
                           )}
@@ -714,7 +766,13 @@ export default function AppointmentHistoryClient(): JSX.Element {
                                     Join Call
                                   </button>
                                 ) : (
-                                  <button className="flex-1 md:flex-none px-5 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 font-bold text-sm transition-all flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedDirectionsAppointment(a);
+                                      setDirectionsOpen(true);
+                                    }}
+                                    className="flex-1 md:flex-none px-5 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                                  >
                                     <MapPin size={16} />
                                     Get Directions
                                   </button>
@@ -725,7 +783,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
                             {a.status === "completed" && (
                               <>
                                 <button
-                                  onClick={() => router.push("/medicalrecord")}
+                                  onClick={() => router.push("/medicalrecords")}
                                   className="flex-1 md:flex-none px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/50 font-medium text-sm transition-colors flex items-center justify-center gap-2"
                                 >
                                   <RefreshCw size={16} />
@@ -818,6 +876,78 @@ export default function AppointmentHistoryClient(): JSX.Element {
             : "this appointment"
         }
       />
+
+      {directionsOpen && selectedDirectionsAppointment && (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+                  Clinic location
+                </p>
+                <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">
+                  Doctor: {getDoctorName(selectedDirectionsAppointment)}
+                </h3>
+              </div>
+
+              <button
+                onClick={() => {
+                  setDirectionsOpen(false);
+                  setSelectedDirectionsAppointment(null);
+                }}
+                className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <MapPin size={20} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      {getDoctorSpecialty(selectedDirectionsAppointment) ||
+                        "Clinic"}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                      {getDoctorClinicAddress(selectedDirectionsAppointment) ||
+                        "Clinic address not available"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <a
+                  href={getDirectionsUrl(
+                    getDoctorClinicAddress(selectedDirectionsAppointment),
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition hover:brightness-110"
+                >
+                  Open in Maps
+                  <MapPin size={16} />
+                </a>
+
+                <button
+                  onClick={() => {
+                    setDirectionsOpen(false);
+                    setSelectedDirectionsAppointment(null);
+                  }}
+                  className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
