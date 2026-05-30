@@ -28,7 +28,7 @@ export default function PatientLayout({
   return (
     <div className="min-h-full">
       <Navigation />
-      <main className="pt-20">{children}</main>
+      <main >{children}</main>
       <Footer />
     </div>
   );

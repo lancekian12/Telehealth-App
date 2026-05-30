@@ -109,18 +109,6 @@ function isFullDayBlocked(slot: UnavailableSlot) {
   );
 }
 
-function toMinutes(time: string) {
-  const minutes = parseTimeToMinutes(time);
-  return minutes ?? 0;
-}
-
-function minutesToTime(minutes: number) {
-  const normalized = ((minutes % 1440) + 1440) % 1440;
-  const hour = Math.floor(normalized / 60);
-  const minute = normalized % 60;
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
 function overlaps(a: TimeRange, b: TimeRange) {
   return a.startTime < b.endTime && b.startTime < a.endTime;
 }
@@ -173,6 +161,8 @@ function dedupeSlots(
   );
 }
 
+type Slot = { startTime: string; endTime: string; label: string };
+
 export default function AvailabilityPanel({
   open,
   onClose,
@@ -203,12 +193,6 @@ export default function AvailabilityPanel({
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("[AvailabilityPanel] effect:", {
-      open,
-      doctorId: activeDoctor?.id,
-      doctorName: activeDoctor?.name,
-    });
-
     if (!open || !activeDoctor?.id) return;
 
     const controller = new AbortController();
@@ -218,8 +202,7 @@ export default function AvailabilityPanel({
       setScheduleError(null);
 
       try {
-        const url = `/api/doctor/${activeDoctor?.id}`;
-        console.log("[AvailabilityPanel] fetching:", url);
+        const url = `/api/doctor/${activeDoctor.id}`;
 
         const res = await fetch(url, {
           method: "GET",
@@ -228,16 +211,13 @@ export default function AvailabilityPanel({
 
         const json: DoctorDetailsResponse = await res.json();
 
-        console.log("[AvailabilityPanel] response status:", res.status);
-        console.log("[AvailabilityPanel] response json:", json);
-
         if (!res.ok || !json.success || !json.doctor) {
           throw new Error(json.message || "Failed to load doctor schedule");
         }
 
         setDoctorSchedule({
           fullName:
-            json.doctor.fullName || activeDoctor?.name || "Doctor Schedule",
+            json.doctor.fullName || activeDoctor.name || "Doctor Schedule",
           workingHours: json.doctor.workingHours || [],
           scheduleOverrides: json.doctor.scheduleOverrides || [],
           unavailableSlots: json.doctor.unavailableSlots || [],
@@ -246,8 +226,6 @@ export default function AvailabilityPanel({
         });
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
-
-        console.error("[AvailabilityPanel] load failed:", error);
 
         setScheduleError(
           error instanceof Error ? error.message : "Something went wrong",
@@ -290,7 +268,7 @@ export default function AvailabilityPanel({
         (hour) => hour.date === item.fullDate && hour.isAvailable !== false,
       );
 
-      const rescheduledSlots = doctorSchedule.scheduleOverrides
+      const rescheduledSlots: Slot[] = doctorSchedule.scheduleOverrides
         .filter(
           (override) =>
             override.action === "rescheduled" &&
@@ -305,13 +283,15 @@ export default function AvailabilityPanel({
         }));
 
       const blockedRanges = unavailableForDay
-        .filter((slot) => !isFullDayBlocked(slot) && slot.startTime && slot.endTime)
+        .filter(
+          (slot) => !isFullDayBlocked(slot) && slot.startTime && slot.endTime,
+        )
         .map((slot) => ({
           startTime: slot.startTime as string,
           endTime: slot.endTime as string,
         }));
 
-      const baseSlots = workingHoursForDay.flatMap((slot) => {
+      const baseSlots: Slot[] = workingHoursForDay.flatMap((slot) => {
         const remaining = subtractRanges(
           {
             startTime: slot.startTime,
@@ -355,14 +335,6 @@ export default function AvailabilityPanel({
   );
   const isDisabledDay = Boolean(selectedDayInfo?.disabled);
 
-  useEffect(() => {
-    console.log("[AvailabilityPanel] render state:", {
-      isBlockedDay,
-      isDisabledDay,
-      availableSlots,
-    });
-  }, [isBlockedDay, isDisabledDay, availableSlots]);
-
   if (!open) return null;
 
   const handleConfirm = () => {
@@ -384,17 +356,20 @@ export default function AvailabilityPanel({
 
   return (
     <>
-      <div className="fixed inset-0 z-[200] bg-black/30" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-[200] bg-black/35 backdrop-blur-[1px] sm:bg-black/30"
+        onClick={onClose}
+      />
 
       <aside
         className={[
-          "fixed right-0 top-0 z-[210] flex h-full w-full max-w-md flex-col bg-white shadow-2xl transition-transform duration-300",
-          open ? "translate-x-0" : "translate-x-full",
+          "fixed bottom-0 left-0 right-0 z-[210] flex h-[92dvh] w-full flex-col overflow-hidden bg-white shadow-2xl transition-transform duration-300 sm:bottom-0 sm:left-auto sm:right-0 sm:top-0 sm:h-full sm:max-w-md sm:rounded-none",
+          open ? "translate-y-0 sm:translate-x-0" : "translate-y-full sm:translate-x-full",
         ].join(" ")}
       >
-        <div className="sticky top-0 flex items-start justify-between border-b border-[#e8e8e8] bg-white px-8 py-6">
-          <div>
-            <h3 className="font-['Manrope'] text-2xl font-bold text-[#0f766e]">
+        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#e8e8e8] bg-white px-4 py-4 sm:px-8 sm:py-6">
+          <div className="min-w-0 pr-3">
+            <h3 className="truncate font-['Manrope'] text-xl font-bold text-[#0f766e] sm:text-2xl">
               {doctorSchedule.fullName}
             </h3>
             <p className="mt-1 text-sm text-[#5a6664]">
@@ -408,108 +383,114 @@ export default function AvailabilityPanel({
             className="rounded-full p-2 text-[#6d7a77] transition hover:bg-[#f2f4f4] hover:text-[#1a1c1c]"
             aria-label="Close panel"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex-grow space-y-8 overflow-y-auto px-8 py-6">
-          <div>
-            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
-              This Week
-            </h4>
+        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6">
+          <div className="space-y-7 sm:space-y-8">
+            <div>
+              <h4 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
+                This Week
+              </h4>
 
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {dayAvailability.map((item, index) => {
-                const isSelected = index === selectedDayIndex;
-                const disabled = item.disabled;
-
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    disabled={disabled}
-                    aria-disabled={disabled}
-                    onClick={() => {
-                      if (disabled) return;
-                      setSelectedDayIndex(index);
-                      setSelectedTime("");
-                    }}
-                    className={[
-                      "flex min-w-[60px] flex-col items-center rounded-lg border p-3 transition-all duration-200",
-                      disabled
-                        ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-300 opacity-80"
-                        : isSelected
-                          ? "border-[#0f766e] bg-[#0f766e] text-white shadow-md"
-                          : "border-[#0f766e]/30 bg-[#0f766e]/5 text-[#0f766e] hover:border-[#0f766e] hover:bg-[#0f766e]/10",
-                    ].join(" ")}
-                  >
-                    <span className="text-xs uppercase">{item.day}</span>
-                    <span className="text-lg font-bold">{item.date}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
-              Available Slots
-            </h4>
-
-            {loadingSchedule ? (
-              <div className="rounded-lg border border-dashed border-[#bcc9c6]/50 px-4 py-6 text-center text-sm text-[#6d7a77]">
-                Loading doctor schedule...
-              </div>
-            ) : scheduleError ? (
-              <div className="rounded-lg border border-dashed border-red-200 bg-red-50 px-4 py-6 text-center text-sm text-red-700">
-                {scheduleError}
-              </div>
-            ) : isBlockedDay ? (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                Doctor is unavailable on this date.
-              </div>
-            ) : availableSlots.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {availableSlots.map((slot) => {
-                  const selected =
-                    slot.startTime === selectedTime ||
-                    slot.label === selectedTime;
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
+                {dayAvailability.map((item, index) => {
+                  const isSelected = index === selectedDayIndex;
+                  const disabled = item.disabled;
 
                   return (
                     <button
-                      key={`${slot.startTime}-${slot.endTime}`}
+                      key={item.key}
                       type="button"
-                      onClick={() => setSelectedTime(slot.startTime)}
+                      disabled={disabled}
+                      aria-disabled={disabled}
+                      onClick={() => {
+                        if (disabled) return;
+                        setSelectedDayIndex(index);
+                        setSelectedTime("");
+                      }}
                       className={[
-                        "rounded-lg border px-4 py-3 text-center text-sm font-medium transition",
-                        selected
-                          ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
-                          : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
+                        "flex min-w-[64px] flex-col items-center rounded-xl border px-3 py-3 transition-all duration-200 sm:min-w-[72px]",
+                        disabled
+                          ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-300 opacity-80"
+                          : isSelected
+                            ? "border-[#0f766e] bg-[#0f766e] text-white shadow-md"
+                            : "border-[#0f766e]/30 bg-[#0f766e]/5 text-[#0f766e] hover:border-[#0f766e] hover:bg-[#0f766e]/10",
                       ].join(" ")}
                     >
-                      {slot.label}
+                      <span className="text-[11px] uppercase leading-none">
+                        {item.day}
+                      </span>
+                      <span className="mt-1 text-lg font-bold leading-none">
+                        {item.date}
+                      </span>
                     </button>
                   );
                 })}
               </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                No available slots for this day
-              </div>
-            )}
+            </div>
+
+            <div>
+              <h4 className="mb-3 text-xs font-bold uppercase tracking-widest text-[#0f766e]">
+                Available Slots
+              </h4>
+
+              {loadingSchedule ? (
+                <div className="rounded-2xl border border-dashed border-[#bcc9c6]/50 px-4 py-6 text-center text-sm text-[#6d7a77]">
+                  Loading doctor schedule...
+                </div>
+              ) : scheduleError ? (
+                <div className="rounded-2xl border border-dashed border-red-200 bg-red-50 px-4 py-6 text-center text-sm text-red-700">
+                  {scheduleError}
+                </div>
+              ) : isBlockedDay ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                  Doctor is unavailable on this date.
+                </div>
+              ) : availableSlots.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {availableSlots.map((slot) => {
+                    const selected =
+                      slot.startTime === selectedTime ||
+                      slot.label === selectedTime;
+
+                    return (
+                      <button
+                        key={`${slot.startTime}-${slot.endTime}`}
+                        type="button"
+                        onClick={() => setSelectedTime(slot.startTime)}
+                        className={[
+                          "rounded-xl border px-4 py-3 text-center text-sm font-medium transition active:scale-[0.99]",
+                          selected
+                            ? "border-[#0f766e] bg-[#0f766e]/5 text-[#0f766e]"
+                            : "border-[#bcc9c6]/40 text-[#1a1c1c] hover:border-[#0f766e] hover:text-[#0f766e]",
+                        ].join(" ")}
+                      >
+                        {slot.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                  No available slots for this day
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="mt-auto border-t border-[#e8e8e8] bg-[#f9f9f9] p-8">
+        <div className="mt-auto border-t border-[#e8e8e8] bg-[#f9f9f9] px-4 py-4 sm:p-8">
           <button
             type="button"
             onClick={handleConfirm}
             disabled={!canConfirm}
-            className="w-full rounded-full bg-[#0f766e] py-4 text-lg font-bold text-white transition hover:bg-[#0b5f59] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-full bg-[#0f766e] py-4 text-base font-bold text-white transition hover:bg-[#0b5f59] disabled:cursor-not-allowed disabled:opacity-50 sm:text-lg"
           >
             Confirm {selectedTime || "Time"}
           </button>
-          <p className="mt-4 text-center text-xs text-[#5a6664]">
+          <p className="mt-3 text-center text-xs text-[#5a6664] sm:mt-4">
             A confirmation will be sent to your registered email.
           </p>
         </div>

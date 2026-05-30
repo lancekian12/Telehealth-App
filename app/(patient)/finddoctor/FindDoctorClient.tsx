@@ -139,15 +139,15 @@ function AiSearchModal({
           : "Routine";
 
   return (
-    <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+    <div className=" fixed inset-0 z-[260] flex items-end justify-center bg-black/45 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl dark:bg-slate-900 sm:p-6">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full bg-[#008081]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#008081]">
               <Sparkles size={14} />
               AI Searching
             </div>
-            <h3 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <h3 className="mt-3 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
               Finding the best doctor match
             </h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -166,10 +166,10 @@ function AiSearchModal({
           </button>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50 sm:mt-6">
           {loading ? (
-            <div className="flex items-center gap-3">
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#008081] border-t-transparent" />
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 h-5 w-5 animate-spin rounded-full border-2 border-[#008081] border-t-transparent" />
               <div>
                 <p className="font-semibold text-slate-900 dark:text-white">
                   AI is searching doctors...
@@ -190,11 +190,11 @@ function AiSearchModal({
             </div>
           ) : (
             <div>
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="font-semibold text-slate-900 dark:text-white">
                   {urgencyLabel} priority
                 </p>
-                <span className="rounded-full bg-[#008081]/10 px-3 py-1 text-xs font-semibold text-[#008081]">
+                <span className="w-fit rounded-full bg-[#008081]/10 px-3 py-1 text-xs font-semibold text-[#008081]">
                   AI Ready
                 </span>
               </div>
@@ -219,11 +219,11 @@ function AiSearchModal({
           )}
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-5 flex justify-stretch sm:justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-[#008081] px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-colors hover:bg-[#00736f]"
+            className="w-full rounded-full bg-[#008081] px-5 py-3 text-sm font-bold text-white shadow-lg transition-colors hover:bg-[#00736f] sm:w-auto"
           >
             Show Results
           </button>
@@ -241,7 +241,7 @@ function MapControls({
   onSearchArea: () => void;
 }) {
   return (
-    <div className="absolute right-6 top-6 z-20 flex flex-col gap-2">
+    <div className="absolute right-3 top-3 z-20 flex flex-col gap-2 sm:right-6 sm:top-6">
       <button
         onClick={() => window.__doctorMap?.zoomIn()}
         className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
@@ -839,9 +839,9 @@ export default function FindDoctorClient(): JSX.Element {
   const isAllLoaded = page >= totalPages;
 
   return (
-    <div className="flex min-h-screen flex-col text-slate-900 dark:bg-[#0f172a] dark:text-slate-100">
-      <main className="isolate relative flex min-h-screen flex-col overflow-hidden lg:flex-row">
-        <section className="relative z-30 h-screen w-full min-w-0 overflow-y-auto p-4 no-scrollbar sm:p-6 lg:w-1/2 lg:flex-none lg:p-8 dark:bg-[#0f172a]">
+    <div className="flex min-h-[100dvh] flex-col text-slate-900 dark:bg-[#0f172a] dark:text-slate-100">
+      <main className="isolate relative flex min-h-[100dvh] flex-col overflow-hidden lg:flex-row">
+        <section className="relative z-30 w-full min-w-0 overflow-y-auto px-4 py-4 pb-24 no-scrollbar sm:px-6 sm:py-6 lg:h-[100dvh] lg:w-1/2 lg:flex-none lg:p-8 dark:bg-[#0f172a]">
           <div className="relative z-[120] mx-auto max-w-4xl">
             <SearchBar
               query={query}
@@ -896,9 +896,9 @@ export default function FindDoctorClient(): JSX.Element {
               }}
             />
 
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            <div className="mb-5 flex flex-col gap-3 lg:mb-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">
                   {loadingDoctors
                     ? "Loading doctors..."
                     : `${visibleDoctors.length} Doctors in ${
@@ -928,15 +928,15 @@ export default function FindDoctorClient(): JSX.Element {
                 ) : null}
               </div>
 
-              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800">
-                <span>Sort:</span>
+              <div className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 lg:w-auto">
+                <span className="shrink-0">Sort:</span>
                 <select
                   value={sort}
                   onChange={(e) => {
                     setSort(e.target.value);
                     setPage(1);
                   }}
-                  className="cursor-pointer border-none bg-transparent p-0 pr-6 text-sm font-semibold text-slate-700 focus:ring-0 dark:text-slate-300"
+                  className="min-w-0 cursor-pointer border-none bg-transparent p-0 pr-6 text-sm font-semibold text-slate-700 focus:ring-0 dark:text-slate-300"
                 >
                   <option>Recommended</option>
                   <option>Highest Rated</option>
@@ -945,18 +945,18 @@ export default function FindDoctorClient(): JSX.Element {
               </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {displayed.map((d) => (
                 <article
                   key={d.id}
                   data-doctor={d.id}
-                  className="doctor-card group flex flex-col gap-6 rounded-2xl border border-slate-100 bg-white p-6 transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:flex-row"
+                  className="doctor-card group flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-4 transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:gap-6 sm:p-6 lg:flex-row"
                 >
-                  <div className="relative h-36 w-full flex-shrink-0 sm:w-36">
+                  <div className="relative h-48 w-full flex-shrink-0 overflow-hidden rounded-xl sm:h-40 sm:w-40">
                     <img
                       src={d.img}
                       alt={d.name}
-                      className="h-full w-full rounded-xl object-cover shadow-md"
+                      className="h-full w-full object-cover shadow-md"
                     />
                     <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-slate-100 bg-white/95 px-2 py-0.5 text-xs font-bold shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
                       <Star size={14} className="text-yellow-400" />
@@ -966,12 +966,12 @@ export default function FindDoctorClient(): JSX.Element {
 
                   <div className="z-10 flex flex-1 flex-col justify-between">
                     <div>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-xl font-bold text-slate-900 transition-colors group-hover:text-[#008081] dark:text-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-lg font-bold text-slate-900 transition-colors group-hover:text-[#008081] dark:text-white sm:text-xl">
                             {d.name}
                           </h3>
-                          <div className="mt-0.5 flex items-center gap-2">
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2">
                             <p className="text-sm font-bold text-[#008081]">
                               {d.specialty}
                             </p>
@@ -991,12 +991,11 @@ export default function FindDoctorClient(): JSX.Element {
                       </div>
 
                       <p className="mt-3 line-clamp-2 text-sm text-slate-500">
-                        {d.specialty} with years of experience —
-                        patient-centered care, board certifications and
-                        community trust.
+                        {d.specialty} with years of experience — patient-centered
+                        care, board certifications and community trust.
                       </p>
 
-                      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-500">
+                      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium text-slate-500">
                         {d.tags?.map((tag) => (
                           <div
                             key={tag}
@@ -1026,7 +1025,7 @@ export default function FindDoctorClient(): JSX.Element {
                       </div>
                     </div>
 
-                    <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-5 dark:border-slate-700">
+                    <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <span className="mb-0.5 block text-xs text-slate-400">
                           Consultation Fee
@@ -1039,12 +1038,12 @@ export default function FindDoctorClient(): JSX.Element {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex w-full items-center gap-3 sm:w-auto">
                         {hasMounted && (
                           <>
                             {d.status === "fully_booked" ? (
                               <button
-                                className="cursor-not-allowed rounded-full bg-slate-100 px-6 py-2.5 text-sm font-bold text-slate-400"
+                                className="w-full cursor-not-allowed rounded-full bg-slate-100 px-6 py-2.5 text-sm font-bold text-slate-400 sm:w-auto"
                                 disabled
                               >
                                 Fully Booked
@@ -1052,7 +1051,7 @@ export default function FindDoctorClient(): JSX.Element {
                             ) : (
                               <button
                                 onClick={() => openAvailabilityPanel(d)}
-                                className="rounded-full bg-[#008081] px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#00736f] hover:shadow-xl"
+                                className="w-full rounded-full bg-[#008081] px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#00736f] hover:shadow-xl sm:w-auto"
                               >
                                 Book Consultation
                               </button>
@@ -1069,7 +1068,7 @@ export default function FindDoctorClient(): JSX.Element {
             <div className="mb-10 mt-6 flex justify-center">
               <button
                 onClick={loadMore}
-                className="flex items-center gap-2 rounded-full border border-[#008081]/20 px-8 py-3 font-bold text-[#008081] transition-colors hover:bg-[#008081]/5"
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-[#008081]/20 px-8 py-3 font-bold text-[#008081] transition-colors hover:bg-[#008081]/5 sm:w-auto"
               >
                 {isAllLoaded ? "Show Less" : "Load More Specialists"}
                 <RefreshCw size={18} />
@@ -1078,7 +1077,7 @@ export default function FindDoctorClient(): JSX.Element {
           </div>
         </section>
 
-        <aside className="relative z-0 hidden h-screen w-1/2 overflow-hidden bg-slate-100 dark:bg-[#0f172a] lg:block">
+        <aside className="relative z-0 hidden h-[100dvh] w-1/2 overflow-hidden bg-slate-100 dark:bg-[#0f172a] lg:block">
           <div ref={mapHostRef} className="h-full w-full" />
           <MapControls
             center={center}

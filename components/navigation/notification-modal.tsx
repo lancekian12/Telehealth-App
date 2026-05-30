@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { CheckCircle2, X } from "lucide-react";
 
 export type NotificationItem = {
@@ -26,8 +27,8 @@ type NotificationModalProps = {
   onClose: () => void;
   notifications: NotificationItem[];
   loading?: boolean;
-  onMarkAsRead: (notificationId: string) => void;
-  onMarkAllAsRead: () => void;
+  onMarkAsRead: (notificationId: string) => void | Promise<void>;
+  onMarkAllAsRead: () => void | Promise<void>;
 };
 
 function getNotificationLabel(type?: NotificationItem["type"]) {
@@ -46,6 +47,8 @@ function getNotificationLabel(type?: NotificationItem["type"]) {
       return "Upcoming";
     case "schedule_updated":
       return "Schedule updated";
+    case "appointment_completed":
+      return "Completed";
     default:
       return "Notification";
   }
@@ -75,6 +78,22 @@ export default function NotificationModal({
   onMarkAsRead,
   onMarkAllAsRead,
 }: NotificationModalProps) {
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
 
@@ -98,16 +117,22 @@ export default function NotificationModal({
 
   const unreadCount = notifications.filter((item) => !item.read).length;
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="absolute right-0 top-[calc(100%+0.75rem)] z-[10000] w-[24rem] max-w-[calc(100vw-1rem)] pointer-events-auto">
-      <div
-        className="overflow-hidden rounded-2xl border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-          <div>
+  const panel = (
+    <div
+      className={[
+        "z-[10000] overflow-hidden border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95",
+        isMobile
+          ? "fixed left-[30px] right-[30px] top-[88px] max-h-[80dvh] rounded-3xl"
+          : "absolute right-0 top-[calc(100%+0.75rem)] w-[24rem] max-w-[calc(100vw-1rem)] rounded-2xl",
+      ].join(" ")}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 md:px-4 md:py-3">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Notifications
@@ -126,9 +151,8 @@ export default function NotificationModal({
             {unreadCount > 0 && (
               <button
                 type="button"
-                onClick={() => {
-                  console.log("[NotificationModal] Mark all read clicked");
-                  onMarkAllAsRead();
+                onClick={async () => {
+                  await onMarkAllAsRead();
                 }}
                 className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
@@ -138,10 +162,7 @@ export default function NotificationModal({
 
             <button
               type="button"
-              onClick={() => {
-                console.log("[NotificationModal] Close clicked");
-                onClose();
-              }}
+              onClick={onClose}
               aria-label="Close notifications"
               className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
@@ -150,10 +171,7 @@ export default function NotificationModal({
           </div>
         </div>
 
-        <div
-          className="max-h-[24rem] overflow-y-auto p-2"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="max-h-[24rem] overflow-y-auto p-2">
           {loading ? (
             <div className="space-y-2 p-2">
               <div className="h-16 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
@@ -165,29 +183,14 @@ export default function NotificationModal({
               const isRead = !!item.read;
 
               return (
-                <div
+                <button
                   key={item._id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-
-                    console.log("[NotificationModal] clicked:", item._id);
-
-                    onMarkAsRead(item._id);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      console.log(
-                        "[NotificationModal] keyboard clicked:",
-                        item._id,
-                      );
-                      onMarkAsRead(item._id);
-                    }
+                  type="button"
+                  onClick={async () => {
+                    await onMarkAsRead(item._id);
                   }}
                   className={[
-                    "mb-2 flex w-full cursor-pointer gap-3 rounded-xl border px-3 py-3 text-left transition-all duration-200 outline-none",
+                    "mb-2 flex w-full cursor-pointer touch-manipulation gap-3 rounded-xl border px-3 py-3 text-left transition-all duration-200 outline-none active:scale-[0.99]",
                     isRead
                       ? "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/70"
                       : "border-[#008081]/15 bg-[#008081]/8 hover:bg-[#008081]/12 dark:border-[#008081]/25 dark:bg-[#008081]/10",
@@ -230,7 +233,7 @@ export default function NotificationModal({
                       {item.message}
                     </p>
                   </div>
-                </div>
+                </button>
               );
             })
           ) : (
@@ -250,4 +253,20 @@ export default function NotificationModal({
       </div>
     </div>
   );
+
+  if (isMobile) {
+    return createPortal(
+      <>
+        <div
+          className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-[1px]"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+        {panel}
+      </>,
+      document.body,
+    );
+  }
+
+  return panel;
 }

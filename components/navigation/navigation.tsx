@@ -21,9 +21,6 @@ export default function Navigation() {
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  const desktopNotificationRef = useRef<HTMLDivElement>(null);
-  const mobileNotificationRef = useRef<HTMLDivElement>(null);
-
   const setPatient = useAuthStore((state) => state.setPatient);
   const patient = useAuthStore((state) => state.patient);
 
@@ -40,24 +37,6 @@ export default function Navigation() {
   });
 
   const unreadCount = notifications.filter((item) => !item.read).length;
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-
-      const insideDesktop =
-        desktopNotificationRef.current?.contains(target) ?? false;
-      const insideMobile =
-        mobileNotificationRef.current?.contains(target) ?? false;
-
-      if (!insideDesktop && !insideMobile) {
-        setNotificationOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -135,6 +114,10 @@ export default function Navigation() {
   }, []);
 
   useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
 
@@ -154,6 +137,7 @@ export default function Navigation() {
       if (event.key === "Escape") {
         setProfileOpen(false);
         setNotificationOpen(false);
+        setMenuOpen(false);
       }
     };
 
@@ -168,18 +152,33 @@ export default function Navigation() {
 
   const isActive = (href: string) => pathname === href;
 
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await Promise.resolve(markAsRead(notificationId));
+      await refreshNotifications();
+    } catch (error) {
+      console.log("markAsRead error:", error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await Promise.resolve(markAllAsRead());
+      await refreshNotifications();
+    } catch (error) {
+      console.log("markAllAsRead error:", error);
+    }
+  };
+
   const renderBell = (mobile = false) => (
-    <div
-      ref={mobile ? mobileNotificationRef : desktopNotificationRef}
-      className="relative flex items-center justify-center"
-    >
+    <div ref={notificationRef} className="relative flex items-center justify-center">
       <button
         type="button"
         onClick={() => setNotificationOpen((prev) => !prev)}
         aria-label="Open notifications"
         aria-expanded={notificationOpen}
         className={[
-          "relative flex items-center justify-center rounded-full border bg-white/90 text-[#008081] shadow-sm transition-transform duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-[#008081]/50 dark:bg-slate-800/90",
+          "relative z-10 flex items-center justify-center rounded-full border bg-white/90 text-[#008081] shadow-sm transition-transform duration-200 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-[#008081]/50 dark:bg-slate-800/90",
           mobile
             ? "h-11 w-11 border-slate-200 dark:border-slate-700"
             : "h-12 w-12 border-slate-200 dark:border-slate-700",
@@ -199,8 +198,8 @@ export default function Navigation() {
         onClose={() => setNotificationOpen(false)}
         notifications={notifications}
         loading={notificationLoading}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
       />
     </div>
   );
@@ -367,6 +366,98 @@ export default function Navigation() {
                   )}
                 </svg>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`md:hidden overflow-hidden border-t border-slate-100 bg-white/95 transition-all duration-300 dark:border-slate-800 dark:bg-slate-900/95 ${
+            menuOpen ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="mx-auto max-w-8xl px-4 py-4 sm:px-6">
+            <nav className="flex flex-col gap-1">
+              {[
+                { href: "/", label: "Home" },
+                { href: "/finddoctor", label: "Find Doctor" },
+                { href: "/appointments", label: "Appointments" },
+                { href: "/medicalrecord", label: "Medical Record" },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+                    isActive(item.href)
+                      ? "bg-[#008081]/10 text-[#008081]"
+                      : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+              {patient ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={patient.profilePicture}
+                      alt={patient.fullName}
+                      className="h-14 w-14 rounded-full object-cover ring-2 ring-white"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        {patient.fullName}
+                      </p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Patient
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setProfileModalOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-colors hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-800"
+                    >
+                      <UserRound size={18} />
+                      View Profile
+                    </button>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1">{renderBell(true)}</div>
+                      <div className="flex-1">
+                        <div onClick={() => setMenuOpen(false)}>
+                          <Logout />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  <Link
+                    href="/signup"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    Sign Up
+                  </Link>
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex-1 rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-white"
+                  >
+                    Login
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
