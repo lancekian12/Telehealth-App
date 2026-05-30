@@ -842,7 +842,7 @@ export default function FindDoctorClient(): JSX.Element {
     <div className="flex min-h-screen flex-col text-slate-900 dark:bg-[#0f172a] dark:text-slate-100">
       <main className="isolate relative flex min-h-screen flex-col overflow-hidden lg:flex-row">
         <section className="relative z-30 h-screen w-full min-w-0 overflow-y-auto p-4 no-scrollbar sm:p-6 lg:w-1/2 lg:flex-none lg:p-8 dark:bg-[#0f172a]">
-          <div className="relative z-[120] mx-auto mt-20 max-w-4xl">
+          <div className="relative z-[120] mx-auto max-w-4xl">
             <SearchBar
               query={query}
               setQuery={(value) => {
