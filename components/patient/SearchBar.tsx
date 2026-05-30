@@ -74,8 +74,7 @@ export default function SearchBar({
   setLocationQuery,
   searchOpen,
   setSearchOpen,
-  sort,
-  setSort,
+
   onOpenFilters,
   onRecommendDoctors,
 }: SearchBarProps) {
