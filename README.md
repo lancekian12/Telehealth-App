@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Telehealth App
 
-## Getting Started
+A simple telehealth platform for patients and doctors.
 
-First, run the development server:
+Patients can find doctors, book consultations, join online sessions, and view medical records. Doctors can manage schedules, handle appointments, write prescriptions, and maintain consultation records.
+
+## Features
+
+### Patient
+- Create and manage account
+- Complete personal profile
+- Browse and search doctors
+- Filter doctors by specialization
+- Receive AI-powered doctor recommendations
+- Book, reschedule, or cancel appointments
+- Join virtual consultations
+- View appointment history
+- Access medical records and prescriptions
+- Receive real-time notifications
+
+### Doctor
+- Create and manage account
+- Add profile details and specialization
+- Manage schedules and availability
+- Restrict unavailable time slots
+- View patient records
+- Handle appointments
+- Join consultation sessions
+- Create prescriptions and consultation notes
+- Receive real-time notifications
+
+## Tech Stack
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- MongoDB
+- Mongoose
+- Clerk Authentication
+- Pusher
+- Stream Video
+- Google GenAI
+- Cloudinary
+- Leaflet
+
+## Main Pages
+
+### Patient
+- `/`
+- `/finddoctor`
+- `/bookappointment`
+- `/appointments`
+- `/medicalrecord`
+- `/prescription`
+- `/consultation/[appointmentId]`
+
+### Doctor
+- `/doctor/home`
+- `/doctor/appointments`
+- `/doctor/schedule`
+- `/doctor/patientrecords`
+- `/doctor/prescription`
+- `/doctor/notifications`
+
+## API Routes
+
+- `/api/ai-recommendation`
+- `/api/appointments`
+- `/api/doctor`
+- `/api/doctors`
+- `/api/notifications`
+- `/api/patient`
+- `/api/pusher/auth`
+- `/api/stream-token`
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/lancekian12/Telehealth-App.git
+```
+
+Navigate to the project directory:
+
+```bash
+cd Telehealth-App
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create a `.env.local` file and configure the required environment variables.
+
+Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open your browser and visit:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Production Build
 
-## Learn More
+Build the application:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Start the production server:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm start
+```
 
-## Deploy on Vercel
+## Project Goal
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The project aims to provide an accessible telehealth platform that connects patients with healthcare professionals through online consultations, appointment management, AI-assisted doctor recommendations, and digital medical records.
