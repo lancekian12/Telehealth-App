@@ -14,7 +14,8 @@ export default function AuthLayout({
 }>) {
   return (
     <div className="min-h-full">
-      <div className="pt-21">
+      <div className="pt-5 sm:pt-21">
+        {" "}
         <main className="flex-1">{children}</main>
         <Footer />
       </div>

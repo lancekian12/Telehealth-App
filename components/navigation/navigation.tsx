@@ -213,7 +213,7 @@ export default function Navigation() {
             : "bg-white/80 dark:bg-slate-900/80"
         }`}
       >
-        <div className="mx-auto max-w-8xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between gap-4">
             <Link href="/" className="flex items-center justify-center">
               <span

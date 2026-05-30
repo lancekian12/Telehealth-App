@@ -56,28 +56,30 @@ const clerkAppearance = {
 
 export default function LoginForm() {
   return (
-    <section className="mx-auto w-full max-w-md">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:p-8">
-        <div className="mb-8 text-center">
-          <h2 className="text-center text-2xl font-bold text-slate-900">
+    <section className="mx-auto w-full max-w-[92vw] sm:max-w-md px-0 sm:px-0">
+      <div className="rounded-2xl sm:rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 md:p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
+        <div className="mb-6 sm:mb-8 text-center">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
             Log In
           </h2>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-xs sm:text-sm text-slate-500 px-2 sm:px-0">
             Please complete the following details to proceed
           </p>
         </div>
 
-        <SignIn
-          routing="path"
-          path="/login"
-          signUpUrl="/signup"
-          withSignUp={true}
-          forceRedirectUrl="/post-login"
-          signUpForceRedirectUrl="/post-login"
-          appearance={clerkAppearance}
-        />
+        <div className="w-full overflow-hidden">
+          <SignIn
+            routing="path"
+            path="/login"
+            signUpUrl="/signup"
+            withSignUp={true}
+            forceRedirectUrl="/post-login"
+            signUpForceRedirectUrl="/post-login"
+            appearance={clerkAppearance}
+          />
+        </div>
 
-        <div className="mt-6 text-center text-sm text-slate-500">
+        <div className="mt-5 sm:mt-6 text-center text-sm text-slate-500">
           Don&apos;t have an account?{" "}
           <Link
             href="/signup"

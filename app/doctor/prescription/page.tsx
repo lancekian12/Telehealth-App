@@ -229,7 +229,6 @@ export default function FinalizePrescriptionPage() {
       setTimeout(() => {
         router.replace("/doctor/patientrecords");
       }, 800);
-      
     } catch (error) {
       console.error(error);
       setSaveError(
@@ -288,15 +287,6 @@ export default function FinalizePrescriptionPage() {
             />
           </div>
         </div>
-
-        {saveError ? (
-          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-              <p className="text-sm">{saveError}</p>
-            </div>
-          </div>
-        ) : null}
 
         {saveSuccess ? (
           <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">

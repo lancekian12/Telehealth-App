@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormFields } from "@/types/patient";
@@ -106,66 +106,65 @@ export default function PatientSignupForm() {
 
   return (
     <div className="bg-background-light text-slate-900 min-h-screen flex flex-col">
-      <Link
-        href="/signup"
-        className="
-          relative sm:fixed
-          sm:top-6 sm:left-6
-          mx-4 mt-4 sm:mt-0
-          z-50
-          rounded-lg border border-slate-200
-          bg-white px-4 py-2
-          text-sm font-semibold text-slate-600
-          shadow-sm
-          hover:border-[#008081]/40 hover:text-[#008081]
-          transition-all
-          inline-flex items-center
-        "
-      >
-        Back
-      </Link>
+      <div className="px-4 pt-4 sm:px-0 sm:pt-0 sm:fixed sm:top-6 sm:left-6 sm:z-50">
+        <Link
+          href="/signup"
+          className="
+            inline-flex items-center justify-center
+            rounded-lg border border-slate-200
+            bg-white px-3.5 py-2
+            text-sm font-semibold text-slate-600
+            shadow-sm
+            hover:border-[#008081]/40 hover:text-[#008081]
+            transition-all
+            w-auto
+          "
+        >
+          Back
+        </Link>
+      </div>
 
       <main
         className="
-          flex-grow flex flex-col
-          items-center
-          justify-start sm:justify-center
+          flex-1 flex flex-col
+          items-center justify-start sm:justify-center
           w-full max-w-lg mx-auto
-          px-4 py-8 sm:py-12
+          px-4 sm:px-6 lg:px-8
+          py-6 sm:py-12
         "
       >
-        <div className="text-center mb-10">
+        <div className="text-center mb-8 sm:mb-10">
           <div className="flex flex-col items-center gap-2">
             <div className="text-primary flex items-center justify-center">
               <span
-                className="material-icons text-[#008081]"
-                style={{ fontSize: "50px" }}
+                className="material-icons text-[#008081] text-[40px] sm:text-[50px]"
               >
                 eco
               </span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800 uppercase">
+
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 uppercase">
               APPOINT <span className="text-[#81B641]">CARE</span>
             </h1>
           </div>
 
-          <div className="mt-6">
-            <h2 className="text-2xl font-bold text-[#008081] mb-2">
+          <div className="mt-5 sm:mt-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#008081] mb-2">
               Patient Registration
             </h2>
-            <p className="text-slate-500">
+            <p className="text-sm sm:text-base text-slate-500 px-2 sm:px-0">
               Join our community for better healthcare access
             </p>
           </div>
 
-          <div className="flex justify-center mt-6 gap-2">
-            <div className="h-1.5 w-12 rounded-full bg-[#008081]/15"></div>
-            <div className="h-1.5 w-12 rounded-full bg-[#008081]"></div>
+          <div className="flex justify-center mt-5 sm:mt-6 gap-2">
+            <div className="h-1.5 w-10 sm:w-12 rounded-full bg-[#008081]/15"></div>
+            <div className="h-1.5 w-10 sm:w-12 rounded-full bg-[#008081]"></div>
           </div>
         </div>
 
         <div className="w-full">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div>
               <label
                 className="block text-sm font-medium text-slate-700 mb-1.5"
@@ -211,7 +210,7 @@ export default function PatientSignupForm() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label
                   className="block text-sm font-medium text-slate-700 mb-1.5"
@@ -224,13 +223,16 @@ export default function PatientSignupForm() {
                   name="weight"
                   value={form.weight}
                   onChange={handleChange}
-                  placeholder="70 kg "
+                  placeholder="70 kg"
                   type="number"
                   min="1"
                   className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition placeholder:text-slate-400 ${
                     errors.weight ? "border-rose-500" : "border-slate-200"
                   }`}
                 />
+                {errors.weight && (
+                  <p className="mt-1 text-xs text-rose-600">{errors.weight}</p>
+                )}
               </div>
 
               <div>
@@ -271,7 +273,7 @@ export default function PatientSignupForm() {
                 onChange={handleFileChange}
                 type="file"
                 accept="image/*"
-                className={`w-full px-4 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition file:mr-4 file:rounded-md file:border-0 file:bg-[#008081] file:px-4 file:py-2 file:text-white ${
+                className={`w-full px-3 py-3 bg-white border rounded-lg text-slate-700 focus:outline-none transition file:mr-3 file:rounded-md file:border-0 file:bg-[#008081] file:px-4 file:py-2 file:text-white file:text-sm ${
                   errors.profilePicture ? "border-rose-500" : "border-slate-200"
                 }`}
               />

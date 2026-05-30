@@ -13,8 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Menu,
-  Calendar as CalendarIcon,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
@@ -197,6 +195,7 @@ export default function DoctorAppointmentClient() {
   const calendarRef = useRef<FullCalendar | null>(null);
   const refreshTimeoutRef = useRef<number | null>(null);
 
+  const [isMobile, setIsMobile] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() =>
     getLocalDateString(new Date()),
   );
@@ -216,6 +215,16 @@ export default function DoctorAppointmentClient() {
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+
+    const update = () => setIsMobile(mq.matches);
+    update();
+
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
 
   const loadData = useCallback(async (options?: { manual?: boolean }) => {
     const manual = options?.manual ?? false;
@@ -286,7 +295,6 @@ export default function DoctorAppointmentClient() {
   }, [loadData]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
   }, [loadData]);
 
@@ -401,7 +409,7 @@ export default function DoctorAppointmentClient() {
           : "Refresh";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
+    <div className="flex min-h-dvh bg-slate-50 text-slate-900 md:h-screen md:overflow-hidden">
       <style>{`
         .text-primary { color: #008081; }
         .bg-primary { background-color: #008081; }
@@ -486,21 +494,53 @@ export default function DoctorAppointmentClient() {
         .fc a.fc-event {
           pointer-events: none;
         }
+
+        @media (max-width: 767px) {
+          .fc .fc-toolbar {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+          }
+
+          .fc .fc-toolbar-title {
+            font-size: 1rem;
+          }
+
+          .fc .fc-button {
+            padding: 0.3rem 0.6rem;
+            border-radius: 0.65rem;
+            font-size: 0.85rem;
+          }
+
+          .fc .fc-daygrid-day-frame {
+            min-height: 58px;
+          }
+
+          .fc .fc-daygrid-event {
+            margin-top: 0.15rem;
+          }
+
+          .fc .fc-event {
+            padding: 0.1rem 0.25rem;
+            font-size: 0.75rem;
+            line-height: 1.1;
+          }
+
+          .fc .fc-scrollgrid {
+            border-radius: 0.9rem;
+          }
+
+          .fc .fc-col-header-cell-cushion {
+            font-size: 0.72rem;
+          }
+
+          .fc .fc-daygrid-day-number {
+            font-size: 0.75rem;
+          }
+        }
       `}</style>
 
-      <div className="flex h-screen flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
-          <div className="flex items-center gap-2">
-            <CalendarIcon size={20} className="text-primary" />
-            <span className="text-lg font-bold">
-              Appoint<span className="text-secondary">Care</span>
-            </span>
-          </div>
-          <button type="button" className="text-slate-500">
-            <Menu />
-          </button>
-        </header>
-
+      <div className="flex min-h-dvh flex-1 flex-col md:h-screen md:overflow-hidden">
         <main className="flex-1 overflow-y-auto bg-white">
           <div className="mx-auto w-full max-w-[1600px] px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
             <div className="flex flex-col gap-6">
@@ -514,12 +554,12 @@ export default function DoctorAppointmentClient() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                   <button
                     type="button"
                     onClick={() => void handleRefresh()}
                     disabled={isLoading || isRefreshing}
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
                   >
                     <RefreshCw
                       size={16}
@@ -533,7 +573,7 @@ export default function DoctorAppointmentClient() {
                   <button
                     type="button"
                     onClick={handleOpenNewSlot}
-                    className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90 sm:w-auto"
                   >
                     <Plus size={14} />
                     New Slot
@@ -541,7 +581,7 @@ export default function DoctorAppointmentClient() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 {refreshState === "success" ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
                     <CheckCircle2 size={12} />
@@ -579,8 +619,8 @@ export default function DoctorAppointmentClient() {
                 </div>
 
                 <div className="flex flex-col gap-6">
-                  <div className="h-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="h-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h2 className="text-xl font-bold text-slate-800">
                           {formatMonthYear()}
@@ -590,7 +630,7 @@ export default function DoctorAppointmentClient() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
                         <div className="flex rounded-lg bg-slate-100 p-1">
                           <button
                             type="button"
@@ -621,11 +661,11 @@ export default function DoctorAppointmentClient() {
                         ]}
                         initialView="dayGridMonth"
                         headerToolbar={false}
-                        height={520}
+                        height={isMobile ? 430 : 520}
                         events={calendarEvents}
                         dateClick={handleDateClick}
                         selectable
-                        dayMaxEvents={3}
+                        dayMaxEvents={isMobile ? 2 : 3}
                         eventDisplay="block"
                         eventTimeFormat={{
                           hour: "2-digit",
@@ -653,7 +693,7 @@ export default function DoctorAppointmentClient() {
               </div>
 
               {isLoading ? (
-                <div className="fixed bottom-4 right-4 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-lg">
+                <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-lg md:left-auto md:right-4 md:translate-x-0">
                   <RefreshCw size={14} className="animate-spin" />
                   Loading data...
                 </div>

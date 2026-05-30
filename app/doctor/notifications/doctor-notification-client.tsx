@@ -173,20 +173,6 @@ export default function DoctorNotificationClient() {
   return (
     <div className="flex h-screen overflow-hidden">
       <div className="relative flex h-screen flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-700 dark:bg-slate-800 md:hidden">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-2xl text-[#008081]">
-              eco
-            </span>
-            <span className="text-lg font-bold">
-              Appoint<span className="text-[#81B641]">Care</span>
-            </span>
-          </div>
-          <button className="text-slate-500" aria-label="Open menu" type="button">
-            <span className="material-symbols-outlined">menu</span>
-          </button>
-        </header>
-
         <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
           <div className="mx-auto max-w-4xl space-y-8 p-4 md:p-8">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">

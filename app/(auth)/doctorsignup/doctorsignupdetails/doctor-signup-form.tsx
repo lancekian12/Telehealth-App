@@ -246,63 +246,62 @@ export default function DoctorSignupForm() {
   };
 
   const fieldBase =
-    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition placeholder:text-slate-400 focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10";
+    "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm sm:text-base outline-none transition placeholder:text-slate-400 focus:border-[#008081]/40 focus:ring-4 focus:ring-[#008081]/10";
   const labelBase = "mb-1.5 block text-sm font-medium text-slate-700";
 
   return (
-    <div className={`min-h-screen ${neutralPage} text-slate-900`}>
-      <Link
-        href="/doctorsignup"
-        className="
-          relative sm:fixed
-          sm:top-6 sm:left-6
-          mx-4 mt-4 sm:mt-0
-          z-50 inline-flex items-center
-          rounded-xl border border-slate-200
-          bg-white px-4 py-2
-          text-sm font-semibold text-slate-600
-          shadow-sm
-          hover:border-[#008081]/40 hover:text-[#008081]
-          transition-all
-        "
-      >
-        Back
-      </Link>
+    <div className={`min-h-[100dvh] ${neutralPage} text-slate-900`}>
+      <div className="px-4 pt-4 sm:px-0 sm:pt-0 sm:fixed sm:top-6 sm:left-6 sm:z-50">
+        <Link
+          href="/doctorsignup"
+          className="
+            inline-flex w-auto items-center justify-center
+            rounded-xl border border-slate-200
+            bg-white px-3.5 py-2
+            text-sm font-semibold text-slate-600
+            shadow-sm
+            hover:border-[#008081]/40 hover:text-[#008081]
+            transition-all
+          "
+        >
+          Back
+        </Link>
+      </div>
 
-      <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-4 py-8 sm:py-12">
-        <div className="mb-8 text-center">
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col justify-start px-4 py-6 sm:justify-center sm:px-6 sm:py-12">
+        <div className="mb-8 text-center sm:mb-10">
           <div className="mb-3 flex items-center justify-center">
             <div
-              className={`flex h-14 w-14 items-center justify-center rounded-2xl ${accentSoft}`}
+              className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl ${accentSoft}`}
             >
-              <UploadCloud className="h-7 w-7 text-[#008081]" />
+              <UploadCloud className="h-6 w-6 sm:h-7 sm:w-7 text-[#008081]" />
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800 uppercase">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 uppercase">
             APPOINT <span className="text-[#81B641]">CARE</span>
           </h1>
 
-          <div className="mt-5">
-            <h2 className="text-2xl font-bold text-[#008081]">
+          <div className="mt-4 sm:mt-5">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#008081]">
               Doctor Profile Registration
             </h2>
-            <p className="mt-2 text-slate-500">
+            <p className="mt-2 text-sm sm:text-base text-slate-500 px-2 sm:px-0">
               Set up your professional profile in a simple and clean way.
             </p>
           </div>
 
-          <div className="mt-6 flex justify-center gap-2">
-            <div className="h-1.5 w-12 rounded-full bg-[#008081]/15" />
-            <div className="h-1.5 w-12 rounded-full bg-[#008081]" />
+          <div className="mt-5 sm:mt-6 flex justify-center gap-2">
+            <div className="h-1.5 w-10 sm:w-12 rounded-full bg-[#008081]/15" />
+            <div className="h-1.5 w-10 sm:w-12 rounded-full bg-[#008081]" />
           </div>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8"
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-8"
         >
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-4 sm:gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className={labelBase} htmlFor="fullName">
                 Full Name
@@ -403,7 +402,7 @@ export default function DoctorSignupForm() {
                 onChange={handleFileChange}
                 type="file"
                 accept="image/*"
-                className={`w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-[#008081] file:px-4 file:py-2 file:text-white hover:border-[#008081]/40 ${
+                className={`w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none transition file:mr-3 file:rounded-lg file:border-0 file:bg-[#008081] file:px-3 file:py-2 file:text-white file:text-sm hover:border-[#008081]/40 sm:px-4 ${
                   errors.profilePicture ? "border-rose-500" : ""
                 }`}
               />
@@ -424,7 +423,7 @@ export default function DoctorSignupForm() {
                 value={form.email}
                 readOnly
                 type="email"
-                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 outline-none"
+                className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 outline-none text-sm sm:text-base"
               />
               {errors.email && (
                 <p className="mt-1 text-xs text-rose-600">{errors.email}</p>
@@ -432,7 +431,7 @@ export default function DoctorSignupForm() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="mt-5 sm:mt-6 rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-sm font-semibold text-slate-700">
               Consultation Mode
             </p>
@@ -440,11 +439,11 @@ export default function DoctorSignupForm() {
               Choose only the modes you want to offer.
             </p>
 
-            <div className="mt-3 flex flex-wrap gap-3">
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => toggleConsultationMode("video")}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`w-full rounded-full px-4 py-2 text-sm font-medium transition sm:w-auto ${
                   form.consultationModes.includes("video")
                     ? "bg-[#008081] text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-700 hover:border-[#008081]/40"
@@ -456,7 +455,7 @@ export default function DoctorSignupForm() {
               <button
                 type="button"
                 onClick={() => toggleConsultationMode("in_person")}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                className={`w-full rounded-full px-4 py-2 text-sm font-medium transition sm:w-auto ${
                   form.consultationModes.includes("in_person")
                     ? "bg-[#008081] text-white shadow-sm"
                     : "border border-slate-200 bg-white text-slate-700 hover:border-[#008081]/40"
@@ -476,7 +475,7 @@ export default function DoctorSignupForm() {
           <button
             type="button"
             onClick={() => setShowAdvanced((prev) => !prev)}
-            className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#008081]"
+            className="mt-5 sm:mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#008081]"
           >
             {showAdvanced ? (
               <ChevronUp className="h-4 w-4" />
@@ -487,7 +486,7 @@ export default function DoctorSignupForm() {
           </button>
 
           {showAdvanced && (
-            <div className="mt-4 grid gap-5 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
               <div>
                 <label className={labelBase} htmlFor="licenseNumber">
                   License Number
@@ -505,7 +504,7 @@ export default function DoctorSignupForm() {
 
               <div>
                 <label className={labelBase}>Consultation Duration</label>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600 text-sm sm:text-base">
                   60 minutes fixed
                 </div>
               </div>

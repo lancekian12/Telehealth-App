@@ -187,7 +187,7 @@ function InfoTile({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/40">
+    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/40 sm:p-4">
       <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
         {icon}
         {label}
@@ -222,18 +222,18 @@ export default function AppointmentDetailsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 py-6 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 px-2 py-2 backdrop-blur-md sm:items-center sm:px-4 sm:py-6"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl overflow-hidden rounded-[28px] border border-white/10 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.28)] dark:bg-slate-950"
+        className="flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-white shadow-[0_25px_80px_rgba(15,23,42,0.28)] dark:bg-slate-950 sm:rounded-[28px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/90 to-secondary/80 opacity-95" />
-          <div className="relative flex items-start justify-between gap-4 px-6 py-5 text-white">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white/15 ring-1 ring-white/20 backdrop-blur">
+          <div className="relative flex flex-col gap-4 px-4 py-4 text-white sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-6 sm:py-5">
+            <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/15 ring-1 ring-white/20 backdrop-blur sm:h-16 sm:w-16">
                 {patient?.profilePicture ? (
                   <img
                     src={patient.profilePicture}
@@ -241,23 +241,26 @@ export default function AppointmentDetailsModal({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="text-lg font-extrabold">{initials}</span>
+                  <span className="text-sm font-extrabold sm:text-lg">
+                    {initials}
+                  </span>
                 )}
               </div>
 
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-white/75">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/75 sm:text-xs">
                   Appointment Details
                 </p>
-                <h3 className="mt-1 text-2xl font-extrabold tracking-tight">
+                <h3 className="mt-1 truncate text-lg font-extrabold tracking-tight sm:text-2xl">
                   {getPersonName(appointment.patient, "Unknown Patient")}
                 </h3>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/90">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1">
+
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/90 sm:text-sm">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 sm:px-3">
                     <CalendarDays className="h-3.5 w-3.5" />
                     {formatDate(appointment.appointmentDate)}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 sm:px-3">
                     <Clock3 className="h-3.5 w-3.5" />
                     {formatTimeRange(appointment.startTime, appointment.endTime)}
                   </span>
@@ -267,14 +270,15 @@ export default function AppointmentDetailsModal({
 
             <button
               onClick={onClose}
-              className="rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+              aria-label="Close modal"
+              className="absolute right-3 top-3 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20 sm:static sm:ml-auto"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="grid gap-4 px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <InfoTile
               icon={<FileText className="h-4 w-4 text-primary" />}
@@ -297,8 +301,8 @@ export default function AppointmentDetailsModal({
             />
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/40">
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40 sm:p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                 <FileText className="h-4 w-4 text-primary" />
                 Reason for Visit
@@ -320,36 +324,40 @@ export default function AppointmentDetailsModal({
               )}
             </div>
 
-            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/40">
+            <div className="rounded-3xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/40 sm:p-5">
               <div className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
                 <FileText className="h-4 w-4 text-primary" />
                 Patient Profile
               </div>
 
-              <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
-                <p className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-primary" />
-                  {patient?.email || "—"}
+              <div className="grid gap-3 text-sm text-slate-700 dark:text-slate-300">
+                <p className="flex items-center gap-2 break-words">
+                  <Mail className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="min-w-0 break-words">
+                    {patient?.email || "—"}
+                  </span>
+                </p>
+                <p className="flex items-center gap-2 break-words">
+                  <Phone className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="min-w-0 break-words">
+                    {patient?.phone || "—"}
+                  </span>
                 </p>
                 <p className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-primary" />
-                  {patient?.phone || "—"}
+                  <Cake className="h-4 w-4 shrink-0 text-primary" />
+                  <span>{formatBirthday(patient?.birthday)}</span>
                 </p>
                 <p className="flex items-center gap-2">
-                  <Cake className="h-4 w-4 text-primary" />
-                  {formatBirthday(patient?.birthday)}
+                  <User2 className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Age: {calculateAge(patient?.birthday)}</span>
                 </p>
                 <p className="flex items-center gap-2">
-                  <User2 className="h-4 w-4 text-primary" />
-                  Age: {calculateAge(patient?.birthday)}
+                  <Ruler className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Height: {patient?.height ? `${patient.height} cm` : "—"}</span>
                 </p>
                 <p className="flex items-center gap-2">
-                  <Ruler className="h-4 w-4 text-primary" />
-                  Height: {patient?.height ? `${patient.height} cm` : "—"}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Weight className="h-4 w-4 text-primary" />
-                  Weight: {patient?.weight ? `${patient.weight} kg` : "—"}
+                  <Weight className="h-4 w-4 shrink-0 text-primary" />
+                  <span>Weight: {patient?.weight ? `${patient.weight} kg` : "—"}</span>
                 </p>
               </div>
 

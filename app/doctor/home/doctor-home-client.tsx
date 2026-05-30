@@ -479,16 +479,16 @@ export default function DoctorHomeClient() {
         h1, h2, h3, h4, h5, h6 { font-family: Manrope, sans-serif; }
       `}</style>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <section className="relative rounded-3xl bg-primary p-6 text-white shadow-lg sm:p-8">
-          <div className="flex items-start justify-between gap-4">
+      <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <section className="relative rounded-3xl bg-primary p-5 text-white shadow-lg sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-3xl">
               <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium">
                 <Sparkles className="h-3.5 w-3.5" />
                 Today&apos;s overview
               </p>
 
-              <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+              <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-4xl">
                 Welcome back{doctor?.fullName ? `, Dr. ${doctor.fullName}` : ""}.
               </h1>
 
@@ -496,7 +496,7 @@ export default function DoctorHomeClient() {
                 {currentDate || "Loading date..."}.
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3 text-sm">
+              <div className="mt-5 flex flex-wrap gap-3 text-sm sm:mt-6">
                 <div className="rounded-2xl bg-white/10 px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.18em] text-white/70">
                     Specialization
@@ -528,7 +528,7 @@ export default function DoctorHomeClient() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between gap-4 sm:justify-start">
               <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-2 pr-4">
                 <div className="h-14 w-14 overflow-hidden rounded-2xl ring-2 ring-white/20">
                   {doctorProfilePicture ? (
@@ -606,8 +606,8 @@ export default function DoctorHomeClient() {
 
             <section className="mt-6 grid gap-6 lg:grid-cols-12">
               <div className="space-y-6 lg:col-span-8">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <div className="mb-4 flex items-end justify-between gap-4">
+                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                     <div>
                       <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                         Today&apos;s appointments
@@ -645,12 +645,12 @@ export default function DoctorHomeClient() {
                               key={appointment._id}
                               className="flex flex-col gap-4 rounded-3xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800"
                             >
-                              <div className="flex items-center gap-4">
-                                <div className="flex h-14 w-14 items-center justify-center bg-slate-100 text-sm font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                              <div className="flex items-start gap-4">
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-slate-100 text-sm font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
                                   {getInitials(patientName)}
                                 </div>
 
-                                <div>
+                                <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                                       {patientName}
@@ -681,12 +681,12 @@ export default function DoctorHomeClient() {
                                 </div>
                               </div>
 
-                              <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                                 {canJoin ? (
                                   <button
                                     type="button"
                                     onClick={() => handleJoinCall(appointment)}
-                                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-95"
+                                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-95 sm:w-auto"
                                   >
                                     <Video className="h-4 w-4" />
                                     Join Video Call
@@ -699,18 +699,18 @@ export default function DoctorHomeClient() {
                       </div>
 
                       {dashboard.todayAppointments.length > TODAY_PAGE_SIZE && (
-                        <div className="mt-5 flex items-center justify-between gap-3">
+                        <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <button
                             type="button"
                             onClick={() => setTodayPage((p) => Math.max(1, p - 1))}
                             disabled={todayPageSafe === 1}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                           >
                             <ChevronLeft className="h-4 w-4" />
                             Prev
                           </button>
 
-                          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                          <span className="text-center text-sm font-medium text-slate-500 dark:text-slate-400">
                             Page {todayPageSafe} of {totalTodayPages}
                           </span>
 
@@ -720,7 +720,7 @@ export default function DoctorHomeClient() {
                               setTodayPage((p) => Math.min(totalTodayPages, p + 1))
                             }
                             disabled={todayPageSafe === totalTodayPages}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                           >
                             Next
                             <ChevronRight className="h-4 w-4" />
@@ -731,8 +731,8 @@ export default function DoctorHomeClient() {
                   )}
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <div className="mb-4 flex items-end justify-between gap-4">
+                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                     <div>
                       <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                         Completed bookings
@@ -810,20 +810,20 @@ export default function DoctorHomeClient() {
                       </div>
 
                       {dashboard.completedAppointments.length > COMPLETED_PAGE_SIZE && (
-                        <div className="mt-5 flex items-center justify-between gap-3">
+                        <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <button
                             type="button"
                             onClick={() =>
                               setCompletedPage((p) => Math.max(1, p - 1))
                             }
                             disabled={completedPageSafe === 1}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                           >
                             <ChevronLeft className="h-4 w-4" />
                             Prev
                           </button>
 
-                          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                          <span className="text-center text-sm font-medium text-slate-500 dark:text-slate-400">
                             Page {completedPageSafe} of {totalCompletedPages}
                           </span>
 
@@ -835,7 +835,7 @@ export default function DoctorHomeClient() {
                               )
                             }
                             disabled={completedPageSafe === totalCompletedPages}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                           >
                             Next
                             <ChevronRight className="h-4 w-4" />
@@ -848,8 +848,8 @@ export default function DoctorHomeClient() {
               </div>
 
               <div className="lg:col-span-4">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                  <div className="mb-4 flex items-end justify-between gap-4">
+                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                     <div>
                       <h2 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
                         Recent prescription
@@ -861,7 +861,7 @@ export default function DoctorHomeClient() {
                   </div>
 
                   {dashboard.completedWithPrescription ? (
-                    <div className="min-h-[420px] rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800">
+                    <div className="min-h-[320px] sm:min-h-[420px] rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 sm:p-5">
                       {(() => {
                         const appointment = dashboard.completedWithPrescription;
                         const prescription = normalizePrescription(
@@ -928,7 +928,7 @@ export default function DoctorHomeClient() {
                       })()}
                     </div>
                   ) : (
-                    <div className="min-h-[420px] rounded-2xl border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
+                    <div className="min-h-[320px] sm:min-h-[420px] rounded-2xl border border-dashed border-slate-300 p-6 text-center dark:border-slate-700">
                       <FileText className="mx-auto h-10 w-10 text-slate-400" />
                       <p className="mt-3 font-semibold text-slate-900 dark:text-white">
                         No recent prescription

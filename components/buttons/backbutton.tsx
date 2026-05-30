@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
 type BackButtonProps = {
-  fallback?: string; // where to go if no history
+  fallback?: string;
   className?: string;
 };
 
@@ -22,24 +23,25 @@ export default function BackButton({
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleBack}
-      className={`
-        relative sm:fixed
-        sm:top-6 sm:left-6
-        mx-4 mt-4 sm:mt-0
-        z-50
-        rounded-lg border border-slate-200
-        bg-white px-4 py-2
-        text-sm font-semibold text-slate-600
-        shadow-sm
-        hover:border-[#008081]/40 hover:text-[#008081]
-        transition-all
-        ${className}
-      `}
-    >
-      Back
-    </button>
+    <div className="px-4 pt-4 sm:px-0 sm:pt-0 sm:fixed sm:top-6 sm:left-6 sm:z-50">
+      <button
+        type="button"
+        onClick={handleBack}
+        className={`
+          inline-flex items-center gap-2
+          rounded-full border border-slate-200
+          bg-white px-3.5 py-2
+          text-sm font-semibold text-slate-700
+          shadow-sm
+          transition-all
+          hover:border-[#008081]/40 hover:text-[#008081]
+          active:scale-[0.98]
+          ${className}
+        `}
+      >
+        <ChevronLeft size={16} />
+        <span>Back</span>
+      </button>
+    </div>
   );
 }
