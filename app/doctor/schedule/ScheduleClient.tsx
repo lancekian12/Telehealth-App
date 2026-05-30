@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
-  ChevronLeft,
   ChevronRight,
   FileText,
   Loader2,
@@ -28,8 +27,10 @@ type AppointmentStatus =
 
 type ConsultationType = "video" | "in_person";
 
-type ViewStatus = AppointmentStatus | "reschedule";
-type StatusFilter = "all" | "accepted" | "pending" | "reschedule" | "completed";
+type StatusFilter =
+  | "all"
+  | AppointmentStatus
+  | "reschedule";
 
 type PopulatedPerson = {
   _id?: string;
@@ -69,7 +70,7 @@ type ApiResponse =
   | { success: true; appointments: Appointment[] }
   | { success: false; message?: string };
 
-const statusPriority: Record<ViewStatus, number> = {
+const statusPriority: Record<AppointmentStatus | "reschedule", number> = {
   accepted: 0,
   pending: 1,
   reschedule: 2,
@@ -78,11 +79,8 @@ const statusPriority: Record<ViewStatus, number> = {
   cancelled: 5,
 };
 
-function getViewStatus(appointment: Appointment): ViewStatus {
-  if (appointment.status === "pending" && appointment.rescheduleReason) {
-    return "reschedule";
-  }
-  return appointment.status;
+function isRescheduleRequest(appointment: Appointment) {
+  return appointment.status === "pending" && !!appointment.rescheduleReason;
 }
 
 function formatDate(dateValue: string) {
@@ -124,7 +122,7 @@ function getDoctorSubtitle(doctor: Appointment["doctor"]) {
   return doctor.specialization || doctor.clinicAddress || "";
 }
 
-function StatusBadge({ status }: { status: ViewStatus }) {
+function StatusBadge({ status }: { status: AppointmentStatus }) {
   const styles = {
     pending: {
       className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
@@ -135,11 +133,6 @@ function StatusBadge({ status }: { status: ViewStatus }) {
       className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
       icon: <CheckCircle2 className="h-3.5 w-3.5" />,
       label: "Accepted",
-    },
-    reschedule: {
-      className: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-      icon: <CalendarDays className="h-3.5 w-3.5" />,
-      label: "Reschedule",
     },
     rejected: {
       className: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
@@ -196,8 +189,6 @@ function AppointmentCard({
   onShowDetails: (appointment: Appointment) => void;
   loadingId: string | null;
 }) {
-  const displayStatus = getViewStatus(appointment);
-  const completed = appointment.status === "completed";
   const patientName = getPersonName(appointment.patient, "Unknown Patient");
   const doctorSubtitle = getDoctorSubtitle(appointment.doctor);
   const isPending = appointment.status === "pending";
@@ -205,6 +196,7 @@ function AppointmentCard({
   const isVideo = appointment.consultationType === "video";
   const isInPerson = appointment.consultationType === "in_person";
   const isLoading = loadingId === appointment._id;
+  const isReschedule = isRescheduleRequest(appointment);
 
   const avatarUrl =
     appointment.patient && typeof appointment.patient !== "string"
@@ -215,7 +207,7 @@ function AppointmentCard({
     <article
       className={[
         "group relative overflow-hidden rounded-2xl border bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-slate-800",
-        completed
+        appointment.status === "completed"
           ? "border-slate-100 opacity-85 dark:border-slate-700"
           : "border-slate-100 hover:border-primary/20 dark:border-slate-700",
       ].join(" ")}
@@ -223,12 +215,12 @@ function AppointmentCard({
       <div
         className={[
           "absolute left-0 top-0 bottom-0 w-1 rounded-r-full transition-all duration-500",
-          displayStatus === "pending" && "bg-amber-400",
-          displayStatus === "accepted" && "bg-emerald-500",
-          displayStatus === "reschedule" && "bg-orange-400",
-          displayStatus === "rejected" && "bg-rose-500",
-          displayStatus === "cancelled" && "bg-slate-500",
-          displayStatus === "completed" && "bg-slate-300",
+          appointment.status === "pending" && "bg-amber-400",
+          appointment.status === "accepted" && "bg-emerald-500",
+          isReschedule && "bg-orange-400",
+          appointment.status === "rejected" && "bg-rose-500",
+          appointment.status === "cancelled" && "bg-slate-500",
+          appointment.status === "completed" && "bg-slate-300",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -245,7 +237,7 @@ function AppointmentCard({
             </p>
           </div>
 
-          <StatusBadge status={displayStatus} />
+          <StatusBadge status={appointment.status} />
         </div>
 
         <div className="flex flex-1 flex-col gap-6 sm:flex-row sm:items-start">
@@ -254,7 +246,7 @@ function AppointmentCard({
             alt={patientName}
             className={[
               "h-16 w-16 rounded-full object-cover shadow-sm ring-4",
-              completed
+              appointment.status === "completed"
                 ? "grayscale ring-slate-100 dark:ring-slate-700"
                 : "ring-white dark:ring-slate-700",
             ].join(" ")}
@@ -289,18 +281,17 @@ function AppointmentCard({
               {appointment.reasonForVisit || "No reason provided."}
             </p>
 
-            {appointment.status === "pending" &&
-              appointment.rescheduleReason && (
-                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
-                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
-                    <CalendarDays className="h-4 w-4" />
-                    Reschedule request
-                  </div>
-                  <p className="text-sm leading-7 text-amber-800 dark:text-amber-200">
-                    {appointment.rescheduleReason}
-                  </p>
+            {isReschedule && appointment.rescheduleReason && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                  <CalendarDays className="h-4 w-4" />
+                  Reschedule request
                 </div>
-              )}
+                <p className="text-sm leading-7 text-amber-800 dark:text-amber-200">
+                  {appointment.rescheduleReason}
+                </p>
+              </div>
+            )}
 
             {appointment.rejectionReason &&
               appointment.status === "rejected" && (
@@ -416,7 +407,6 @@ export default function ScheduleClient() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [error, setError] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] =
@@ -427,108 +417,67 @@ export default function ScheduleClient() {
   const [selectedRejectAppointment, setSelectedRejectAppointment] =
     useState<Appointment | null>(null);
 
-  async function loadAppointments() {
-    try {
-      setLoading(true);
-      setError(null);
+  async function fetchAppointments(signal?: AbortSignal) {
+    setLoading(true);
+    setError(null);
 
-      const params = new URLSearchParams();
-      if (doctorId) params.set("doctorId", doctorId);
-      if (patientId) params.set("patientId", patientId);
+    const params = new URLSearchParams();
+    if (doctorId) params.set("doctorId", doctorId);
+    if (patientId) params.set("patientId", patientId);
 
-      const res = await fetch(
-        `/api/appointments${params.toString() ? `?${params.toString()}` : ""}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        },
+    const res = await fetch(
+      `/api/appointments${params.toString() ? `?${params.toString()}` : ""}`,
+      {
+        method: "GET",
+        cache: "no-store",
+        signal,
+      },
+    );
+
+    const data = (await res.json()) as ApiResponse;
+
+    if (!res.ok || !data.success) {
+      throw new Error(
+        data.success
+          ? "Failed to load appointments"
+          : data.message || "Failed to load appointments",
       );
-
-      const data = (await res.json()) as ApiResponse;
-
-      if (!res.ok || !data.success) {
-        throw new Error(
-          data.success
-            ? "Failed to load appointments"
-            : data.message || "Failed to load appointments",
-        );
-      }
-
-      setAppointments(data.appointments || []);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load appointments",
-      );
-    } finally {
-      setLoading(false);
     }
+
+    setAppointments(data.appointments || []);
   }
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function fetchAppointments() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const params = new URLSearchParams();
-        if (doctorId) params.set("doctorId", doctorId);
-        if (patientId) params.set("patientId", patientId);
-
-        const res = await fetch(
-          `/api/appointments${params.toString() ? `?${params.toString()}` : ""}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            signal: controller.signal,
-          },
-        );
-
-        const data = (await res.json()) as ApiResponse;
-
-        if (!res.ok || !data.success) {
-          throw new Error(
-            data.success
-              ? "Failed to load appointments"
-              : data.message || "Failed to load appointments",
-          );
-        }
-
-        setAppointments(data.appointments || []);
-      } catch (err) {
+    void fetchAppointments(controller.signal)
+      .catch((err) => {
         if ((err as { name?: string })?.name === "AbortError") return;
         setError(
           err instanceof Error ? err.message : "Failed to load appointments",
         );
-      } finally {
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    }
-
-    void fetchAppointments();
+      });
 
     return () => controller.abort();
   }, [doctorId, patientId]);
 
   const filteredAppointments = useMemo(() => {
-    const selectedDateString = selectedDate.toDateString();
-
     return appointments
       .filter((appointment) => {
-        const appointmentDate = new Date(appointment.appointmentDate);
-        const matchesDate =
-          appointmentDate.toDateString() === selectedDateString;
+        if (statusFilter === "all") return true;
 
-        const matchesStatus =
-          statusFilter === "all" ||
-          getViewStatus(appointment) === statusFilter;
+        if (statusFilter === "reschedule") {
+          return isRescheduleRequest(appointment);
+        }
 
-        return matchesDate && matchesStatus;
+        return appointment.status === statusFilter;
       })
       .sort((a, b) => {
-        const aStatus = getViewStatus(a);
-        const bStatus = getViewStatus(b);
+        const aStatus = isRescheduleRequest(a) ? "reschedule" : a.status;
+        const bStatus = isRescheduleRequest(b) ? "reschedule" : b.status;
 
         if (statusPriority[aStatus] !== statusPriority[bStatus]) {
           return statusPriority[aStatus] - statusPriority[bStatus];
@@ -540,7 +489,7 @@ export default function ScheduleClient() {
         if (aDate !== bDate) return aDate - bDate;
         return a.startTime.localeCompare(b.startTime);
       });
-  }, [appointments, selectedDate, statusFilter]);
+  }, [appointments, statusFilter]);
 
   async function patchAppointment(
     appointment: Appointment,
@@ -615,7 +564,12 @@ export default function ScheduleClient() {
       setAppointments((current) =>
         current.map((item) =>
           item._id === appointment._id
-            ? { ...item, ...data.appointment }
+            ? {
+                ...item,
+                ...(data.appointment || {}),
+                status: "rejected",
+                rejectionReason: rejectionReason || "Rejected by doctor",
+              }
             : item,
         ),
       );
@@ -758,38 +712,21 @@ export default function ScheduleClient() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 rounded-full bg-slate-100 p-2 dark:bg-slate-800/70">
-            <button
-              onClick={() => {
-                const prev = new Date(selectedDate);
-                prev.setDate(prev.getDate() - 1);
-                setSelectedDate(prev);
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-primary dark:hover:bg-slate-700"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-
-            <div className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 font-bold text-primary shadow-sm dark:bg-slate-900 dark:text-slate-200">
-              <CalendarDays className="h-4 w-4" />
-              {selectedDate.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </div>
-
-            <button
-              onClick={() => {
-                const next = new Date(selectedDate);
-                next.setDate(next.getDate() + 1);
-                setSelectedDate(next);
-              }}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-primary dark:hover:bg-slate-700"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              void fetchAppointments().catch((err) => {
+                setError(
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to load appointments",
+                );
+              });
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-8 py-3 font-bold text-primary shadow-sm transition hover:bg-slate-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            Refresh Schedule
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-2 dark:bg-slate-800/70">
@@ -851,16 +788,6 @@ export default function ScheduleClient() {
             ))}
           </div>
         )}
-
-        <div className="mt-12 flex justify-center">
-          <button
-            onClick={() => void loadAppointments()}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-8 py-3 font-bold text-primary shadow-sm transition hover:bg-slate-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-          >
-            Refresh Schedule
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
       </div>
 
       <AppointmentDetailsModal
