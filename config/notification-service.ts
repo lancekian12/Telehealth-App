@@ -1,6 +1,10 @@
 import { Types } from "mongoose";
 import { Notification } from "@/models/notification";
-import { pusher, getUserChannel, notificationEvent } from "@/config/notification";
+import {
+  pusher,
+  getUserChannel,
+  notificationEvent,
+} from "@/config/notification";
 
 type Role = "patient" | "doctor";
 
@@ -27,12 +31,12 @@ type NotifyParams = {
     | "appointment_cancelled"
     | "appointment_rescheduled"
     | "appointment_upcoming"
-    | "schedule_updated";
+    | "schedule_updated"
+    | "appointment_completed"; // add this
   title: string;
   message: string;
   metadata?: Record<string, unknown>;
 };
-
 export async function createNotification(params: NotifyParams) {
   const doc = await Notification.create({
     recipientId: params.recipientId,
@@ -46,7 +50,10 @@ export async function createNotification(params: NotifyParams) {
     read: false,
   });
 
-  const channel = getUserChannel(params.recipientRole, String(params.recipientId));
+  const channel = getUserChannel(
+    params.recipientRole,
+    String(params.recipientId),
+  );
 
   await pusher.trigger(channel, notificationEvent, {
     id: String(doc._id),
@@ -72,7 +79,9 @@ export async function notifyBothAppointmentSides(args: {
     | "appointment_cancelled"
     | "appointment_rescheduled"
     | "appointment_upcoming"
+    | "appointment_completed"
     | "schedule_updated";
+
   patientTitle: string;
   patientMessage: string;
   doctorTitle: string;

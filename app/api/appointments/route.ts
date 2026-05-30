@@ -17,6 +17,30 @@ type AppointmentStatus =
 
 type ConsultationType = "video" | "in_person";
 
+type WorkingHourSlot = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  isAvailable?: boolean;
+  toObject?: () => WorkingHourSlot;
+};
+
+type ScheduleOverride = {
+  date: string;
+  action: "rescheduled" | "cancelled";
+  newDate?: string | null;
+  newStartTime?: string | null;
+  newEndTime?: string | null;
+};
+
+type DoctorScheduleDoc = {
+  workingHours?: WorkingHourSlot[];
+  unavailableSlots?: Array<{ date: string }>;
+  scheduleOverrides?: ScheduleOverride[];
+  consultationDurationMinutes?: number;
+  save: () => Promise<unknown>;
+};
+
 function isYmd(date: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date);
 }
@@ -308,11 +332,13 @@ export async function POST(req: Request) {
       );
     }
 
+    const doctorDoc = doctor as unknown as DoctorScheduleDoc;
+
     if (
       isDateBlocked(
         appointmentDate,
-        doctor.unavailableSlots || [],
-        doctor.scheduleOverrides || [],
+        doctorDoc.unavailableSlots || [],
+        doctorDoc.scheduleOverrides || [],
       )
     ) {
       return NextResponse.json(
@@ -322,7 +348,7 @@ export async function POST(req: Request) {
     }
 
     const matchedSlot = getMatchingWorkingHour(
-      doctor,
+      doctorDoc,
       appointmentDate,
       startTime,
       endTime,
@@ -349,7 +375,7 @@ export async function POST(req: Request) {
     }
 
     const consultationDurationMinutes =
-      doctor.consultationDurationMinutes || 60;
+      doctorDoc.consultationDurationMinutes || 60;
     const expectedEndTime = addMinutesToTime(
       startTime,
       consultationDurationMinutes,
@@ -407,31 +433,34 @@ export async function POST(req: Request) {
       },
     });
 
-    doctor.workingHours = (doctor.workingHours || []).map((slot) => {
-      const matchesThisSlot =
-        slot.date === appointmentDate &&
-        slot.startTime === startTime &&
-        slot.endTime === endTime;
+    doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
+      (slot: WorkingHourSlot) => {
+        const matchesThisSlot =
+          slot.date === appointmentDate &&
+          slot.startTime === startTime &&
+          slot.endTime === endTime;
 
-      return matchesThisSlot
-        ? { ...slot.toObject?.(), isAvailable: false }
-        : slot;
-    });
+        return matchesThisSlot
+          ? { ...(slot.toObject ? slot.toObject() : slot), isAvailable: false }
+          : slot;
+      },
+    );
 
-    await doctor.save();
+    await doctorDoc.save();
 
     const populated = await populateAppointment(created._id);
 
     if (populated) {
       await notifyBothAppointmentSides({
-        appointment: populated as any,
+        appointment: populated as unknown as never,
         type: "appointment_booked",
         patientTitle: "Appointment booked",
         patientMessage:
           "Your appointment request has been booked and is now pending approval.",
         doctorTitle: "New appointment request",
         doctorMessage: `You have a new appointment request from ${String(
-          (populated as any)?.patient?.fullName || "a patient",
+          (populated as { patient?: { fullName?: string } })?.patient?.fullName ||
+            "a patient",
         )}.`,
         metadata: {
           status: "pending",
@@ -512,34 +541,43 @@ export async function PATCH(req: Request) {
       );
     }
 
+    const doctorDoc = doctor as unknown as DoctorScheduleDoc;
+
     const oldAppointmentDate = new Date(appointment.appointmentDate)
       .toISOString()
       .slice(0, 10);
 
     const unlockOldSlot = () => {
-      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
-        const matchesThisSlot =
-          slot.date === oldAppointmentDate &&
-          slot.startTime === appointment.startTime &&
-          slot.endTime === appointment.endTime;
+      doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
+        (slot: WorkingHourSlot) => {
+          const matchesThisSlot =
+            slot.date === oldAppointmentDate &&
+            slot.startTime === appointment.startTime &&
+            slot.endTime === appointment.endTime;
 
-        return matchesThisSlot
-          ? { ...slot.toObject?.(), isAvailable: true }
-          : slot;
-      });
+          return matchesThisSlot
+            ? { ...(slot.toObject ? slot.toObject() : slot), isAvailable: true }
+            : slot;
+        },
+      );
     };
 
     const lockOldSlot = () => {
-      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
-        const matchesThisSlot =
-          slot.date === oldAppointmentDate &&
-          slot.startTime === appointment.startTime &&
-          slot.endTime === appointment.endTime;
+      doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
+        (slot: WorkingHourSlot) => {
+          const matchesThisSlot =
+            slot.date === oldAppointmentDate &&
+            slot.startTime === appointment.startTime &&
+            slot.endTime === appointment.endTime;
 
-        return matchesThisSlot
-          ? { ...slot.toObject?.(), isAvailable: false }
-          : slot;
-      });
+          return matchesThisSlot
+            ? {
+                ...(slot.toObject ? slot.toObject() : slot),
+                isAvailable: false,
+              }
+            : slot;
+        },
+      );
     };
 
     if (notes) appointment.notes = notes;
@@ -557,13 +595,13 @@ export async function PATCH(req: Request) {
       unlockOldSlot();
 
       await appointment.save();
-      await doctor.save();
+      await doctorDoc.save();
 
       const populated = await populateAppointment(appointment._id);
 
       if (populated) {
         await notifyBothAppointmentSides({
-          appointment: populated as any,
+          appointment: populated as unknown as never,
           type: "appointment_cancelled",
           patientTitle: "Appointment cancelled",
           patientMessage:
@@ -615,7 +653,7 @@ export async function PATCH(req: Request) {
       }
 
       const consultationDurationMinutes =
-        doctor.consultationDurationMinutes || 60;
+        doctorDoc.consultationDurationMinutes || 60;
       const expectedEndTime = addMinutesToTime(
         newStartTime,
         consultationDurationMinutes,
@@ -634,8 +672,8 @@ export async function PATCH(req: Request) {
       if (
         isDateBlocked(
           newAppointmentDate,
-          doctor.unavailableSlots || [],
-          doctor.scheduleOverrides || [],
+          doctorDoc.unavailableSlots || [],
+          doctorDoc.scheduleOverrides || [],
         )
       ) {
         return NextResponse.json(
@@ -645,7 +683,7 @@ export async function PATCH(req: Request) {
       }
 
       const matchedSlot = getMatchingWorkingHour(
-        doctor,
+        doctorDoc,
         newAppointmentDate,
         newStartTime,
         newEndTime,
@@ -694,25 +732,27 @@ export async function PATCH(req: Request) {
 
       lockOldSlot();
 
-      doctor.workingHours = (doctor.workingHours || []).map((slot) => {
-        const matchesNewSlot =
-          slot.date === newAppointmentDate &&
-          slot.startTime === newStartTime &&
-          slot.endTime === newEndTime;
+      doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
+        (slot: WorkingHourSlot) => {
+          const matchesNewSlot =
+            slot.date === newAppointmentDate &&
+            slot.startTime === newStartTime &&
+            slot.endTime === newEndTime;
 
-        return matchesNewSlot
-          ? { ...slot.toObject?.(), isAvailable: false }
-          : slot;
-      });
+          return matchesNewSlot
+            ? { ...(slot.toObject ? slot.toObject() : slot), isAvailable: false }
+            : slot;
+        },
+      );
 
       await appointment.save();
-      await doctor.save();
+      await doctorDoc.save();
 
       const populated = await populateAppointment(appointment._id);
 
       if (populated) {
         await notifyBothAppointmentSides({
-          appointment: populated as any,
+          appointment: populated as unknown as never,
           type: "appointment_rescheduled",
           patientTitle: "Appointment rescheduled",
           patientMessage: "Your appointment schedule has been updated.",
@@ -751,13 +791,13 @@ export async function PATCH(req: Request) {
       lockOldSlot();
 
       await appointment.save();
-      await doctor.save();
+      await doctorDoc.save();
 
       const populated = await populateAppointment(appointment._id);
 
       if (populated) {
         await notifyBothAppointmentSides({
-          appointment: populated as any,
+          appointment: populated as unknown as never,
           type: "appointment_accepted",
           patientTitle: "Appointment accepted",
           patientMessage: "Your appointment has been accepted by the doctor.",
@@ -789,13 +829,13 @@ export async function PATCH(req: Request) {
       unlockOldSlot();
 
       await appointment.save();
-      await doctor.save();
+      await doctorDoc.save();
 
       const populated = await populateAppointment(appointment._id);
 
       if (populated) {
         await notifyBothAppointmentSides({
-          appointment: populated as any,
+          appointment: populated as unknown as never,
           type: "appointment_rejected",
           patientTitle: "Appointment rejected",
           patientMessage:
@@ -825,13 +865,13 @@ export async function PATCH(req: Request) {
       lockOldSlot();
 
       await appointment.save();
-      await doctor.save();
+      await doctorDoc.save();
 
       const populated = await populateAppointment(appointment._id);
 
       if (populated) {
         await notifyBothAppointmentSides({
-          appointment: populated as any,
+          appointment: populated as unknown as never,
           type: "appointment_completed",
           patientTitle: "Appointment completed",
           patientMessage: "Your appointment has been marked as completed.",

@@ -113,6 +113,7 @@ export function useRealtimeNotifications({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNotifications();
   }, [fetchNotifications]);
 
@@ -133,6 +134,7 @@ export function useRealtimeNotifications({
       cluster,
       channelAuthorization: {
         endpoint: "/api/pusher/auth",
+        transport: "ajax",
       },
     });
 
@@ -203,7 +205,6 @@ export function useRealtimeNotifications({
 
   const markAsRead = useCallback(
     async (notificationId: string) => {
-
       if (!enabled || !notificationId) return;
 
       setNotifications((prev) =>
@@ -211,7 +212,6 @@ export function useRealtimeNotifications({
           item._id === notificationId ? { ...item, read: true } : item,
         ),
       );
-
 
       try {
         const res = await fetch("/api/notifications", {
@@ -225,9 +225,6 @@ export function useRealtimeNotifications({
             notificationId,
           }),
         });
-
-
-
       } catch (error) {
         console.log("[markAsRead] error:", error);
       }

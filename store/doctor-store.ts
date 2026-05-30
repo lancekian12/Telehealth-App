@@ -43,7 +43,7 @@ type DoctorProfile = {
 };
 
 const createWorkingHour = (): WorkingHourInput => ({
-  day: "Monday",
+  date: "",
   startTime: "09:00",
   endTime: "17:00",
   isAvailable: true,

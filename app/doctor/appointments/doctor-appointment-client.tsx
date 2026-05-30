@@ -138,7 +138,7 @@ function normalizeAppointments(input: unknown): AppointmentRecord[] {
       const id = asString(item.id || item._id || crypto.randomUUID());
       const patientName =
         asString(item.patientName) ||
-        asString(item.patient?.name) ||
+        (isRecord(item.patient) ? asString(item.patient.name) : "") ||
         asString(item.name) ||
         asString(item.fullName) ||
         "Unknown Patient";
@@ -286,6 +286,7 @@ export default function DoctorAppointmentClient() {
   }, [loadData]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadData();
   }, [loadData]);
 
@@ -522,7 +523,9 @@ export default function DoctorAppointmentClient() {
                   >
                     <RefreshCw
                       size={16}
-                      className={isLoading || isRefreshing ? "animate-spin" : ""}
+                      className={
+                        isLoading || isRefreshing ? "animate-spin" : ""
+                      }
                     />
                     {refreshLabel}
                   </button>
@@ -635,8 +638,11 @@ export default function DoctorAppointmentClient() {
                         }}
                         eventDidMount={(info) => {
                           const description =
-                            (info.event.extendedProps as { description?: string })
-                              .description || info.event.title;
+                            (
+                              info.event.extendedProps as {
+                                description?: string;
+                              }
+                            ).description || info.event.title;
 
                           info.el.setAttribute("title", description);
                         }}

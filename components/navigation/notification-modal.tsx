@@ -17,7 +17,8 @@ export type NotificationItem = {
     | "appointment_cancelled"
     | "appointment_rescheduled"
     | "appointment_upcoming"
-    | "schedule_updated";
+    | "schedule_updated"
+    | "appointment_completed";
 };
 
 type NotificationModalProps = {

@@ -29,6 +29,7 @@ const NotificationSchema = new Schema(
         "appointment_rejected",
         "appointment_cancelled",
         "appointment_rescheduled",
+        "appointment_completed",
         "appointment_upcoming",
         "schedule_updated",
       ],
