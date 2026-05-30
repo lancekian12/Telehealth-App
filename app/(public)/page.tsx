@@ -5,10 +5,10 @@ import {
   Stethoscope,
   Users,
   ChevronRight,
-  Link,
 } from "lucide-react";
 import Image from "next/image";
 import girlDoctor from "@/public/images/girl_doctor.png";
+import Link from "next/link";
 
 export default function HomePage() {
   return (
@@ -190,8 +190,8 @@ export default function HomePage() {
                 </summary>
                 <div className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
                   <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Booking an appointment is easy! Click the &quot;Book
-                    Appointment&quot; button, select your preferred specialist,
+                    Booking an appointment is easy! Click the &quot;Find
+                    Doctor&quot; button, select your preferred specialist,
                     choose a time slot, and confirm.
                   </p>
                 </div>

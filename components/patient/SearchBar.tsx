@@ -126,7 +126,7 @@ export default function SearchBar({
         <button
           type="button"
           onClick={() => setSearchOpen((prev) => !prev)}
-          className="flex flex-1 items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50"
+          className="flex w-full flex-1 items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50"
         >
           <span className="text-slate-400">
             {searchOpen ? <X size={18} /> : <Search size={18} />}
@@ -204,20 +204,20 @@ export default function SearchBar({
 
       {searchOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-4"
           onClick={() => setSearchOpen(false)}
         >
           <div
-            className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl md:max-h-[90dvh] md:max-w-3xl md:rounded-3xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between bg-gradient-to-br from-white to-slate-50 px-8 pb-6 pt-8">
+            <div className="flex items-start justify-between bg-gradient-to-br from-white to-slate-50 px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6 md:px-8 md:pb-6 md:pt-8">
               <div className="space-y-2">
-                <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#008081]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#008081]">
+                <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#008081]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#008081] sm:text-xs">
                   <span className="text-sm">✦</span>
                   AI Search
                 </div>
-                <h3 className="text-3xl font-extrabold tracking-tight text-slate-900">
+                <h3 className="max-w-[18rem] text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl md:max-w-none">
                   Search by symptoms or doctor type
                 </h3>
               </div>
@@ -232,79 +232,81 @@ export default function SearchBar({
               </button>
             </div>
 
-            <div className="flex flex-col gap-8 px-8 pb-8">
-              <div className="rounded-2xl bg-slate-50 p-6">
-                <p className="mb-1 text-base font-semibold text-slate-900">
-                  Describe what you feel, and we’ll narrow down the best doctor type.
-                </p>
-                <p className="text-sm text-slate-500">
-                  Example: fever, cough, sore throat, skin rash, chest pain, or headache.
-                </p>
-              </div>
-
-              <div className="relative">
-                <textarea
-                  value={draftQuery}
-                  onChange={(e) => setDraftQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmitSearch();
-                    }
-                  }}
-                  placeholder="Example: I have a persistent fever and dry cough for the last 3 days..."
-                  className="h-32 w-full resize-none rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-900 shadow-sm outline-none transition focus:border-[#008081] focus:ring-2 focus:ring-[#008081]/20 placeholder:text-slate-400"
-                />
-                <button
-                  type="button"
-                  onClick={handleSubmitSearch}
-                  className="absolute bottom-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-[#008081] text-white shadow-md transition-colors hover:bg-[#006a66]"
-                  aria-label="Submit Search"
-                >
-                  <Search size={18} />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                  Common Symptoms
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {COMMON_SYMPTOMS.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setDraftQuery(item)}
-                      className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-[#008081]/20 hover:bg-[#008081]/10 hover:text-[#008081]"
-                    >
-                      {item}
-                    </button>
-                  ))}
+            <div className="flex-1 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6 md:px-8 md:pb-8 mobile-scroll">
+              <div className="space-y-6 sm:space-y-8">
+                <div className="rounded-2xl bg-slate-50 p-4 sm:p-6">
+                  <p className="mb-1 text-sm font-semibold text-slate-900 sm:text-base">
+                    Describe what you feel, and we’ll narrow down the best doctor type.
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    Example: fever, cough, sore throat, skin rash, chest pain, or headache.
+                  </p>
                 </div>
-              </div>
 
-              <div className="border-t border-slate-200 pt-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                  <span className="whitespace-nowrap text-xs font-semibold uppercase tracking-widest text-slate-500">
-                    Nearby Places
-                  </span>
+                <div className="relative">
+                  <textarea
+                    value={draftQuery}
+                    onChange={(e) => setDraftQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmitSearch();
+                      }
+                    }}
+                    placeholder="Example: I have a persistent fever and dry cough for the last 3 days..."
+                    className="h-32 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-4 pr-16 text-sm text-slate-900 shadow-sm outline-none transition focus:border-[#008081] focus:ring-2 focus:ring-[#008081]/20 placeholder:text-slate-400 sm:px-5"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSubmitSearch}
+                    className="absolute bottom-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-[#008081] text-white shadow-md transition-colors hover:bg-[#006a66]"
+                    aria-label="Submit Search"
+                  >
+                    <Search size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:text-xs">
+                    Common Symptoms
+                  </h4>
                   <div className="flex flex-wrap gap-2">
-                    {["Davao City, PH", "Matina", "Poblacion", "Lanang", "Bajada"].map(
-                      (place) => (
-                        <button
-                          key={place}
-                          type="button"
-                          onClick={() => handleChooseLocation(place)}
-                          className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-                            locationQuery === place
-                              ? "border-[#008081] bg-[#008081] text-white"
-                              : "border-slate-200 text-slate-700 hover:border-[#008081] hover:text-[#008081]"
-                          }`}
-                        >
-                          {place}
-                        </button>
-                      ),
-                    )}
+                    {COMMON_SYMPTOMS.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setDraftQuery(item)}
+                        className="rounded-full border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-[#008081]/20 hover:bg-[#008081]/10 hover:text-[#008081] sm:px-4"
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                    <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-widest text-slate-500 sm:text-xs">
+                      Nearby Places
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {["Davao City, PH", "Matina", "Poblacion", "Lanang", "Bajada"].map(
+                        (place) => (
+                          <button
+                            key={place}
+                            type="button"
+                            onClick={() => handleChooseLocation(place)}
+                            className={`rounded-full border px-3 py-1.5 text-sm transition-colors sm:px-4 ${
+                              locationQuery === place
+                                ? "border-[#008081] bg-[#008081] text-white"
+                                : "border-slate-200 text-slate-700 hover:border-[#008081] hover:text-[#008081]"
+                            }`}
+                          >
+                            {place}
+                          </button>
+                        ),
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -315,19 +317,19 @@ export default function SearchBar({
 
       {locationOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm md:items-center md:p-4"
           onClick={() => setLocationOpen(false)}
         >
           <div
-            className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl md:max-h-[90dvh] md:max-w-4xl md:rounded-3xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between border-b border-slate-100 px-6 pb-4 pt-6 sm:px-8">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-[#008081]">
+            <div className="flex items-start justify-between border-b border-slate-100 px-4 pb-4 pt-5 sm:px-6 sm:pb-4 sm:pt-6 md:px-8">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#008081] sm:text-xs">
                   Choose location
                 </p>
-                <h3 className="mt-1 text-2xl font-bold text-slate-900">
+                <h3 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">
                   Where in the Philippines are you looking?
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
@@ -345,7 +347,7 @@ export default function SearchBar({
               </button>
             </div>
 
-            <div className="px-6 pb-6 pt-5 sm:px-8">
+            <div className="flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pb-6 md:px-8 mobile-scroll">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {PH_LOCATION_OPTIONS.map((item) => {
                   const active =

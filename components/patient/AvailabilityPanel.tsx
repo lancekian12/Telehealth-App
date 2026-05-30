@@ -70,6 +70,8 @@ type TimeRange = {
   endTime: string;
 };
 
+type Slot = { startTime: string; endTime: string; label: string };
+
 function parseTimeToMinutes(value: string) {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
   if (!match) return null;
@@ -150,9 +152,7 @@ function subtractRanges(base: TimeRange, blocks: TimeRange[]) {
   return segments.filter((segment) => segment.startTime < segment.endTime);
 }
 
-function dedupeSlots(
-  slots: { startTime: string; endTime: string; label: string }[],
-) {
+function dedupeSlots(slots: Slot[]) {
   return slots.filter(
     (slot, index, arr) =>
       arr.findIndex(
@@ -160,8 +160,6 @@ function dedupeSlots(
       ) === index,
   );
 }
-
-type Slot = { startTime: string; endTime: string; label: string };
 
 export default function AvailabilityPanel({
   open,
@@ -175,6 +173,9 @@ export default function AvailabilityPanel({
 }: AvailabilityPanelProps) {
   const router = useRouter();
 
+  const doctorId = activeDoctor?.id ?? null;
+  const doctorName = activeDoctor?.name ?? "Doctor Schedule";
+
   const [doctorSchedule, setDoctorSchedule] = useState<{
     fullName: string;
     workingHours: WorkingHour[];
@@ -182,7 +183,7 @@ export default function AvailabilityPanel({
     unavailableSlots: UnavailableSlot[];
     consultationDurationMinutes: number;
   }>({
-    fullName: activeDoctor?.name ?? "Doctor Schedule",
+    fullName: doctorName,
     workingHours: [],
     scheduleOverrides: [],
     unavailableSlots: [],
@@ -193,7 +194,7 @@ export default function AvailabilityPanel({
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !activeDoctor?.id) return;
+    if (!open || !doctorId) return;
 
     const controller = new AbortController();
 
@@ -202,7 +203,7 @@ export default function AvailabilityPanel({
       setScheduleError(null);
 
       try {
-        const url = `/api/doctor/${activeDoctor.id}`;
+        const url = `/api/doctor/${doctorId}`;
 
         const res = await fetch(url, {
           method: "GET",
@@ -216,8 +217,7 @@ export default function AvailabilityPanel({
         }
 
         setDoctorSchedule({
-          fullName:
-            json.doctor.fullName || activeDoctor.name || "Doctor Schedule",
+          fullName: json.doctor.fullName || doctorName || "Doctor Schedule",
           workingHours: json.doctor.workingHours || [],
           scheduleOverrides: json.doctor.scheduleOverrides || [],
           unavailableSlots: json.doctor.unavailableSlots || [],
@@ -231,7 +231,7 @@ export default function AvailabilityPanel({
           error instanceof Error ? error.message : "Something went wrong",
         );
         setDoctorSchedule({
-          fullName: activeDoctor?.name ?? "Doctor Schedule",
+          fullName: doctorName || "Doctor Schedule",
           workingHours: [],
           scheduleOverrides: [],
           unavailableSlots: [],
@@ -247,7 +247,7 @@ export default function AvailabilityPanel({
     void loadDoctorSchedule();
 
     return () => controller.abort();
-  }, [activeDoctor?.id, activeDoctor?.name, open]);
+  }, [doctorId, doctorName, open]);
 
   const dayAvailability = useMemo(() => {
     return selectedDate.map((item) => {
@@ -338,12 +338,12 @@ export default function AvailabilityPanel({
   if (!open) return null;
 
   const handleConfirm = () => {
-    if (!activeDoctor?.id) return;
+    if (!doctorId) return;
     if (isBlockedDay || isDisabledDay || !selectedTime) return;
 
     const selected = selectedDate[selectedDayIndex];
     const params = new URLSearchParams({
-      doctorId: activeDoctor.id,
+      doctorId,
       date: selected?.fullDate || "",
       time: selectedTime,
     });
@@ -351,8 +351,7 @@ export default function AvailabilityPanel({
     router.push(`/bookappointment?${params.toString()}`);
   };
 
-  const canConfirm =
-    !!activeDoctor?.id && !!selectedTime && !isBlockedDay && !isDisabledDay;
+  const canConfirm = !!doctorId && !!selectedTime && !isBlockedDay && !isDisabledDay;
 
   return (
     <>
