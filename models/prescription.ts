@@ -1,35 +1,5 @@
 import { Schema, models, model } from "mongoose";
 
-const PrescriptionItemSchema = new Schema(
-  {
-    medicineName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    dosage: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    frequency: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    duration: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    instructions: {
-      type: String,
-      default: "",
-    },
-  },
-  { _id: false }
-);
-
 const PrescriptionSchema = new Schema(
   {
     appointment: {
@@ -37,6 +7,7 @@ const PrescriptionSchema = new Schema(
       ref: "Appointment",
       required: true,
       unique: true,
+      index: true,
     },
 
     doctor: {
@@ -51,24 +22,66 @@ const PrescriptionSchema = new Schema(
       required: true,
     },
 
-    items: {
-      type: [PrescriptionItemSchema],
-      default: [],
+    diagnosis: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    medication: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    dosage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    duration: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    instructions: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     notes: {
       type: String,
       default: "",
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      enum: ["finalized"],
+      default: "finalized",
+    },
+
+    isFinalized: {
+      type: Boolean,
+      default: true,
     },
 
     issuedAt: {
       type: Date,
-      default: Date.now,
+      default: null,
+    },
+
+    finalizedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export const Prescription =

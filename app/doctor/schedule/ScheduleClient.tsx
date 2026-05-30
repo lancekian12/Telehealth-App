@@ -164,9 +164,9 @@ function AppointmentCard({
   loadingId,
 }: {
   appointment: Appointment;
-  onAccept: (appointmentId: string) => void;
+  onAccept: (appointment: Appointment) => void;
   onReject: (appointment: Appointment) => void;
-  onJoin: (link?: string) => void;
+  onJoin: (appointment: Appointment) => void;
   onShowDetails: (appointment: Appointment) => void;
   loadingId: string | null;
 }) {
@@ -315,7 +315,7 @@ function AppointmentCard({
               {isPending && (
                 <>
                   <button
-                    onClick={() => onAccept(appointment._id)}
+                    onClick={() => onAccept(appointment)}
                     disabled={isLoading}
                     className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:brightness-110 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -340,7 +340,7 @@ function AppointmentCard({
 
               {isAccepted && isVideo && appointment.consultationSessionLink && (
                 <button
-                  onClick={() => onJoin(appointment.consultationSessionLink)}
+                  onClick={() => onJoin(appointment)}
                   className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:brightness-110 hover:shadow-xl"
                 >
                   <Video className="h-4 w-4" />
@@ -483,18 +483,60 @@ export default function ScheduleClient() {
   }, [appointments, selectedDate]);
 
   async function patchAppointment(
-    appointmentId: string,
+    appointment: Appointment,
     action: "accept" | "reject",
     rejectionReason?: string,
   ) {
     try {
-      setActionLoadingId(appointmentId);
+      setActionLoadingId(appointment._id);
+
+      if (action === "accept") {
+        const res = await fetch(`/api/appointments/${appointment._id}/accept`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            consultationType: appointment.consultationType,
+          }),
+        });
+
+        const data = (await res.json()) as {
+          success: boolean;
+          message?: string;
+          appointment?: Appointment;
+          consultationSessionLink?: string;
+          consultationSessionId?: string;
+        };
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Unable to accept appointment");
+        }
+
+        setAppointments((current) =>
+          current.map((item) =>
+            item._id === appointment._id
+              ? {
+                  ...item,
+                  ...(data.appointment || {}),
+                  status: "accepted",
+                  consultationSessionLink:
+                    data.consultationSessionLink ||
+                    data.appointment?.consultationSessionLink ||
+                    `/consultation/${appointment._id}?role=doctor`,
+                }
+              : item,
+          ),
+        );
+
+        return;
+      }
 
       const res = await fetch("/api/appointments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          appointmentId,
+          appointmentId: appointment._id,
           action,
           rejectionReason: rejectionReason || "Rejected by doctor",
         }),
@@ -512,7 +554,9 @@ export default function ScheduleClient() {
 
       setAppointments((current) =>
         current.map((item) =>
-          item._id === appointmentId ? { ...item, ...data.appointment } : item,
+          item._id === appointment._id
+            ? { ...item, ...data.appointment }
+            : item,
         ),
       );
     } catch (err) {
@@ -524,8 +568,8 @@ export default function ScheduleClient() {
     }
   }
 
-  function handleAccept(appointmentId: string) {
-    void patchAppointment(appointmentId, "accept");
+  function handleAccept(appointment: Appointment) {
+    void patchAppointment(appointment, "accept");
   }
 
   function handleReject(appointment: Appointment) {
@@ -583,9 +627,9 @@ export default function ScheduleClient() {
     }
   }
 
-  function handleJoin(link?: string) {
-    if (!link) return;
-    window.open(link, "_blank", "noopener,noreferrer");
+  function handleJoin(appointment: Appointment) {
+    const url = `/consultation/${appointment._id}?role=doctor`;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -706,7 +750,10 @@ export default function ScheduleClient() {
         loading={rejectLoading}
         appointmentTitle={
           selectedRejectAppointment
-            ? getPersonName(selectedRejectAppointment.patient, "this appointment")
+            ? getPersonName(
+                selectedRejectAppointment.patient,
+                "this appointment",
+              )
             : "this appointment"
         }
         defaultReason={selectedRejectAppointment?.rejectionReason || ""}

@@ -230,7 +230,7 @@ export default function Navigation() {
               { href: "/", label: "Home" },
               { href: "/finddoctor", label: "Find Doctor" },
               { href: "/appointments", label: "Appointments" },
-              { href: "/messages", label: "Messages" },
+              { href: "/medicalrecord", label: "Medical Record" },
             ].map((item) => (
               <Link
                 key={item.href}

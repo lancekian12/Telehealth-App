@@ -5,6 +5,10 @@ export type AppointmentItem = {
   endTime: string;
   status: AppointmentStatus;
   consultationType: ConsultationType;
+  consultationType: "video" | "in_person";
+  consultationSessionLink?: string;
+  consultationSessionId?: string;
+  cancellationReason?: string;
   reasonForVisit?: string;
   rejectionReason?: string;
   rescheduleReason?: string;
@@ -54,7 +58,6 @@ export type DoctorApiItem = {
   id: string;
   workingHours?: DoctorWorkingHour[];
 };
-
 
 export type AppointmentApiResponse =
   | {

@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
 import { Appointment } from "@/models/appointment";
+import "@/models/prescription";
 import { notifyBothAppointmentSides } from "@/config/notification-service";
 
 export const runtime = "nodejs";
@@ -49,10 +50,7 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
   const hours = Math.floor(total / 60);
   const minutes = total % 60;
 
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-    2,
-    "0",
-  )}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 function toObjectId(value: string) {
@@ -142,11 +140,15 @@ function consultationTypeAllowed(value: unknown): value is ConsultationType {
 
 async function populateAppointment(appointmentId: Types.ObjectId | string) {
   return Appointment.findById(appointmentId)
-    .populate("doctor", "fullName specialization profilePicture clinicAddress")
+    .populate(
+      "doctor",
+      "fullName specialization profilePicture clinicAddress licenseNumber",
+    )
     .populate(
       "patient",
       "fullName email profilePicture phone birthday height weight basicMedicalHistory",
     )
+    .populate("prescription")
     .lean();
 }
 
@@ -218,12 +220,13 @@ export async function GET(req: Request) {
       .sort({ appointmentDate: -1, startTime: 1 })
       .populate(
         "doctor",
-        "fullName specialization profilePicture clinicAddress",
+        "fullName specialization profilePicture clinicAddress licenseNumber specialization",
       )
       .populate(
         "patient",
         "fullName email profilePicture phone birthday height weight basicMedicalHistory",
       )
+      .populate("prescription")
       .lean();
 
     return NextResponse.json({ success: true, appointments }, { status: 200 });

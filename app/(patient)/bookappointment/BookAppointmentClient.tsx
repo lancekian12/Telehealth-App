@@ -1,7 +1,7 @@
 "use client";
 
-import React, { JSX, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { JSX, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Video,
   Stethoscope,
@@ -9,6 +9,8 @@ import {
   CreditCard,
   ChevronRight,
   ArrowRight,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 type ConsultationType = "video" | "in_person";
@@ -138,6 +140,7 @@ function generateWeek(anchor: Date) {
 }
 
 export default function BookAppointmentClient(): JSX.Element {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const doctorId = searchParams.get("doctorId") || "";
@@ -160,6 +163,9 @@ export default function BookAppointmentClient(): JSX.Element {
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const anchorDate = useMemo(() => {
     if (!initialDate) return new Date();
@@ -239,6 +245,14 @@ export default function BookAppointmentClient(): JSX.Element {
 
     void loadMe();
     return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
   }, []);
 
   const selectedDate = dates[selectedDateIdx];
@@ -321,7 +335,7 @@ export default function BookAppointmentClient(): JSX.Element {
 
       setSelectedTime(workingHoursForSelectedDate[0].startTime);
     }
-  }, [workingHoursForSelectedDate, initialTime]);
+  }, [workingHoursForSelectedDate, initialTime, selectedTime]);
 
   const selectedSlot = useMemo(() => {
     return (
@@ -368,6 +382,7 @@ export default function BookAppointmentClient(): JSX.Element {
       setSubmitting(true);
       setBookingError(null);
       setBookingSuccess(null);
+      setShowSuccessOverlay(false);
 
       const res = await fetch("/api/appointments", {
         method: "POST",
@@ -392,7 +407,15 @@ export default function BookAppointmentClient(): JSX.Element {
       }
 
       setBookingSuccess("Appointment booked successfully.");
-      alert("Appointment booked successfully.");
+      setShowSuccessOverlay(true);
+
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+
+      successTimeoutRef.current = setTimeout(() => {
+        router.push("/appointments");
+      }, 1800);
     } catch (error: unknown) {
       setBookingError(
         error instanceof Error ? error.message : "Failed to book appointment",
@@ -403,14 +426,35 @@ export default function BookAppointmentClient(): JSX.Element {
   }
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 dark:bg-[#0f172a] dark:text-slate-100 font-sans">
+    <div className="min-h-screen bg-white font-sans text-slate-900 dark:bg-[#0f172a] dark:text-slate-100">
+      {showSuccessOverlay ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-white/20 bg-white p-8 text-center shadow-2xl dark:bg-slate-900">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <CheckCircle2 size={34} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Appointment booked
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
+              Your appointment was saved successfully. Redirecting you now...
+            </p>
+
+            <div className="mt-6 flex items-center justify-center gap-2 text-sm font-medium text-[#008081]">
+              <Loader2 size={16} className="animate-spin" />
+              Taking you to your appointments
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <nav className="mb-8 flex items-center gap-2 text-sm text-slate-500">
-          <a className="hover:text-[#008081] transition-colors" href="#">
+          <a className="transition-colors hover:text-[#008081]" href="#">
             Home
           </a>
           <ChevronRight className="text-[14px]" />
-          <a className="hover:text-[#008081] transition-colors" href="#">
+          <a className="transition-colors hover:text-[#008081]" href="#">
             Find Doctor
           </a>
           <ChevronRight className="text-[14px]" />
@@ -426,12 +470,6 @@ export default function BookAppointmentClient(): JSX.Element {
         {bookingError ? (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {bookingError}
-          </div>
-        ) : null}
-
-        {bookingSuccess ? (
-          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-            {bookingSuccess}
           </div>
         ) : null}
 
@@ -680,6 +718,12 @@ export default function BookAppointmentClient(): JSX.Element {
                 <ArrowRight size={18} />
               </button>
             </div>
+
+            {bookingSuccess ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                {bookingSuccess}
+              </div>
+            ) : null}
           </div>
         </div>
       </main>

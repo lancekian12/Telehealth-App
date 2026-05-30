@@ -220,11 +220,6 @@ export default function DoctorNavigation({
             label="Patient Records"
           />
 
-          <NavItem
-            to="/doctor/messages"
-            icon={<ChatText weight="fill" size={20} />}
-            label="Messages"
-          />
 
           <div className="mb-2 px-4 pt-8 text-[10px] font-bold uppercase tracking-widest text-slate-400">
             System
@@ -239,11 +234,6 @@ export default function DoctorNavigation({
           />
 
 
-          <NavItem
-            to="/doctor/settings"
-            icon={<GearSix weight="fill" size={20} />}
-            label="Settings"
-          />
         </nav>
 
         <div className="border-t border-slate-100 p-6">

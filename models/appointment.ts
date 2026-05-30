@@ -1,3 +1,4 @@
+// models/appointment.ts
 import { Schema, models, model } from "mongoose";
 
 const AppointmentSchema = new Schema(
@@ -41,6 +42,11 @@ const AppointmentSchema = new Schema(
       required: true,
     },
 
+    consultationSessionId: {
+      type: String,
+      default: "",
+    },
+
     consultationSessionLink: {
       type: String,
       default: "",
@@ -55,6 +61,7 @@ const AppointmentSchema = new Schema(
       type: String,
       default: "",
     },
+
     cancellationReason: {
       type: String,
       default: "",
