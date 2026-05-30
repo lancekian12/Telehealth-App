@@ -5,8 +5,6 @@ import Footer from "@/components/navigation/footer";
 import { Geist, Geist_Mono } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 
-
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -16,7 +14,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
 
 export const metadata: Metadata = {
   title: "AppointCare",
@@ -31,7 +28,7 @@ export default function PatientLayout({
   return (
     <div className="min-h-full">
       <Navigation />
-      <main>{children}</main>
+      <main className="pt-20">{children}</main>
       <Footer />
     </div>
   );

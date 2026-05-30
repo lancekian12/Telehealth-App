@@ -10,7 +10,6 @@ import {
   Clock3,
   FileText,
   Loader2,
-  MapPin,
   Sparkles,
   Video,
   ChevronLeft,
@@ -96,19 +95,6 @@ type AppointmentsResponse = {
   appointments?: Appointment[];
   message?: string;
 };
-
-function formatDateLong(value: string | Date | null | undefined) {
-  if (!value) return "—";
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "—";
-
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(date);
-}
 
 function formatDateShort(value: string | Date | null | undefined) {
   if (!value) return "—";
@@ -279,6 +265,7 @@ function PrescriptionField({ label, value }: { label: string; value: string }) {
   );
 }
 
+const TODAY_PAGE_SIZE = 2;
 const COMPLETED_PAGE_SIZE = 2;
 
 export default function DoctorHomeClient() {
@@ -287,6 +274,7 @@ export default function DoctorHomeClient() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [todayPage, setTodayPage] = useState(1);
   const [completedPage, setCompletedPage] = useState(1);
 
   const doctorId = doctor?.id ?? null;
@@ -429,22 +417,44 @@ export default function DoctorHomeClient() {
     },
   ];
 
+  const totalTodayPages = Math.max(
+    1,
+    Math.ceil(dashboard.todayAppointments.length / TODAY_PAGE_SIZE),
+  );
   const totalCompletedPages = Math.max(
     1,
     Math.ceil(dashboard.completedAppointments.length / COMPLETED_PAGE_SIZE),
   );
 
+  const todayPageSafe = Math.min(todayPage, totalTodayPages);
   const completedPageSafe = Math.min(completedPage, totalCompletedPages);
+
+  useEffect(() => {
+    setTodayPage(1);
+  }, [dashboard.todayAppointments.length]);
 
   useEffect(() => {
     setCompletedPage(1);
   }, [dashboard.completedAppointments.length]);
 
   useEffect(() => {
+    if (todayPageSafe !== todayPage) {
+      setTodayPage(todayPageSafe);
+    }
+  }, [todayPageSafe, todayPage]);
+
+  useEffect(() => {
     if (completedPageSafe !== completedPage) {
       setCompletedPage(completedPageSafe);
     }
   }, [completedPageSafe, completedPage]);
+
+  const todayPageItems = useMemo(() => {
+    const start = (todayPageSafe - 1) * TODAY_PAGE_SIZE;
+    return [...dashboard.todayAppointments]
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .slice(start, start + TODAY_PAGE_SIZE);
+  }, [dashboard.todayAppointments, todayPageSafe]);
 
   const completedPageItems = useMemo(() => {
     const start = (completedPageSafe - 1) * COMPLETED_PAGE_SIZE;
@@ -479,8 +489,7 @@ export default function DoctorHomeClient() {
               </p>
 
               <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-                Welcome back{doctor?.fullName ? `, Dr. ${doctor.fullName}` : ""}
-                .
+                Welcome back{doctor?.fullName ? `, Dr. ${doctor.fullName}` : ""}.
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/85 sm:text-base">
@@ -544,6 +553,7 @@ export default function DoctorHomeClient() {
                   </p>
                 </div>
               </div>
+
               <Link
                 href="/doctor/notifications"
                 className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-white transition hover:bg-white/15"
@@ -619,16 +629,12 @@ export default function DoctorHomeClient() {
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {dashboard.todayAppointments
-                        .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                        .map((appointment) => {
-                          const patientName = getPatientName(
-                            appointment.patient,
-                          );
+                    <>
+                      <div className="space-y-3">
+                        {todayPageItems.map((appointment) => {
+                          const patientName = getPatientName(appointment.patient);
                           const isAccepted = appointment.status === "accepted";
-                          const isVideo =
-                            appointment.consultationType === "video";
+                          const isVideo = appointment.consultationType === "video";
                           const canJoin =
                             isAccepted &&
                             isVideo &&
@@ -661,9 +667,7 @@ export default function DoctorHomeClient() {
 
                                     <StatusChip
                                       label={appointment.status}
-                                      className={statusClass(
-                                        appointment.status,
-                                      )}
+                                      className={statusClass(appointment.status)}
                                     />
                                   </div>
 
@@ -692,7 +696,38 @@ export default function DoctorHomeClient() {
                             </div>
                           );
                         })}
-                    </div>
+                      </div>
+
+                      {dashboard.todayAppointments.length > TODAY_PAGE_SIZE && (
+                        <div className="mt-5 flex items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setTodayPage((p) => Math.max(1, p - 1))}
+                            disabled={todayPageSafe === 1}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Prev
+                          </button>
+
+                          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                            Page {todayPageSafe} of {totalTodayPages}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTodayPage((p) => Math.min(totalTodayPages, p + 1))
+                            }
+                            disabled={todayPageSafe === totalTodayPages}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -722,9 +757,7 @@ export default function DoctorHomeClient() {
                     <>
                       <div className="space-y-3">
                         {completedPageItems.map((appointment) => {
-                          const patientName = getPatientName(
-                            appointment.patient,
-                          );
+                          const patientName = getPatientName(appointment.patient);
 
                           return (
                             <div
@@ -745,9 +778,7 @@ export default function DoctorHomeClient() {
                                   </div>
 
                                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                    {formatDateShort(
-                                      appointment.appointmentDate,
-                                    )}{" "}
+                                    {formatDateShort(appointment.appointmentDate)}{" "}
                                     • {formatTime(appointment.startTime)}–
                                     {formatTime(appointment.endTime)}
                                   </p>
@@ -760,8 +791,7 @@ export default function DoctorHomeClient() {
 
                                 <div className="flex flex-wrap items-center gap-2">
                                   {appointment.prescription &&
-                                  typeof appointment.prescription !==
-                                    "string" ? (
+                                  typeof appointment.prescription !== "string" ? (
                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary">
                                       <FileText className="h-3.5 w-3.5" />
                                       Prescription saved

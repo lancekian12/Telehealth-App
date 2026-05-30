@@ -1,5 +1,3 @@
-//doctor/working-hours/route.ts
-
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { connectDB } from "@/config/mongodb";
@@ -53,6 +51,37 @@ function generateHourlySlots(date: string, startTime: string, endTime: string) {
   return slots;
 }
 
+function getManilaDateString() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+
+  return `${year}-${month}-${day}`;
+}
+
+function getManilaMinutes() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+  const minute = Number(
+    parts.find((part) => part.type === "minute")?.value ?? "0",
+  );
+
+  return hour * 60 + minute;
+}
+
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
@@ -82,6 +111,29 @@ export async function POST(req: Request) {
     if (!isValidTime(startTime) || !isValidTime(endTime)) {
       return NextResponse.json(
         { success: false, message: "Invalid time format. Use HH:mm." },
+        { status: 400 },
+      );
+    }
+
+    const today = getManilaDateString();
+    const nowMinutes = getManilaMinutes();
+
+    if (date < today) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "You cannot create working hours for a past date.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (date === today && timeToMinutes(startTime) <= nowMinutes) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "You cannot create working hours in the past or for the current time.",
+        },
         { status: 400 },
       );
     }

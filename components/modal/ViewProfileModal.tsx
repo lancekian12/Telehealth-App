@@ -1,20 +1,8 @@
 "use client";
 
 import React from "react";
-
-type Patient = {
-  id: string;
-  clerkId: string;
-  role: string;
-  fullName: string;
-  profilePicture: string;
-  email: string;
-  phone: string;
-  birthday: string;
-  weight: string;
-  height: string;
-  basicMedicalHistory: string;
-};
+import { createPortal } from "react-dom";
+import type { Patient } from "@/types/patient";
 
 type ViewProfileModalProps = {
   open: boolean;
@@ -28,7 +16,6 @@ function ProfileField({ label, value }: { label: string; value?: string }) {
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
-
       <p className="mt-1 font-semibold text-slate-900 dark:text-white">
         {value || "Not provided"}
       </p>
@@ -43,9 +30,9 @@ export default function ViewProfileModal({
 }: ViewProfileModalProps) {
   if (!open || !patient) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[100000] flex items-start justify-center overflow-y-auto bg-black/60 px-4 pt-[30px] backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -58,6 +45,7 @@ export default function ViewProfileModal({
           </h2>
 
           <button
+            type="button"
             onClick={onClose}
             className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
@@ -67,16 +55,16 @@ export default function ViewProfileModal({
 
         <div className="flex flex-col items-center">
           <img
-            src={patient.profilePicture}
-            alt={patient.fullName}
+            src={patient.profilePicture || "/avatar-placeholder.png"}
+            alt={patient.fullName || "Patient"}
             className="h-28 w-28 rounded-full border-4 border-[#008081]/20 object-cover"
           />
 
           <h3 className="mt-4 text-2xl font-bold text-slate-900 dark:text-white">
-            {patient.fullName}
+            {patient.fullName || "Patient"}
           </h3>
 
-          <p className="text-slate-500">{patient.email}</p>
+          <p className="text-slate-500">{patient.email || "Not provided"}</p>
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -98,6 +86,7 @@ export default function ViewProfileModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

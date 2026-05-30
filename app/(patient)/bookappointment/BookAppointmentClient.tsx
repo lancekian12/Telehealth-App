@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { UnavailableSlot } from "@/types/doctor";
 import {
   ConsultationType,
   DoctorDetailsResponse,
@@ -20,6 +19,12 @@ import {
   TimeRange,
   TimeSlot,
 } from "@/types/appointment";
+
+type UnavailableSlotLike = {
+  allDay?: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+};
 
 function getPhilippineNow() {
   const now = new Date();
@@ -45,9 +50,7 @@ function isPastTimeSlot(appointmentDate: string, startTime: string): boolean {
   }
 
   const nowPH = getPhilippineNow();
-
   const currentMinutes = nowPH.getHours() * 60 + nowPH.getMinutes();
-
   const slotMinutes = parseTimeToMinutes(startTime);
 
   if (slotMinutes === null) {
@@ -126,10 +129,10 @@ function generateWeek(anchor: Date) {
   });
 }
 
-function isFullDayBlocked(slot: UnavailableSlot) {
+function isFullDayBlocked(slot: UnavailableSlotLike) {
   return (
     slot.allDay === true ||
-    (!slot.startTime && !slot.endTime) ||
+    (slot.startTime == null && slot.endTime == null) ||
     (slot.startTime === "00:00" && slot.endTime === "23:59")
   );
 }
@@ -182,6 +185,13 @@ function dedupeSlots(slots: TimeSlot[]) {
         (x) => x.startTime === slot.startTime && x.endTime === slot.endTime,
       ) === index,
   );
+}
+
+function isValidTimeRange(slot: {
+  startTime?: string | null;
+  endTime?: string | null;
+}): slot is TimeRange {
+  return typeof slot.startTime === "string" && typeof slot.endTime === "string";
 }
 
 export default function BookAppointmentClient(): JSX.Element {
@@ -338,19 +348,24 @@ export default function BookAppointmentClient(): JSX.Element {
 
     const blockedRanges = unavailableForDay
       .filter(
-        (slot) => !isFullDayBlocked(slot) && slot.startTime && slot.endTime,
+        (slot) =>
+          !isFullDayBlocked(slot) &&
+          typeof slot.startTime === "string" &&
+          typeof slot.endTime === "string",
       )
       .map((slot) => ({
-        startTime: slot.startTime as string,
-        endTime: slot.endTime as string,
-      }));
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      }))
+      .filter(isValidTimeRange);
 
     const bookedRanges = (doctor.bookedSlots || [])
       .filter((slot) => slot.date === day)
       .map((slot) => ({
         startTime: slot.startTime,
         endTime: slot.endTime,
-      }));
+      }))
+      .filter(isValidTimeRange);
 
     const rescheduledSlots = (doctor.scheduleOverrides || [])
       .filter(

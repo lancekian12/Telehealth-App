@@ -215,7 +215,7 @@ export default function Navigation() {
         }`}
       >
         <div className="mx-auto max-w-8xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-20 items-center justify-around">
+          <div className="flex h-20 items-center justify-between gap-4">
             <Link href="/" className="flex items-center justify-center">
               <span
                 className="material-icons text-[#008081]"
@@ -268,7 +268,7 @@ export default function Navigation() {
                       <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                         {patient.fullName}
                       </h3>
-                      <p className="text-[11px] tracking-[0.2em] uppercase text-slate-400">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
                         Patient
                       </p>
                     </div>
@@ -292,17 +292,6 @@ export default function Navigation() {
                       {profileOpen && (
                         <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95">
                           <div className="p-2">
-                            {/* <button
-                            type="button"
-                            onClick={() => setProfileOpen(false)}
-                            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                          >
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#008081]/10 text-[#008081]">
-                              <UserRound size={18} />
-                            </span>
-                            View Profile
-                          </button> */}
-
                             <button
                               type="button"
                               onClick={() => {
@@ -314,7 +303,6 @@ export default function Navigation() {
                               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#008081]/10 text-[#008081]">
                                 <UserRound size={18} />
                               </span>
-
                               <span>View Profile</span>
                             </button>
 
@@ -382,6 +370,7 @@ export default function Navigation() {
             </div>
           </div>
         </div>
+
         <ViewProfileModal
           open={profileModalOpen}
           onClose={() => setProfileModalOpen(false)}

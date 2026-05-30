@@ -24,6 +24,14 @@ interface CreateScheduleProps {
 const TIME_MIN = "08:00";
 const TIME_MAX = "17:00";
 
+const TIME_MINUTES = 8 * 60;
+const TIME_MAX_MINUTES = 17 * 60;
+
+function timeToMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
 function isTimeInRange(time: string, min: string, max: string) {
   return time >= min && time <= max;
 }
@@ -93,6 +101,37 @@ function generateTimeOptions(
   return options;
 }
 
+function getManilaDateString() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+
+  return `${year}-${month}-${day}`;
+}
+
+function getManilaMinutes() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? "0");
+  const minute = Number(
+    parts.find((part) => part.type === "minute")?.value ?? "0",
+  );
+
+  return hour * 60 + minute;
+}
+
 function TimeSelect({
   label,
   value,
@@ -114,14 +153,18 @@ function TimeSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
+        disabled={disabled || options.length === 0}
         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {options.map((time) => (
-          <option key={time} value={time}>
-            {formatTime12(time)}
-          </option>
-        ))}
+        {options.length === 0 ? (
+          <option value="">No available time</option>
+        ) : (
+          options.map((time) => (
+            <option key={time} value={time}>
+              {formatTime12(time)}
+            </option>
+          ))
+        )}
       </select>
     </div>
   );
@@ -148,10 +191,59 @@ export default function CreateSchedule({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const timeOptions = useMemo(
+  const todayDate = useMemo(() => getManilaDateString(), []);
+  const nowMinutes = useMemo(() => getManilaMinutes(), []);
+  const isPastDate = slotDate < todayDate;
+  const isToday = slotDate === todayDate;
+
+  const workingHourOptions = useMemo(
+    () => generateTimeOptions(TIME_MIN, TIME_MAX, 60),
+    [],
+  );
+
+  const unavailableOptions = useMemo(
     () => generateTimeOptions(TIME_MIN, TIME_MAX, 30),
     [],
   );
+
+  const availableStartOptions = useMemo(() => {
+    const cutoff = isToday ? nowMinutes : -1;
+
+    return workingHourOptions.filter((time) => {
+      const minutes = timeToMinutes(time);
+      return minutes > cutoff && minutes < TIME_MAX_MINUTES;
+    });
+  }, [workingHourOptions, isToday, nowMinutes]);
+
+  const availableEndOptions = useMemo(() => {
+    const cutoff = Math.max(timeToMinutes(slotStartTime), isToday ? nowMinutes : -1);
+
+    return workingHourOptions.filter((time) => {
+      const minutes = timeToMinutes(time);
+      return minutes > cutoff && minutes <= TIME_MAX_MINUTES;
+    });
+  }, [workingHourOptions, slotStartTime, isToday, nowMinutes]);
+
+  const unavailableStartOptions = useMemo(() => {
+    const cutoff = isToday ? nowMinutes : -1;
+
+    return unavailableOptions.filter((time) => {
+      const minutes = timeToMinutes(time);
+      return minutes > cutoff && minutes < TIME_MAX_MINUTES;
+    });
+  }, [unavailableOptions, isToday, nowMinutes]);
+
+  const unavailableEndOptions = useMemo(() => {
+    const cutoff = Math.max(
+      timeToMinutes(unavailableStartTime),
+      isToday ? nowMinutes : -1,
+    );
+
+    return unavailableOptions.filter((time) => {
+      const minutes = timeToMinutes(time);
+      return minutes > cutoff && minutes <= TIME_MAX_MINUTES;
+    });
+  }, [unavailableOptions, unavailableStartTime, isToday, nowMinutes]);
 
   const selectedDateLabel = useMemo(
     () => getFormattedDateFromDateString(slotDate),
@@ -172,7 +264,7 @@ export default function CreateSchedule({
 
   const hasAnyScheduleForDate = useMemo(() => {
     return selectedWorkingHours.length > 0 || selectedUnavailableSlots.length > 0;
-  }, [selectedWorkingHours.length, selectedUnavailableSlots.length]);
+  }, [selectedWorkingHours, selectedUnavailableSlots]);
 
   const selectedAvailableHasConflict = useMemo(() => {
     if (!slotDate) return false;
@@ -181,15 +273,13 @@ export default function CreateSchedule({
       rangesOverlap(slotStartTime, slotEndTime, hour.startTime, hour.endTime),
     );
 
-    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some(
-      (slot) => {
-        if (isFullDayBlocked(slot)) return true;
+    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some((slot) => {
+      if (isFullDayBlocked(slot)) return true;
 
-        const start = slot.startTime || TIME_MIN;
-        const end = slot.endTime || TIME_MAX;
-        return rangesOverlap(slotStartTime, slotEndTime, start, end);
-      },
-    );
+      const start = slot.startTime || TIME_MIN;
+      const end = slot.endTime || TIME_MAX;
+      return rangesOverlap(slotStartTime, slotEndTime, start, end);
+    });
 
     return conflictsWithWorkingHours || conflictsWithUnavailableSlots;
   }, [
@@ -216,20 +306,13 @@ export default function CreateSchedule({
       ),
     );
 
-    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some(
-      (slot) => {
-        if (isFullDayBlocked(slot)) return true;
+    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some((slot) => {
+      if (isFullDayBlocked(slot)) return true;
 
-        const start = slot.startTime || TIME_MIN;
-        const end = slot.endTime || TIME_MAX;
-        return rangesOverlap(
-          unavailableStartTime,
-          unavailableEndTime,
-          start,
-          end,
-        );
-      },
-    );
+      const start = slot.startTime || TIME_MIN;
+      const end = slot.endTime || TIME_MAX;
+      return rangesOverlap(unavailableStartTime, unavailableEndTime, start, end);
+    });
 
     return conflictsWithWorkingHours || conflictsWithUnavailableSlots;
   }, [
@@ -245,6 +328,43 @@ export default function CreateSchedule({
   useEffect(() => {
     setSlotDate(selectedDate || "");
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (slotMode === "available") {
+      if (!availableStartOptions.includes(slotStartTime) && availableStartOptions[0]) {
+        setSlotStartTime(availableStartOptions[0]);
+      }
+
+      if (!availableEndOptions.includes(slotEndTime) && availableEndOptions[0]) {
+        setSlotEndTime(availableEndOptions[0]);
+      }
+    } else {
+      if (
+        !unavailableStartOptions.includes(unavailableStartTime) &&
+        unavailableStartOptions[0]
+      ) {
+        setUnavailableStartTime(unavailableStartOptions[0]);
+      }
+
+      if (
+        !unavailableEndOptions.includes(unavailableEndTime) &&
+        unavailableEndOptions[0]
+      ) {
+        setUnavailableEndTime(unavailableEndOptions[0]);
+      }
+    }
+  }, [
+    slotMode,
+    slotDate,
+    availableStartOptions,
+    availableEndOptions,
+    unavailableStartOptions,
+    unavailableEndOptions,
+    slotStartTime,
+    slotEndTime,
+    unavailableStartTime,
+    unavailableEndTime,
+  ]);
 
   useEffect(() => {
     if (slotMode === "available") {
@@ -275,13 +395,15 @@ export default function CreateSchedule({
 
   const canSubmit = useMemo(() => {
     if (!slotDate) return false;
+    if (isPastDate) return false;
 
     if (slotMode === "available") {
       return (
         slotStartTime < slotEndTime &&
         isTimeInRange(slotStartTime, TIME_MIN, TIME_MAX) &&
         isTimeInRange(slotEndTime, TIME_MIN, TIME_MAX) &&
-        !selectedAvailableHasConflict
+        !selectedAvailableHasConflict &&
+        (!isToday || timeToMinutes(slotStartTime) > nowMinutes)
       );
     }
 
@@ -293,10 +415,12 @@ export default function CreateSchedule({
       unavailableStartTime < unavailableEndTime &&
       isTimeInRange(unavailableStartTime, TIME_MIN, TIME_MAX) &&
       isTimeInRange(unavailableEndTime, TIME_MIN, TIME_MAX) &&
-      !selectedUnavailableHasConflict
+      !selectedUnavailableHasConflict &&
+      (!isToday || timeToMinutes(unavailableStartTime) > nowMinutes)
     );
   }, [
     slotDate,
+    isPastDate,
     slotMode,
     slotStartTime,
     slotEndTime,
@@ -306,6 +430,8 @@ export default function CreateSchedule({
     selectedAvailableHasConflict,
     selectedUnavailableHasConflict,
     hasAnyScheduleForDate,
+    isToday,
+    nowMinutes,
   ]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -314,6 +440,11 @@ export default function CreateSchedule({
 
     if (!slotDate) {
       setMessage("Please choose a date.");
+      return;
+    }
+
+    if (isPastDate) {
+      setMessage("You cannot create a slot for a past date.");
       return;
     }
 
@@ -330,6 +461,11 @@ export default function CreateSchedule({
 
       if (!isTimeInRange(slotEndTime, TIME_MIN, TIME_MAX)) {
         setMessage("End time must be between 08:00 AM and 05:00 PM.");
+        return;
+      }
+
+      if (isToday && timeToMinutes(slotStartTime) <= nowMinutes) {
+        setMessage("Working hours must be set in the future.");
         return;
       }
 
@@ -359,6 +495,11 @@ export default function CreateSchedule({
 
       if (!isTimeInRange(unavailableEndTime, TIME_MIN, TIME_MAX)) {
         setMessage("End time must be between 08:00 AM and 05:00 PM.");
+        return;
+      }
+
+      if (isToday && timeToMinutes(unavailableStartTime) <= nowMinutes) {
+        setMessage("Blocked time must be set in the future.");
         return;
       }
 
@@ -484,6 +625,7 @@ export default function CreateSchedule({
                   <input
                     type="date"
                     value={slotDate}
+                    min={todayDate}
                     onChange={(e) => setSlotDate(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-12 py-4 text-sm font-semibold outline-none"
                     required
@@ -497,6 +639,12 @@ export default function CreateSchedule({
                       {selectedDateLabel}
                     </span>
                   </p>
+                ) : null}
+
+                {isPastDate ? (
+                  <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    You cannot create a slot for a past date.
+                  </div>
                 ) : null}
 
                 {hasFullDayUnavailableForDate ? (
@@ -631,16 +779,23 @@ export default function CreateSchedule({
                       label="Start Time"
                       value={slotStartTime}
                       onChange={setSlotStartTime}
-                      options={timeOptions}
+                      options={availableStartOptions}
                     />
 
                     <TimeSelect
                       label="End Time"
                       value={slotEndTime}
                       onChange={setSlotEndTime}
-                      options={timeOptions}
+                      options={availableEndOptions}
                     />
                   </div>
+
+                  {isToday && availableStartOptions.length === 0 ? (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      There are no future working-hour start times left for
+                      today.
+                    </div>
+                  ) : null}
                 </section>
               ) : (
                 <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -703,15 +858,21 @@ export default function CreateSchedule({
                         label="Start Time"
                         value={unavailableStartTime}
                         onChange={setUnavailableStartTime}
-                        options={timeOptions}
+                        options={unavailableStartOptions}
                       />
 
                       <TimeSelect
                         label="End Time"
                         value={unavailableEndTime}
                         onChange={setUnavailableEndTime}
-                        options={timeOptions}
+                        options={unavailableEndOptions}
                       />
+                    </div>
+                  ) : null}
+
+                  {isToday && !unavailableAllDay && unavailableStartOptions.length === 0 ? (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      There are no future blocked-time options left for today.
                     </div>
                   ) : null}
                 </section>
