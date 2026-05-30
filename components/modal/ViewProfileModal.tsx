@@ -22,13 +22,7 @@ type ViewProfileModalProps = {
   patient: Patient | null;
 };
 
-function ProfileField({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string;
-}) {
+function ProfileField({ label, value }: { label: string; value?: string }) {
   return (
     <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -56,7 +50,7 @@ export default function ViewProfileModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="fixed left-1/2 top-100 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-white p-8 shadow-2xl dark:bg-slate-900"
+        className="w-full max-w-2xl rounded-3xl bg-white p-8 shadow-2xl dark:bg-slate-900"
       >
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -100,8 +94,7 @@ export default function ViewProfileModal({
           </h4>
 
           <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
-            {patient.basicMedicalHistory ||
-              "No medical history provided."}
+            {patient.basicMedicalHistory || "No medical history provided."}
           </div>
         </div>
       </div>

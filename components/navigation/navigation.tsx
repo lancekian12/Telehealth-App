@@ -303,12 +303,6 @@ export default function Navigation() {
                             View Profile
                           </button> */}
 
-                            <div className="my-2 h-px bg-slate-100 dark:bg-slate-800" />
-
-                            <Logout />
-
-                            <div className="my-2 h-px bg-slate-100 dark:bg-slate-800" />
-
                             <button
                               type="button"
                               onClick={() => {
@@ -323,6 +317,12 @@ export default function Navigation() {
 
                               <span>View Profile</span>
                             </button>
+
+                            <div className="my-2 h-px bg-slate-100 dark:bg-slate-800" />
+
+                            <Logout />
+
+                            <div className="my-2 h-px bg-slate-100 dark:bg-slate-800" />
                           </div>
                         </div>
                       )}
