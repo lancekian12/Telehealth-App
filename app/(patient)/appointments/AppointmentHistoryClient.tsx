@@ -186,6 +186,10 @@ export default function AppointmentHistoryClient(): JSX.Element {
   const [selectedCancelAppointment, setSelectedCancelAppointment] =
     useState<AppointmentItem | null>(null);
 
+  const ITEMS_PER_PAGE = 2;
+
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -222,6 +226,10 @@ export default function AppointmentHistoryClient(): JSX.Element {
 
     return appointment.doctor._id || fallbackDoctorId;
   }
+
+  useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [activeFilter]);
 
   useEffect(() => {
     if (!rescheduleOpen || !selectedRescheduleAppointment) return;
@@ -494,6 +502,12 @@ export default function AppointmentHistoryClient(): JSX.Element {
     });
   }, [appointments, activeFilter]);
 
+  const paginatedAppointments = useMemo(() => {
+    return visibleAppointments.slice(0, visibleCount);
+  }, [visibleAppointments, visibleCount]);
+
+  const hasMoreAppointments = visibleCount < visibleAppointments.length;
+
   const counts = useMemo(() => {
     return {
       all: appointments.length,
@@ -569,7 +583,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
 
         {!loading && !error && visibleAppointments.length > 0 && (
           <div className="relative space-y-0 pl-2">
-            {visibleAppointments.map((a) => {
+            {paginatedAppointments.map((a) => {
               const appointmentDateTime = getAppointmentDateTime(a);
               const isVideo = a.consultationType === "video";
               const isRescheduled =
@@ -761,7 +775,12 @@ export default function AppointmentHistoryClient(): JSX.Element {
                             {a.status === "accepted" && (
                               <>
                                 {isVideo ? (
-                                  <button className="flex-1 md:flex-none px-6 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() =>
+                                      router.push(`/consultation/${a._id}`)
+                                    }
+                                    className="flex-1 md:flex-none px-6 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                                  >
                                     <Video size={16} />
                                     Join Call
                                   </button>
@@ -819,12 +838,19 @@ export default function AppointmentHistoryClient(): JSX.Element {
               );
             })}
 
-            <div className="flex justify-center mt-8">
-              <button className="text-slate-500 hover:text-primary font-medium text-sm flex items-center gap-2 transition-colors">
-                Load More History
-                <ChevronDown size={18} />
-              </button>
-            </div>
+            {hasMoreAppointments && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={() =>
+                    setVisibleCount((prev) => prev + ITEMS_PER_PAGE)
+                  }
+                  className="rounded-xl border border-slate-200 dark:border-slate-700 px-5 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary transition-all flex items-center gap-2"
+                >
+                  Load More History
+                  <ChevronDown size={18} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>

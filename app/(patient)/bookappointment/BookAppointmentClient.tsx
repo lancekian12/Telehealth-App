@@ -12,81 +12,50 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
+import { UnavailableSlot } from "@/types/doctor";
+import {
+  ConsultationType,
+  DoctorDetailsResponse,
+  PatientMeResponse,
+  TimeRange,
+  TimeSlot,
+} from "@/types/appointment";
 
-type ConsultationType = "video" | "in_person";
+function getPhilippineNow() {
+  const now = new Date();
 
-type WorkingHour = {
-  date: string;
-  startTime: string;
-  endTime: string;
-  isAvailable?: boolean;
-};
+  const philippinesDate = new Date(
+    now.toLocaleString("en-US", {
+      timeZone: "Asia/Manila",
+    }),
+  );
 
-type ScheduleOverride = {
-  date: string;
-  action: "rescheduled" | "cancelled";
-  startTime?: string | null;
-  endTime?: string | null;
-  newDate?: string | null;
-  newStartTime?: string | null;
-  newEndTime?: string | null;
-  reason?: string;
-};
+  return philippinesDate;
+}
 
-type UnavailableSlot = {
-  date: string;
-  startTime?: string | null;
-  endTime?: string | null;
-  allDay?: boolean;
-  reason?: string;
-};
+function getPhilippineDateString() {
+  return getPhilippineNow().toISOString().slice(0, 10);
+}
 
-type DoctorDetailsResponse = {
-  success: boolean;
-  message?: string;
-  doctor?: {
-    id: string;
-    fullName: string;
-    specialization: string;
-    profilePicture?: string;
-    consultationFee?: number;
-    clinicAddress?: string;
-    rating?: number;
-    consultationDurationMinutes?: number;
-    workingHours?: WorkingHour[];
-    unavailableSlots?: UnavailableSlot[];
-    scheduleOverrides?: ScheduleOverride[];
-    bookedSlots?: Array<{
-      date: string;
-      startTime: string;
-      endTime: string;
-    }>;
-  };
-};
+function isPastTimeSlot(appointmentDate: string, startTime: string): boolean {
+  const todayInPH = getPhilippineDateString();
 
-type PatientMeResponse = {
-  success: boolean;
-  message?: string;
-  patient?: {
-    id: string;
-    clerkId: string;
-    role: string;
-    fullName: string;
-    profilePicture?: string;
-    email?: string;
-  };
-};
+  if (appointmentDate !== todayInPH) {
+    return false;
+  }
 
-type TimeSlot = {
-  startTime: string;
-  endTime: string;
-  label: string;
-};
+  const nowPH = getPhilippineNow();
 
-type TimeRange = {
-  startTime: string;
-  endTime: string;
-};
+  const currentMinutes = nowPH.getHours() * 60 + nowPH.getMinutes();
+
+  const slotMinutes = parseTimeToMinutes(startTime);
+
+  if (slotMinutes === null) {
+    return false;
+  }
+
+  return slotMinutes <= currentMinutes;
+}
 
 function parseTimeToMinutes(value: string) {
   const match = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
@@ -144,7 +113,9 @@ function toYmd(date: Date) {
 function generateWeek(anchor: Date) {
   return Array.from({ length: 7 }, (_, index) => {
     const d = addDays(anchor, index);
-    const day = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+    const day = d
+      .toLocaleDateString("en-US", { weekday: "short" })
+      .toUpperCase();
 
     return {
       key: toYmd(d),
@@ -346,9 +317,8 @@ export default function BookAppointmentClient(): JSX.Element {
 
     const day = selectedDate.fullDate;
 
-    const unavailableForDay = doctor.unavailableSlots?.filter(
-      (slot) => slot.date === day,
-    ) || [];
+    const unavailableForDay =
+      doctor.unavailableSlots?.filter((slot) => slot.date === day) || [];
 
     const blockedByFullDayUnavailable = unavailableForDay.some((slot) =>
       isFullDayBlocked(slot),
@@ -368,8 +338,7 @@ export default function BookAppointmentClient(): JSX.Element {
 
     const blockedRanges = unavailableForDay
       .filter(
-        (slot) =>
-          !isFullDayBlocked(slot) && slot.startTime && slot.endTime,
+        (slot) => !isFullDayBlocked(slot) && slot.startTime && slot.endTime,
       )
       .map((slot) => ({
         startTime: slot.startTime as string,
@@ -417,7 +386,9 @@ export default function BookAppointmentClient(): JSX.Element {
       }));
     });
 
-    return dedupeSlots([...baseSlots, ...rescheduledSlots]);
+    return dedupeSlots([...baseSlots, ...rescheduledSlots]).filter(
+      (slot) => !isPastTimeSlot(day, slot.startTime),
+    );
   }, [doctor, selectedDate]);
 
   useEffect(() => {
@@ -448,12 +419,18 @@ export default function BookAppointmentClient(): JSX.Element {
 
   const selectedSlot = useMemo(() => {
     return (
-      workingHoursForSelectedDate.find((slot) => slot.startTime === selectedTime) ||
-      null
+      workingHoursForSelectedDate.find(
+        (slot) => slot.startTime === selectedTime,
+      ) || null
     );
   }, [workingHoursForSelectedDate, selectedTime]);
 
   const canConfirm = useMemo(() => {
+    const slotExpired =
+      selectedDate &&
+      selectedSlot &&
+      isPastTimeSlot(selectedDate.fullDate, selectedSlot.startTime);
+
     return (
       !!doctorId &&
       !!patientId &&
@@ -461,6 +438,7 @@ export default function BookAppointmentClient(): JSX.Element {
       !!selectedDate &&
       !!doctor &&
       !!selectedSlot &&
+      !slotExpired &&
       !submitting &&
       !patientLoading
     );
@@ -720,7 +698,9 @@ export default function BookAppointmentClient(): JSX.Element {
                             : "Unavailable because the clinic address is not set."}
                         </p>
                         <span className="text-xs font-semibold text-slate-500">
-                          {hasClinicAddress ? "Requires Confirmation" : "Not Available"}
+                          {hasClinicAddress
+                            ? "Requires Confirmation"
+                            : "Not Available"}
                         </span>
                       </div>
                     </div>
@@ -764,7 +744,9 @@ export default function BookAppointmentClient(): JSX.Element {
                       </span>
                       <span
                         className={`text-lg font-bold ${
-                          selected ? "text-white" : "text-slate-900 dark:text-white"
+                          selected
+                            ? "text-white"
+                            : "text-slate-900 dark:text-white"
                         }`}
                       >
                         {d.date}
@@ -824,7 +806,9 @@ export default function BookAppointmentClient(): JSX.Element {
                 onClick={confirm}
                 disabled={!canConfirm}
                 className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#008081] px-8 py-4 text-lg font-bold text-white shadow-xl transition-all hover:bg-[#00736f] sm:w-auto ${
-                  !canConfirm ? "cursor-not-allowed opacity-60" : "hover:-translate-y-1"
+                  !canConfirm
+                    ? "cursor-not-allowed opacity-60"
+                    : "hover:-translate-y-1"
                 }`}
               >
                 {submitting ? "Booking..." : "Confirm Appointment"}
