@@ -1,14 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Check,
-  Ban,
-  Clock3,
-  ShieldCheck,
-  X,
-  CalendarDays,
-} from "lucide-react";
+import { Check, Ban, Clock3, ShieldCheck, X, CalendarDays } from "lucide-react";
 import type { UnavailableSlot, WorkingHour } from "@/types/doctor";
 
 type SlotMode = "available" | "unavailable";
@@ -80,11 +73,7 @@ function padTimePart(value: number) {
   return String(value).padStart(2, "0");
 }
 
-function generateTimeOptions(
-  start = "08:00",
-  end = "17:00",
-  stepMinutes = 30,
-) {
+function generateTimeOptions(start = "08:00", end = "17:00", stepMinutes = 30) {
   const [startHour, startMinute] = start.split(":").map(Number);
   const [endHour, endMinute] = end.split(":").map(Number);
 
@@ -202,7 +191,7 @@ export default function CreateSchedule({
   );
 
   const unavailableOptions = useMemo(
-    () => generateTimeOptions(TIME_MIN, TIME_MAX, 30),
+    () => generateTimeOptions(TIME_MIN, TIME_MAX, 60),
     [],
   );
 
@@ -216,7 +205,10 @@ export default function CreateSchedule({
   }, [workingHourOptions, isToday, nowMinutes]);
 
   const availableEndOptions = useMemo(() => {
-    const cutoff = Math.max(timeToMinutes(slotStartTime), isToday ? nowMinutes : -1);
+    const cutoff = Math.max(
+      timeToMinutes(slotStartTime),
+      isToday ? nowMinutes : -1,
+    );
 
     return workingHourOptions.filter((time) => {
       const minutes = timeToMinutes(time);
@@ -263,7 +255,9 @@ export default function CreateSchedule({
   }, [selectedUnavailableSlots]);
 
   const hasAnyScheduleForDate = useMemo(() => {
-    return selectedWorkingHours.length > 0 || selectedUnavailableSlots.length > 0;
+    return (
+      selectedWorkingHours.length > 0 || selectedUnavailableSlots.length > 0
+    );
   }, [selectedWorkingHours, selectedUnavailableSlots]);
 
   const selectedAvailableHasConflict = useMemo(() => {
@@ -273,13 +267,15 @@ export default function CreateSchedule({
       rangesOverlap(slotStartTime, slotEndTime, hour.startTime, hour.endTime),
     );
 
-    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some((slot) => {
-      if (isFullDayBlocked(slot)) return true;
+    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some(
+      (slot) => {
+        if (isFullDayBlocked(slot)) return true;
 
-      const start = slot.startTime || TIME_MIN;
-      const end = slot.endTime || TIME_MAX;
-      return rangesOverlap(slotStartTime, slotEndTime, start, end);
-    });
+        const start = slot.startTime || TIME_MIN;
+        const end = slot.endTime || TIME_MAX;
+        return rangesOverlap(slotStartTime, slotEndTime, start, end);
+      },
+    );
 
     return conflictsWithWorkingHours || conflictsWithUnavailableSlots;
   }, [
@@ -306,13 +302,20 @@ export default function CreateSchedule({
       ),
     );
 
-    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some((slot) => {
-      if (isFullDayBlocked(slot)) return true;
+    const conflictsWithUnavailableSlots = selectedUnavailableSlots.some(
+      (slot) => {
+        if (isFullDayBlocked(slot)) return true;
 
-      const start = slot.startTime || TIME_MIN;
-      const end = slot.endTime || TIME_MAX;
-      return rangesOverlap(unavailableStartTime, unavailableEndTime, start, end);
-    });
+        const start = slot.startTime || TIME_MIN;
+        const end = slot.endTime || TIME_MAX;
+        return rangesOverlap(
+          unavailableStartTime,
+          unavailableEndTime,
+          start,
+          end,
+        );
+      },
+    );
 
     return conflictsWithWorkingHours || conflictsWithUnavailableSlots;
   }, [
@@ -331,11 +334,17 @@ export default function CreateSchedule({
 
   useEffect(() => {
     if (slotMode === "available") {
-      if (!availableStartOptions.includes(slotStartTime) && availableStartOptions[0]) {
+      if (
+        !availableStartOptions.includes(slotStartTime) &&
+        availableStartOptions[0]
+      ) {
         setSlotStartTime(availableStartOptions[0]);
       }
 
-      if (!availableEndOptions.includes(slotEndTime) && availableEndOptions[0]) {
+      if (
+        !availableEndOptions.includes(slotEndTime) &&
+        availableEndOptions[0]
+      ) {
         setSlotEndTime(availableEndOptions[0]);
       }
     } else {
@@ -870,7 +879,9 @@ export default function CreateSchedule({
                     </div>
                   ) : null}
 
-                  {isToday && !unavailableAllDay && unavailableStartOptions.length === 0 ? (
+                  {isToday &&
+                  !unavailableAllDay &&
+                  unavailableStartOptions.length === 0 ? (
                     <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                       There are no future blocked-time options left for today.
                     </div>
