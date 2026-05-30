@@ -13,7 +13,6 @@ function parseBoolean(value: FormDataEntryValue | null, fallback = false) {
 
 function parseNumber(value: FormDataEntryValue | null, fallback = 0) {
   if (value === null || value === "") return fallback;
-
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
 }
@@ -91,14 +90,12 @@ function parseUnavailableSlots(value: FormDataEntryValue | null) {
 }
 
 function buildClinicAddress(parts: {
-  clinicName?: string;
   clinicStreetAddress?: string;
   clinicBarangay?: string;
   clinicCityMunicipality?: string;
   clinicProvince?: string;
 }) {
   return [
-    parts.clinicName,
     parts.clinicStreetAddress,
     parts.clinicBarangay,
     parts.clinicCityMunicipality,
@@ -110,40 +107,91 @@ function buildClinicAddress(parts: {
     .join(", ");
 }
 
+function buildGeocodeCandidates(parts: {
+  clinicStreetAddress?: string;
+  clinicBarangay?: string;
+  clinicCityMunicipality?: string;
+  clinicProvince?: string;
+}) {
+  const streetBarangayCityProvince = buildClinicAddress(parts);
+
+  const barangayCityProvince = [
+    parts.clinicBarangay,
+    parts.clinicCityMunicipality,
+    parts.clinicProvince,
+    "Philippines",
+  ]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(", ");
+
+  const cityProvince = [
+    parts.clinicCityMunicipality,
+    parts.clinicProvince,
+    "Philippines",
+  ]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(", ");
+
+  const provinceOnly = [parts.clinicProvince, "Philippines"]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(", ");
+
+  return [streetBarangayCityProvince, barangayCityProvince, cityProvince, provinceOnly].filter(Boolean);
+}
+
 async function geocodeAddress(address: string) {
   if (!address) return null;
 
   try {
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`,
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ph&q=${encodeURIComponent(
+        address,
+      )}`,
       {
         headers: {
           "User-Agent": "AppointCare/1.0",
+          "Accept-Language": "en",
         },
-      }
+      },
     );
 
     if (!response.ok) {
-      console.error("Geocode request failed:", response.status);
+      console.error("Geocode request failed:", response.status, address);
       return null;
     }
 
     const data = await response.json();
+    console.log("Geocode result for:", address, data);
 
-    console.log("Geocode result:", data);
-
-    if (!Array.isArray(data) || data.length === 0) {
-      return null;
-    }
+    if (!Array.isArray(data) || data.length === 0) return null;
 
     return {
-      latitude: parseFloat(data[0].lat),
-      longitude: parseFloat(data[0].lon),
+      latitude: Number(data[0].lat),
+      longitude: Number(data[0].lon),
     };
   } catch (error) {
-    console.error("Geocoding failed:", error);
+    console.error("Geocoding failed:", address, error);
     return null;
   }
+}
+
+async function geocodeWithFallbacks(parts: {
+  clinicStreetAddress?: string;
+  clinicBarangay?: string;
+  clinicCityMunicipality?: string;
+  clinicProvince?: string;
+}) {
+  const candidates = buildGeocodeCandidates(parts);
+
+  for (const candidate of candidates) {
+    const coordinates = await geocodeAddress(candidate);
+    if (coordinates) return coordinates;
+  }
+
+  return null;
 }
 
 export async function GET() {
@@ -152,10 +200,7 @@ export async function GET() {
 
     if (!userId) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
+        { success: false, message: "Unauthorized" },
         { status: 401 },
       );
     }
@@ -169,10 +214,7 @@ export async function GET() {
 
     if (!doctor) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Doctor not found",
-        },
+        { success: false, message: "Doctor not found" },
         { status: 404 },
       );
     }
@@ -183,39 +225,29 @@ export async function GET() {
         doctor: {
           id: String(doctor._id),
           clerkId: doctor.clerkId,
-
           fullName: doctor.fullName || "",
           specialization: doctor.specialization || "",
           bio: doctor.bio || "",
           profilePicture: doctor.profilePicture || "",
-
           email: doctor.email || "",
           phone: doctor.phone || "",
-
           rating: doctor.rating ?? 0,
           consultationFee: doctor.consultationFee ?? 0,
-
           consultationModes: doctor.consultationModes ?? [],
           languages: doctor.languages ?? [],
-
           verified: doctor.verified ?? false,
           acceptsNewPatients: doctor.acceptsNewPatients ?? true,
-
           workingHours: doctor.workingHours ?? [],
           unavailableSlots: doctor.unavailableSlots ?? [],
-
           consultationDurationMinutes: doctor.consultationDurationMinutes ?? 60,
-
           clinicName: doctor.clinicName || "",
           clinicStreetAddress: doctor.clinicStreetAddress || "",
           clinicBarangay: doctor.clinicBarangay || "",
           clinicCityMunicipality: doctor.clinicCityMunicipality || "",
           clinicProvince: doctor.clinicProvince || "",
           clinicAddress: doctor.clinicAddress || "",
-
           latitude: doctor.latitude ?? null,
           longitude: doctor.longitude ?? null,
-
           createdAt: doctor.createdAt,
           updatedAt: doctor.updatedAt,
         },
@@ -269,6 +301,11 @@ export async function POST(req: Request) {
       );
     }
 
+    const consultationModes = parseStringArray(
+      formData.get("consultationModes"),
+    );
+    const hasInPerson = consultationModes.includes("in_person");
+
     const profilePicture = formData.get("profilePicture");
     let profilePictureUrl = "";
 
@@ -284,25 +321,46 @@ export async function POST(req: Request) {
       profilePictureUrl = uploadResult.secure_url;
     }
 
-    const clinicName = String(formData.get("clinicName") || "").trim();
-    const clinicStreetAddress = String(
-      formData.get("clinicStreetAddress") || "",
-    ).trim();
-    const clinicBarangay = String(formData.get("clinicBarangay") || "").trim();
-    const clinicCityMunicipality = String(
-      formData.get("clinicCityMunicipality") || "",
-    ).trim();
-    const clinicProvince = String(formData.get("clinicProvince") || "").trim();
+    const clinicName = hasInPerson
+      ? String(formData.get("clinicName") || "").trim()
+      : "";
 
-    const clinicAddress = buildClinicAddress({
-      clinicName,
-      clinicStreetAddress,
-      clinicBarangay,
-      clinicCityMunicipality,
-      clinicProvince,
-    });
+    const clinicStreetAddress = hasInPerson
+      ? String(formData.get("clinicStreetAddress") || "").trim()
+      : "";
 
-    const coordinates = await geocodeAddress(clinicAddress);
+    const clinicBarangay = hasInPerson
+      ? String(formData.get("clinicBarangay") || "").trim()
+      : "";
+
+    const clinicCityMunicipality = hasInPerson
+      ? String(formData.get("clinicCityMunicipality") || "").trim()
+      : "";
+
+    const clinicProvince = hasInPerson
+      ? String(formData.get("clinicProvince") || "").trim()
+      : "";
+
+    const clinicAddress = hasInPerson
+      ? buildClinicAddress({
+          clinicStreetAddress,
+          clinicBarangay,
+          clinicCityMunicipality,
+          clinicProvince,
+        })
+      : "";
+
+    const coordinates = hasInPerson
+      ? await geocodeWithFallbacks({
+          clinicStreetAddress,
+          clinicBarangay,
+          clinicCityMunicipality,
+          clinicProvince,
+        })
+      : null;
+
+    console.log("Clinic Address:", clinicAddress);
+    console.log("Coordinates:", coordinates);
 
     const doctorData = {
       clerkId: userId,
@@ -319,7 +377,7 @@ export async function POST(req: Request) {
       rating: parseNumber(formData.get("rating"), 0),
       consultationFee: parseNumber(formData.get("consultationFee"), 0),
 
-      consultationModes: parseStringArray(formData.get("consultationModes")),
+      consultationModes,
       languages: parseStringArray(formData.get("languages")),
 
       verified: parseBoolean(formData.get("verified"), false),
@@ -331,10 +389,7 @@ export async function POST(req: Request) {
       workingHours: parseWorkingHours(formData.get("workingHours")),
       unavailableSlots: parseUnavailableSlots(formData.get("unavailableSlots")),
 
-      consultationDurationMinutes: parseNumber(
-        formData.get("consultationDurationMinutes"),
-        30,
-      ),
+      consultationDurationMinutes: 60,
 
       clinicName,
       clinicStreetAddress,
@@ -342,6 +397,7 @@ export async function POST(req: Request) {
       clinicCityMunicipality,
       clinicProvince,
       clinicAddress,
+
       latitude: coordinates?.latitude ?? null,
       longitude: coordinates?.longitude ?? null,
 

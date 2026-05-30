@@ -16,60 +16,14 @@ import {
   Pill,
   Stethoscope,
 } from "lucide-react";
-
-type Prescription = {
-  diagnosis?: string;
-  medication?: string;
-  dosage?: string;
-  duration?: string;
-  instructions?: string;
-  notes?: string;
-  status?: string;
-  isFinalized?: boolean;
-};
-
-type Patient = {
-  _id?: string;
-  fullName?: string;
-  email?: string;
-  profilePicture?: string;
-  phone?: string;
-  birthday?: string;
-  height?: string;
-  weight?: string;
-  basicMedicalHistory?: string;
-};
-
-type Doctor = {
-  _id?: string;
-  fullName?: string;
-  specialization?: string;
-  clinicAddress?: string;
-  profilePicture?: string;
-  licenseNumber?: string;
-};
-
-type Appointment = {
-  _id: string;
-  appointmentDate?: string;
-  startTime?: string;
-  endTime?: string;
-  status?: string;
-  consultationType?: "video" | "in_person";
-  reasonForVisit?: string;
-  notes?: string;
-  doctor?: Doctor | string;
-  patient?: Patient | string;
-  prescription?: Prescription | null;
-};
-
-type PatientResponse =
-  | { success: true; patient: Patient }
-  | { success: false; message?: string };
-
-type AppointmentsResponse =
-  | { success: true; appointments: Appointment[] }
-  | { success: false; message?: string };
+import {
+  AppointmentsResponse,
+  Doctor,
+  PatientResponse,
+  Appointment,
+  Patient,
+  Prescription,
+} from "@/types/medicalrecord";
 
 function formatDate(dateValue?: string) {
   if (!dateValue) return "—";
@@ -360,10 +314,14 @@ export default function PatientMedicalRecordPage() {
           },
         );
 
-        console.log("[MedicalRecord] sorted appointments:", sorted);
+        const completedOnly = sorted.filter(
+          (appt) => (appt.status || "").toLowerCase() === "completed",
+        );
 
-        setAppointments(sorted);
-        setSelectedId(String(sorted[0]?._id || ""));
+        console.log("[MedicalRecord] sorted appointments:", completedOnly);
+
+        setAppointments(completedOnly);
+        setSelectedId(String(completedOnly[0]?._id || ""));
       } catch (err) {
         if ((err as { name?: string })?.name === "AbortError") return;
         console.error("[MedicalRecord] loadAppointments error:", err);
@@ -383,6 +341,7 @@ export default function PatientMedicalRecordPage() {
       controller.abort();
     };
   }, []);
+
   const selectedAppointment = useMemo(() => {
     if (!selectedId) return appointments[0] || null;
     return appointments.find((appt) => appt._id === selectedId) || null;
@@ -398,11 +357,10 @@ export default function PatientMedicalRecordPage() {
   const totalPrescriptions = appointments.filter((a) => a.prescription).length;
 
   async function handleBookAgain() {
-    if (!patient?._id) return;
     setSaving(true);
+
     try {
-      console.log("[MedicalRecord] booking again for patient:", patient._id);
-      router.push(`/finddoctor?patientId=${patient._id}`);
+      router.push("/finddoctor");
     } finally {
       setSaving(false);
     }
@@ -430,24 +388,11 @@ export default function PatientMedicalRecordPage() {
                   Your medical record
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
-                  Select a visit on the left to see that day’s prescription and
-                  doctor.
+                  Select a completed visit on the left to see that day’s
+                  prescription and doctor.
                 </p>
               </div>
             </div>
-
-            <button
-              onClick={handleBookAgain}
-              disabled={!patient?._id || saving}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {saving ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Calendar size={16} />
-              )}
-              Book again
-            </button>
           </div>
         </header>
 
@@ -459,7 +404,7 @@ export default function PatientMedicalRecordPage() {
                   Visits
                 </p>
                 <h2 className="mt-1 text-lg font-bold text-slate-900">
-                  All appointments
+                  Completed appointments
                 </h2>
               </div>
               <Badge>{`${totalVisits} total`}</Badge>
@@ -482,7 +427,7 @@ export default function PatientMedicalRecordPage() {
               </div>
             ) : appointments.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-                No appointments found.
+                No completed appointments found.
               </div>
             ) : (
               <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto pr-1">
@@ -517,15 +462,15 @@ export default function PatientMedicalRecordPage() {
                 <div className="relative z-10 border-b border-slate-100 px-6 pb-6 pt-6 sm:px-8">
                   <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
                     <div className="flex gap-5">
-                      {selectedPatient?.profilePicture ? (
+                      {selectedDoctor?.profilePicture ? (
                         <img
-                          alt={selectedPatient.fullName || "Patient"}
+                          alt={selectedDoctor.fullName || "Doctor"}
                           className="h-24 w-24 rounded-3xl object-cover shadow-lg ring-4 ring-white"
-                          src={selectedPatient.profilePicture}
+                          src={selectedDoctor.profilePicture}
                         />
                       ) : (
                         <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-100 text-2xl font-bold text-slate-600 shadow-lg ring-4 ring-white">
-                          {(selectedPatient?.fullName || "UN")
+                          {(selectedDoctor?.fullName || "DR")
                             .split(" ")
                             .map((n) => n[0])
                             .slice(0, 2)
@@ -535,10 +480,10 @@ export default function PatientMedicalRecordPage() {
 
                       <div className="pt-1">
                         <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-                          {selectedPatient?.fullName || "Unknown patient"}
+                          {selectedDoctor?.fullName || "Unknown doctor"}
                         </h2>
                         <p className="mt-1 text-sm text-slate-500">
-                          {selectedPatient?.email || "No email available"}
+                          {selectedDoctor?.specialization || "Doctor"}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {selectedAppointment.status ? (
@@ -553,41 +498,6 @@ export default function PatientMedicalRecordPage() {
                           ) : null}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                      {selectedPatient?.phone ? (
-                        <a
-                          href={`tel:${selectedPatient.phone}`}
-                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                        >
-                          <Phone size={16} />
-                          Call
-                        </a>
-                      ) : null}
-
-                      {selectedPatient?.email ? (
-                        <a
-                          href={`mailto:${selectedPatient.email}`}
-                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-                        >
-                          <Mail size={16} />
-                          Email
-                        </a>
-                      ) : null}
-
-                      <button
-                        onClick={handleBookAgain}
-                        disabled={!patient?._id || saving}
-                        className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {saving ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <Calendar size={16} />
-                        )}
-                        Book again
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -614,38 +524,9 @@ export default function PatientMedicalRecordPage() {
                   <div className="mt-8 space-y-8">
                     <section>
                       <SectionTitle
-                        icon={<HeartPulse className="text-primary" />}
-                        title="That day"
-                        subtitle="What happened during this appointment."
-                      />
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            Reason for visit
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-slate-700">
-                            {selectedAppointment.reasonForVisit ||
-                              "No reason recorded."}
-                          </p>
-                        </div>
-
-                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            Notes
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-slate-700">
-                            {selectedAppointment.notes || "No notes recorded."}
-                          </p>
-                        </div>
-                      </div>
-                    </section>
-
-                    <section>
-                      <SectionTitle
                         icon={<Pill className="text-primary" />}
-                        title="Prescription from that day"
-                        subtitle="The medicines and instructions written for this visit."
+                        title="Prescription"
+                        subtitle="Only the prescription from this visit."
                       />
 
                       {selectedPrescription ? (
@@ -748,7 +629,7 @@ export default function PatientMedicalRecordPage() {
 
                           <button
                             onClick={handleBookAgain}
-                            disabled={!patient?._id || saving}
+                            disabled={saving}
                             className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                           >
                             {saving ? (

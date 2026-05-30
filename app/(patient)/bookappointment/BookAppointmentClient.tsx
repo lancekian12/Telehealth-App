@@ -167,6 +167,10 @@ export default function BookAppointmentClient(): JSX.Element {
 
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const hasClinicAddress = useMemo(() => {
+    return !!doctor?.clinicAddress?.trim();
+  }, [doctor?.clinicAddress]);
+
   const anchorDate = useMemo(() => {
     if (!initialDate) return new Date();
     const [year, month, day] = initialDate.split("-").map(Number);
@@ -255,6 +259,12 @@ export default function BookAppointmentClient(): JSX.Element {
     };
   }, []);
 
+  useEffect(() => {
+    if (!hasClinicAddress && consultationType === "in_person") {
+      setConsultationType("video");
+    }
+  }, [hasClinicAddress, consultationType]);
+
   const selectedDate = dates[selectedDateIdx];
 
   const workingHoursForSelectedDate = useMemo<TimeSlot[]>(() => {
@@ -272,9 +282,8 @@ export default function BookAppointmentClient(): JSX.Element {
     if (cancelled) return [];
 
     const bookedOnThatDate =
-      doctor.bookedSlots?.filter(
-        (slot) => slot.date === selectedDate.fullDate,
-      ) || [];
+      doctor.bookedSlots?.filter((slot) => slot.date === selectedDate.fullDate) ||
+      [];
 
     const base = (doctor.workingHours || [])
       .filter(
@@ -576,20 +585,27 @@ export default function BookAppointmentClient(): JSX.Element {
                   </div>
                 </label>
 
-                <label className="relative block">
+                <label
+                  className={`relative block ${
+                    !hasClinicAddress ? "cursor-not-allowed opacity-50" : ""
+                  }`}
+                >
                   <input
                     name="consultation_type"
                     type="radio"
                     checked={consultationType === "in_person"}
-                    onChange={() => setConsultationType("in_person")}
+                    onChange={() => {
+                      if (hasClinicAddress) setConsultationType("in_person");
+                    }}
+                    disabled={!hasClinicAddress}
                     className="sr-only"
                   />
                   <div
                     className={`h-full rounded-2xl border bg-white p-5 text-left transition-all dark:bg-slate-900 ${
-                      consultationType === "in_person"
+                      consultationType === "in_person" && hasClinicAddress
                         ? "border-[#81B641] bg-[#81B641]/5 text-[#81B641]"
                         : "border-transparent"
-                    }`}
+                    } ${!hasClinicAddress ? "pointer-events-none" : ""}`}
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#81B641]/10 text-[#81B641]">
@@ -600,10 +616,12 @@ export default function BookAppointmentClient(): JSX.Element {
                           In-Person Visit
                         </h3>
                         <p className="mb-2 text-xs leading-relaxed text-slate-500">
-                          Visit the clinic on your chosen schedule.
+                          {hasClinicAddress
+                            ? "Visit the clinic on your chosen schedule."
+                            : "Unavailable because the clinic address is not set."}
                         </p>
                         <span className="text-xs font-semibold text-slate-500">
-                          Requires Confirmation
+                          {hasClinicAddress ? "Requires Confirmation" : "Not Available"}
                         </span>
                       </div>
                     </div>
@@ -647,9 +665,7 @@ export default function BookAppointmentClient(): JSX.Element {
                       </span>
                       <span
                         className={`text-lg font-bold ${
-                          selected
-                            ? "text-white"
-                            : "text-slate-900 dark:text-white"
+                          selected ? "text-white" : "text-slate-900 dark:text-white"
                         }`}
                       >
                         {d.date}
@@ -709,9 +725,7 @@ export default function BookAppointmentClient(): JSX.Element {
                 onClick={confirm}
                 disabled={!canConfirm}
                 className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#008081] px-8 py-4 text-lg font-bold text-white shadow-xl transition-all hover:bg-[#00736f] sm:w-auto ${
-                  !canConfirm
-                    ? "cursor-not-allowed opacity-60"
-                    : "hover:-translate-y-1"
+                  !canConfirm ? "cursor-not-allowed opacity-60" : "hover:-translate-y-1"
                 }`}
               >
                 {submitting ? "Booking..." : "Confirm Appointment"}

@@ -34,6 +34,10 @@ type ScheduleOverride = {
 
 type UnavailableSlot = {
   date: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  allDay?: boolean;
+  reason?: string;
 };
 
 type DoctorDetailsResponse = {
@@ -59,6 +63,11 @@ type AvailabilityPanelProps = {
   setSelectedDayIndex: React.Dispatch<React.SetStateAction<number>>;
   selectedTime: string;
   setSelectedTime: React.Dispatch<React.SetStateAction<string>>;
+};
+
+type TimeRange = {
+  startTime: string;
+  endTime: string;
 };
 
 function parseTimeToMinutes(value: string) {
@@ -90,6 +99,78 @@ function formatMinutesToTime(totalMinutes: number) {
 function formatTimeLabel(time: string) {
   const minutes = parseTimeToMinutes(time);
   return minutes === null ? time : formatMinutesToTime(minutes);
+}
+
+function isFullDayBlocked(slot: UnavailableSlot) {
+  return (
+    slot.allDay === true ||
+    (!slot.startTime && !slot.endTime) ||
+    (slot.startTime === "00:00" && slot.endTime === "23:59")
+  );
+}
+
+function toMinutes(time: string) {
+  const minutes = parseTimeToMinutes(time);
+  return minutes ?? 0;
+}
+
+function minutesToTime(minutes: number) {
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function overlaps(a: TimeRange, b: TimeRange) {
+  return a.startTime < b.endTime && b.startTime < a.endTime;
+}
+
+function subtractRanges(base: TimeRange, blocks: TimeRange[]) {
+  let segments: TimeRange[] = [base];
+
+  const sortedBlocks = [...blocks].sort((x, y) =>
+    x.startTime.localeCompare(y.startTime),
+  );
+
+  for (const block of sortedBlocks) {
+    const nextSegments: TimeRange[] = [];
+
+    for (const segment of segments) {
+      if (!overlaps(segment, block)) {
+        nextSegments.push(segment);
+        continue;
+      }
+
+      if (segment.startTime < block.startTime) {
+        nextSegments.push({
+          startTime: segment.startTime,
+          endTime: block.startTime,
+        });
+      }
+
+      if (block.endTime < segment.endTime) {
+        nextSegments.push({
+          startTime: block.endTime,
+          endTime: segment.endTime,
+        });
+      }
+    }
+
+    segments = nextSegments;
+  }
+
+  return segments.filter((segment) => segment.startTime < segment.endTime);
+}
+
+function dedupeSlots(
+  slots: { startTime: string; endTime: string; label: string }[],
+) {
+  return slots.filter(
+    (slot, index, arr) =>
+      arr.findIndex(
+        (x) => x.startTime === slot.startTime && x.endTime === slot.endTime,
+      ) === index,
+  );
 }
 
 export default function AvailabilityPanel({
@@ -192,8 +273,12 @@ export default function AvailabilityPanel({
 
   const dayAvailability = useMemo(() => {
     return selectedDate.map((item) => {
-      const blockedByUnavailable = doctorSchedule.unavailableSlots.some(
+      const unavailableForDay = doctorSchedule.unavailableSlots.filter(
         (slot) => slot.date === item.fullDate,
+      );
+
+      const blockedByFullDayUnavailable = unavailableForDay.some((slot) =>
+        isFullDayBlocked(slot),
       );
 
       const cancelledOverride = doctorSchedule.scheduleOverrides.some(
@@ -219,29 +304,44 @@ export default function AvailabilityPanel({
           label: `${formatTimeLabel(override.newStartTime as string)} - ${formatTimeLabel(override.newEndTime as string)}`,
         }));
 
-      const baseSlots = workingHoursForDay.map((slot) => ({
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        label: `${formatTimeLabel(slot.startTime)} - ${formatTimeLabel(slot.endTime)}`,
-      }));
+      const blockedRanges = unavailableForDay
+        .filter((slot) => !isFullDayBlocked(slot) && slot.startTime && slot.endTime)
+        .map((slot) => ({
+          startTime: slot.startTime as string,
+          endTime: slot.endTime as string,
+        }));
+
+      const baseSlots = workingHoursForDay.flatMap((slot) => {
+        const remaining = subtractRanges(
+          {
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+          },
+          blockedRanges,
+        );
+
+        return remaining.map((range) => ({
+          startTime: range.startTime,
+          endTime: range.endTime,
+          label: `${formatTimeLabel(range.startTime)} - ${formatTimeLabel(range.endTime)}`,
+        }));
+      });
 
       const slots =
-        blockedByUnavailable || cancelledOverride
+        blockedByFullDayUnavailable || cancelledOverride
           ? []
           : [...baseSlots, ...rescheduledSlots];
 
-      const uniqueSlots = slots.filter(
-        (slot, index, arr) =>
-          arr.findIndex(
-            (x) => x.startTime === slot.startTime && x.endTime === slot.endTime,
-          ) === index,
-      );
+      const uniqueSlots = dedupeSlots(slots);
 
       return {
         ...item,
-        disabled: uniqueSlots.length === 0,
+        disabled:
+          uniqueSlots.length === 0 ||
+          blockedByFullDayUnavailable ||
+          cancelledOverride,
         slots: uniqueSlots,
-        blockedByUnavailable,
+        blockedByFullDayUnavailable,
         cancelledOverride,
       };
     });
@@ -250,7 +350,8 @@ export default function AvailabilityPanel({
   const selectedDayInfo = dayAvailability[selectedDayIndex];
   const availableSlots = selectedDayInfo?.slots ?? [];
   const isBlockedDay = Boolean(
-    selectedDayInfo?.blockedByUnavailable || selectedDayInfo?.cancelledOverride,
+    selectedDayInfo?.blockedByFullDayUnavailable ||
+      selectedDayInfo?.cancelledOverride,
   );
   const isDisabledDay = Boolean(selectedDayInfo?.disabled);
 
@@ -335,7 +436,6 @@ export default function AvailabilityPanel({
                     }}
                     className={[
                       "flex min-w-[60px] flex-col items-center rounded-lg border p-3 transition-all duration-200",
-
                       disabled
                         ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-300 opacity-80"
                         : isSelected

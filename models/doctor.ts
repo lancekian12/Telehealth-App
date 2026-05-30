@@ -44,6 +44,22 @@ const UnavailableSlotSchema = new Schema(
       type: String,
       required: true,
     },
+    allDay: {
+      type: Boolean,
+      default: true,
+    },
+    startTime: {
+      type: String,
+      default: "00:00",
+    },
+    endTime: {
+      type: String,
+      default: "23:59",
+    },
+    reason: {
+      type: String,
+      default: "Unavailable",
+    },
   },
   { _id: false },
 );

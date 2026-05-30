@@ -40,27 +40,10 @@ export async function POST(req: Request) {
     await connectDB();
 
     const body = await req.json();
+
     const date = String(body.date || "");
-    const startTime = String(body.startTime || "");
-    const endTime = String(body.endTime || "");
     const reason = String(body.reason || "Blocked");
-
-    if (!isValidDateString(date)) {
-      return NextResponse.json(
-        { success: false, message: "Date must be YYYY-MM-DD" },
-        { status: 400 },
-      );
-    }
-
-    if (!isValidRange(startTime, endTime)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Time window must be between 08:00 and 17:00.",
-        },
-        { status: 400 },
-      );
-    }
+    const allDay = body.allDay === true;
 
     const doctor = await Doctor.findOne({
       clerkId: userId,
@@ -74,15 +57,41 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!isValidDateString(date)) {
+      return NextResponse.json(
+        { success: false, message: "Date must be YYYY-MM-DD" },
+        { status: 400 },
+      );
+    }
+
+    let startTime = String(body.startTime || "");
+    let endTime = String(body.endTime || "");
+
+    if (allDay) {
+      startTime = "00:00";
+      endTime = "23:59";
+    } else {
+      if (!isValidRange(startTime, endTime)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Time window must be between 08:00 and 17:00.",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     const existingIndex = doctor.unavailableSlots.findIndex(
-      (item: { date: string; startTime: string; endTime: string }) =>
+      (item: { date: string; startTime?: string; endTime?: string }) =>
         item.date === date &&
-        item.startTime === startTime &&
-        item.endTime === endTime,
+        (item.startTime || "") === startTime &&
+        (item.endTime || "") === endTime,
     );
 
     const newSlot = {
       date,
+      allDay,
       startTime,
       endTime,
       reason,

@@ -18,85 +18,14 @@ import {
   X,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-
-type Prescription = {
-  diagnosis?: string;
-  medication?: string;
-  dosage?: string;
-  duration?: string;
-  instructions?: string;
-  notes?: string;
-  status?: string;
-  isFinalized?: boolean;
-};
-
-type Patient = {
-  _id?: string;
-  fullName?: string;
-  email?: string;
-  profilePicture?: string;
-  phone?: string;
-  birthday?: string;
-  height?: string;
-  weight?: string;
-  basicMedicalHistory?: string;
-};
-
-type Doctor = {
-  _id?: string;
-  fullName?: string;
-  specialization?: string;
-  clinicAddress?: string;
-  profilePicture?: string;
-  licenseNumber?: string;
-};
-
-type Appointment = {
-  _id: string;
-  appointmentDate?: string;
-  startTime?: string;
-  endTime?: string;
-  status?: string;
-  consultationType?: "video" | "in_person";
-  reasonForVisit?: string;
-  notes?: string;
-  doctor?: Doctor | string;
-  patient?: Patient | string;
-  prescription?: Prescription | null;
-};
-
-type ApiResponse =
-  | { success: true; appointments: Appointment[] }
-  | { success: false; message?: string };
-
-type SavePrescriptionResponse =
-  | {
-      success: true;
-      message?: string;
-      prescription: Prescription;
-      appointment?: Appointment;
-    }
-  | { success: false; message?: string };
-
-type PatientRow = {
-  id: string;
-  name: string;
-  avatar?: string;
-  email?: string;
-  phone?: string;
-  status?: string;
-  meta: string;
-  tags: string[];
-  lastSeen?: string;
-  appointmentDate?: string;
-  startTime?: string;
-  endTime?: string;
-  consultationType?: "video" | "in_person";
-  reasonForVisit?: string;
-  notes?: string;
-  prescription?: Prescription | null;
-  lastAppointment?: Appointment;
-};
+import {
+  ApiResponse,
+  Appointment,
+  Patient,
+  PatientRow,
+  Prescription,
+  SavePrescriptionResponse,
+} from "@/types/prescription";
 
 function emptyPrescription(): Prescription {
   return {
@@ -541,7 +470,7 @@ export default function DoctorPatientRecord() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
         <header className="mb-4 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
           <div>

@@ -16,10 +16,12 @@ export type AppointmentItem = {
   consultationSessionLink?: string;
   doctor:
     | string
-    | (Person & {
-        specialization?: string;
-        clinicAddress?: string;
-      });
+    | ({
+        _id: string;
+      } & Person & {
+          specialization?: string;
+          clinicAddress?: string;
+        });
   patient?:
     | string
     | (Person & {

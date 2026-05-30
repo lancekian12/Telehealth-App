@@ -9,9 +9,18 @@ export type WorkingHourInput = {
 
 export type UnavailableSlotInput = {
   date: string;
-  startTime: string;
-  endTime: string;
+  allDay?: boolean;
+  startTime?: string;
+  endTime?: string;
   reason: string;
+};
+
+export type UnavailableSlot = {
+  date: string;
+  allDay?: boolean;
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
 };
 
 export type DoctorScheduleOverride = {
@@ -116,8 +125,9 @@ export type DoctorApiItem = {
   }>;
   unavailableSlots: Array<{
     date: string;
-    startTime: string;
-    endTime: string;
+    allDay?: boolean;
+    startTime?: string;
+    endTime?: string;
     reason: string;
   }>;
   scheduleOverrides?: Array<{
@@ -215,7 +225,13 @@ export type DoctorResponse = {
       endTime: string;
       isAvailable: boolean;
     }[];
-    unavailableSlots?: UnavailableSlot[];
+    unavailableSlots?: {
+      date: string;
+      allDay?: boolean;
+      startTime?: string;
+      endTime?: string;
+      reason?: string;
+    }[];
     scheduleOverrides?: ScheduleOverride[];
     appointments?: unknown;
     bookings?: unknown;

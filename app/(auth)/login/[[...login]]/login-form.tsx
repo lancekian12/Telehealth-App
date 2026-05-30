@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { SignIn } from "@clerk/nextjs";
 
 const clerkAppearance = {
@@ -69,11 +70,22 @@ export default function LoginForm() {
         <SignIn
           routing="path"
           path="/login"
+          signUpUrl="/signup"
           withSignUp={true}
           forceRedirectUrl="/post-login"
           signUpForceRedirectUrl="/post-login"
           appearance={clerkAppearance}
         />
+
+        <div className="mt-6 text-center text-sm text-slate-500">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/signup"
+            className="font-semibold text-[#008081] hover:underline"
+          >
+            Sign up
+          </Link>
+        </div>
       </div>
     </section>
   );

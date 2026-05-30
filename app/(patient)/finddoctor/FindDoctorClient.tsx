@@ -1,6 +1,13 @@
 "use client";
 
-import React, { JSX, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  JSX,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { DivIcon, LatLngExpression, Map as LeafletMap } from "leaflet";
 import {
   Star,
@@ -114,6 +121,13 @@ export default function FindDoctorClient(): JSX.Element {
   const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [doctorError, setDoctorError] = useState<string | null>(null);
 
+  const [aiRankedDoctorIds, setAiRankedDoctorIds] = useState<string[]>([]);
+  const [aiSuggestedSpecializations, setAiSuggestedSpecializations] = useState<
+    string[]
+  >([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
@@ -212,6 +226,69 @@ export default function FindDoctorClient(): JSX.Element {
     return ["All languages", ...Array.from(new Set(items)).sort()];
   }, [doctors]);
 
+  const runAiRecommendation = useCallback(
+    async (nextQuery: string, nextLocation: string) => {
+      const symptoms = nextQuery.trim();
+
+      if (!symptoms) {
+        setAiRankedDoctorIds([]);
+        setAiSuggestedSpecializations([]);
+        setAiError(null);
+        return;
+      }
+
+      try {
+        setAiLoading(true);
+        setAiError(null);
+
+        const res = await fetch("/api/ai-recommendation", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: symptoms,
+            location: nextLocation,
+            doctors,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Failed to get recommendations");
+        }
+
+        setAiSuggestedSpecializations(
+          Array.isArray(data.suggestedSpecializations)
+            ? data.suggestedSpecializations
+            : [],
+        );
+
+        setAiRankedDoctorIds(
+          Array.isArray(data.suggestedDoctors)
+            ? data.suggestedDoctors
+                .map((item: { id?: string }) => item.id)
+                .filter((id: string | undefined): id is string => Boolean(id))
+            : [],
+        );
+      } catch (error) {
+        setAiRankedDoctorIds([]);
+        setAiSuggestedSpecializations([]);
+        setAiError(
+          error instanceof Error ? error.message : "Recommendation unavailable",
+        );
+      } finally {
+        setAiLoading(false);
+      }
+    },
+    [doctors],
+  );
+
+  const aiRankMap = useMemo(() => {
+    return new Map(aiRankedDoctorIds.map((id, index) => [id, index]));
+  }, [aiRankedDoctorIds]);
+
   const filteredAll = useMemo(() => {
     const queryText = normalize(query);
     const locationText = normalize(locationQuery);
@@ -278,6 +355,15 @@ export default function FindDoctorClient(): JSX.Element {
         );
       })
       .sort((a, b) => {
+        const rankA = aiRankMap.get(a.id);
+        const rankB = aiRankMap.get(b.id);
+
+        if (rankA !== undefined || rankB !== undefined) {
+          if (rankA === undefined) return 1;
+          if (rankB === undefined) return -1;
+          return rankA - rankB;
+        }
+
         if (sort === "Highest Rated") return b.rating - a.rating;
         if (sort === "Consultation Fee") return a.fee - b.fee;
         return b.rating - a.rating;
@@ -295,6 +381,7 @@ export default function FindDoctorClient(): JSX.Element {
     minRating,
     minPrice,
     maxPrice,
+    aiRankMap,
   ]);
 
   const selectedDate = useMemo(() => {
@@ -366,15 +453,7 @@ export default function FindDoctorClient(): JSX.Element {
 
   useEffect(() => {
     setPage(1);
-  }, [
-    query,
-    locationQuery,
-    sort,
-    specialtyFilter,
-    minRating,
-    minPrice,
-    maxPrice,
-  ]);
+  }, [query, locationQuery, sort, specialtyFilter, minRating, minPrice, maxPrice]);
 
   async function createDoctorIcon(img: string): Promise<DivIcon> {
     const L = await import("leaflet");
@@ -479,10 +558,6 @@ export default function FindDoctorClient(): JSX.Element {
         doctorsWithCoords.map((doctor) => doctor.coords as [number, number]),
       );
 
-      if (bounds.isValid()) {
-        map.fitBounds(bounds.pad(0.45));
-      }
-
       for (const doctor of doctorsWithCoords) {
         const icon = await createDoctorIcon(doctor.img);
 
@@ -551,6 +626,7 @@ export default function FindDoctorClient(): JSX.Element {
               sort={sort}
               setSort={setSort}
               onOpenFilters={() => setFiltersOpen(true)}
+              onRecommendDoctors={runAiRecommendation}
             />
 
             <FilterModal
@@ -592,11 +668,26 @@ export default function FindDoctorClient(): JSX.Element {
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
                   {loadingDoctors
                     ? "Loading doctors..."
-                    : `${filteredAll.length} Doctors in ${locationQuery === "All areas" ? "All Areas" : locationQuery}`}
+                    : `${filteredAll.length} Doctors in ${
+                        locationQuery === "All areas" ? "All Areas" : locationQuery
+                      }`}
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
                   Found near Poblacion District &amp; Matina
                 </p>
+
+                {aiLoading ? (
+                  <p className="mt-1 text-sm text-[#008081]">
+                    Getting AI doctor suggestions...
+                  </p>
+                ) : aiSuggestedSpecializations.length > 0 ? (
+                  <p className="mt-1 text-sm text-[#008081]">
+                    Suggested: {aiSuggestedSpecializations.join(", ")}
+                  </p>
+                ) : aiError ? (
+                  <p className="mt-1 text-sm text-amber-600">{aiError}</p>
+                ) : null}
+
                 {doctorError ? (
                   <p className="mt-1 text-sm text-red-500">{doctorError}</p>
                 ) : null}
@@ -665,9 +756,8 @@ export default function FindDoctorClient(): JSX.Element {
                       </div>
 
                       <p className="mt-3 line-clamp-2 text-sm text-slate-500">
-                        {d.specialty} with years of experience —
-                        patient-centered care, board certifications and
-                        community trust.
+                        {d.specialty} with years of experience — patient-centered
+                        care, board certifications and community trust.
                       </p>
 
                       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-500">
@@ -765,10 +855,7 @@ export default function FindDoctorClient(): JSX.Element {
       </main>
 
       {panelOpen && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/30"
-          onClick={closePanel}
-        />
+        <div className="fixed inset-0 z-[200] bg-black/30" onClick={closePanel} />
       )}
 
       <AvailabilityPanel

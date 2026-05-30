@@ -64,6 +64,7 @@ type SearchBarProps = {
   sort: string;
   setSort: (value: string) => void;
   onOpenFilters: () => void;
+  onRecommendDoctors: (query: string, location: string) => Promise<void> | void;
 };
 
 export default function SearchBar({
@@ -76,22 +77,16 @@ export default function SearchBar({
   sort,
   setSort,
   onOpenFilters,
+  onRecommendDoctors,
 }: SearchBarProps) {
   const [draftQuery, setDraftQuery] = useState(query);
   const [locationOpen, setLocationOpen] = useState(false);
-  const [locationDraft, setLocationDraft] = useState(locationQuery || "");
 
   useEffect(() => {
     if (searchOpen) {
       setDraftQuery(query);
     }
   }, [searchOpen, query]);
-
-  useEffect(() => {
-    if (locationOpen) {
-      setLocationDraft(locationQuery || "");
-    }
-  }, [locationOpen, locationQuery]);
 
   const queryText = useMemo(() => {
     const value = query.trim();
@@ -107,13 +102,24 @@ export default function SearchBar({
   }, [locationQuery]);
 
   const handleSubmitSearch = () => {
-    setQuery(draftQuery.trim());
+    const nextQuery = draftQuery.trim();
+
+    setQuery(nextQuery);
     setSearchOpen(false);
+
+    if (nextQuery) {
+      void onRecommendDoctors(nextQuery, locationQuery);
+    }
   };
 
   const handleChooseLocation = (value: string) => {
     setLocationQuery(value);
     setLocationOpen(false);
+
+    const nextQuery = draftQuery.trim() || query.trim();
+    if (nextQuery) {
+      void onRecommendDoctors(nextQuery, value);
+    }
   };
 
   return (
@@ -175,35 +181,30 @@ export default function SearchBar({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {[
-          "All areas",
-          "Davao City, PH",
-          "Matina",
-          "Poblacion",
-          "Lanang",
-          "Bajada",
-        ].map((place) => {
-          const active =
-            (place === "All areas" && !locationQuery) ||
-            place === locationQuery;
+        {["All areas", "Davao City, PH", "Matina", "Poblacion", "Lanang", "Bajada"].map(
+          (place) => {
+            const active =
+              (place === "All areas" && !locationQuery) ||
+              place === locationQuery;
 
-          return (
-            <button
-              key={place}
-              type="button"
-              onClick={() =>
-                setLocationQuery(place === "All areas" ? "" : place)
-              }
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                active
-                  ? "border-[#008081] bg-[#008081]/10 text-[#008081]"
-                  : "border-slate-200 text-slate-600 hover:border-[#008081] hover:text-[#008081]"
-              }`}
-            >
-              {place}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={place}
+                type="button"
+                onClick={() =>
+                  setLocationQuery(place === "All areas" ? "" : place)
+                }
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  active
+                    ? "border-[#008081] bg-[#008081]/10 text-[#008081]"
+                    : "border-slate-200 text-slate-600 hover:border-[#008081] hover:text-[#008081]"
+                }`}
+              >
+                {place}
+              </button>
+            );
+          },
+        )}
       </div>
 
       {searchOpen && (
@@ -295,26 +296,22 @@ export default function SearchBar({
                     Nearby Places
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {[
-                      "Davao City, PH",
-                      "Matina",
-                      "Poblacion",
-                      "Lanang",
-                      "Bajada",
-                    ].map((place) => (
-                      <button
-                        key={place}
-                        type="button"
-                        onClick={() => setLocationQuery(place)}
-                        className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-                          locationQuery === place
-                            ? "border-[#008081] bg-[#008081] text-white"
-                            : "border-slate-200 text-slate-700 hover:border-[#008081] hover:text-[#008081]"
-                        }`}
-                      >
-                        {place}
-                      </button>
-                    ))}
+                    {["Davao City, PH", "Matina", "Poblacion", "Lanang", "Bajada"].map(
+                      (place) => (
+                        <button
+                          key={place}
+                          type="button"
+                          onClick={() => handleChooseLocation(place)}
+                          className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                            locationQuery === place
+                              ? "border-[#008081] bg-[#008081] text-white"
+                              : "border-slate-200 text-slate-700 hover:border-[#008081] hover:text-[#008081]"
+                          }`}
+                        >
+                          {place}
+                        </button>
+                      ),
+                    )}
                   </div>
                 </div>
               </div>

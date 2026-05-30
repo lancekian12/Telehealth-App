@@ -134,7 +134,9 @@ export default function FinalizePrescriptionPage() {
 
   useEffect(() => {
     if (!appointmentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoadingAppointment(false);
+      setSaveError("Missing appointment ID.");
       return;
     }
 
@@ -145,7 +147,7 @@ export default function FinalizePrescriptionPage() {
         setIsLoadingAppointment(true);
 
         const res = await fetch(
-          `/api/appointments?appointmentId=${appointmentId}`,
+          `/api/appointments/${appointmentId}/prescription`,
           {
             cache: "no-store",
             signal: controller.signal,
@@ -203,13 +205,16 @@ export default function FinalizePrescriptionPage() {
     setSaveSuccess(false);
 
     try {
-      const res = await fetch(`/api/appointments/${appointmentId}/prescription`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prescription,
-        }),
-      });
+      const res = await fetch(
+        `/api/appointments/${appointmentId}/prescription`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prescription,
+          }),
+        },
+      );
 
       const data = await res.json();
 
@@ -220,6 +225,11 @@ export default function FinalizePrescriptionPage() {
       setSaveSuccess(true);
       setAppointment(data.appointment || appointment);
       setPrescription(normalizePrescription(data.prescription || prescription));
+
+      setTimeout(() => {
+        router.replace("/doctor/patientrecords");
+      }, 800);
+      
     } catch (error) {
       console.error(error);
       setSaveError(
@@ -235,7 +245,6 @@ export default function FinalizePrescriptionPage() {
       <div className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-10 pt-10 sm:px-6 sm:pt-14 lg:px-8 lg:pt-20">
         <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="flex flex-col gap-2">
-
             <p className="text-sm font-bold uppercase tracking-[0.3em] text-primary">
               Prescription
             </p>
@@ -245,8 +254,8 @@ export default function FinalizePrescriptionPage() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-              Fill in the final prescription here. Saving updates the same record
-              and marks the appointment as completed.
+              Fill in the final prescription here. Saving updates the same
+              record and marks the appointment as completed.
             </p>
           </div>
 
@@ -254,7 +263,11 @@ export default function FinalizePrescriptionPage() {
             <FieldCard
               icon={<UserRound className="h-4 w-4" />}
               label="Patient"
-              value={isLoadingAppointment ? "Loading..." : getPersonName(appointment?.patient)}
+              value={
+                isLoadingAppointment
+                  ? "Loading..."
+                  : getPersonName(appointment?.patient)
+              }
             />
             <FieldCard
               icon={<CalendarDays className="h-4 w-4" />}
@@ -299,7 +312,8 @@ export default function FinalizePrescriptionPage() {
                   Prescription details
                 </h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Write clear instructions that are easy for the patient to follow.
+                  Write clear instructions that are easy for the patient to
+                  follow.
                 </p>
               </div>
 
@@ -411,7 +425,10 @@ export default function FinalizePrescriptionPage() {
               <PreviewRow label="Medication" value={prescription.medication} />
               <PreviewRow label="Dosage" value={prescription.dosage} />
               <PreviewRow label="Duration" value={prescription.duration} />
-              <PreviewRow label="Instructions" value={prescription.instructions} />
+              <PreviewRow
+                label="Instructions"
+                value={prescription.instructions}
+              />
             </div>
 
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
@@ -438,8 +455,8 @@ export default function FinalizePrescriptionPage() {
             </button>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">
-              Saving updates the same finalized prescription and marks the booking
-              as completed.
+              Saving updates the same finalized prescription and marks the
+              booking as completed.
             </div>
           </aside>
         </div>
@@ -451,7 +468,9 @@ export default function FinalizePrescriptionPage() {
 function PreviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
-      <span className="text-sm text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="text-sm text-slate-500 dark:text-slate-400">
+        {label}
+      </span>
       <span className="max-w-[60%] truncate text-sm font-medium text-slate-900 dark:text-white">
         {value || "—"}
       </span>

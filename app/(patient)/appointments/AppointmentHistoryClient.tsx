@@ -22,6 +22,7 @@ import {
   AppointmentItem,
   AppointmentStatus,
   DoctorApiItem,
+  DoctorWorkingHour,
 } from "@/types/appointment";
 
 type FilterStatus = "all" | "pending" | "accepted" | "rejected" | "completed";
@@ -193,10 +194,12 @@ export default function AppointmentHistoryClient(): JSX.Element {
     appointment: AppointmentItem,
     fallbackDoctorId: string,
   ) {
-    if (typeof appointment.doctor === "string") return appointment.doctor;
-    return (appointment.doctor as { _id?: string })._id || fallbackDoctorId;
-  }
+    if (typeof appointment.doctor === "string") {
+      return appointment.doctor;
+    }
 
+    return appointment.doctor._id || fallbackDoctorId;
+  }
   useEffect(() => {
     if (!rescheduleOpen || !selectedRescheduleAppointment) return;
 
@@ -216,10 +219,9 @@ export default function AppointmentHistoryClient(): JSX.Element {
           return;
         }
 
-        const targetDoctorId = getAppointmentDoctorId(
-          selectedRescheduleAppointment,
-          doctorId,
-        );
+        const targetDoctorId = selectedRescheduleAppointment
+          ? getAppointmentDoctorId(selectedRescheduleAppointment, doctorId)
+          : doctorId;
 
         const doctor = (data.doctors as DoctorApiItem[]).find(
           (item) => item.id === targetDoctorId,
@@ -239,9 +241,9 @@ export default function AppointmentHistoryClient(): JSX.Element {
   const availableSlotsForSelectedDate = useMemo(() => {
     if (!selectedRescheduleAppointment) return [];
 
-    const selectedDate = getYmdInputValue(
-      selectedRescheduleAppointment.appointmentDate,
-    );
+    const selectedDate = selectedRescheduleAppointment
+      ? getYmdInputValue(selectedRescheduleAppointment.appointmentDate)
+      : "";
 
     return doctorWorkingHours
       .filter(

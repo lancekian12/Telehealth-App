@@ -4,58 +4,137 @@ import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import {
-  ChevronDown,
-  ChevronUp,
-  UploadCloud,
-} from "lucide-react";
-import type { DoctorFormFields } from "@/types/doctor";
-import { useDoctorStore } from "@/store/doctor-store";
+import { ChevronDown, ChevronUp, UploadCloud } from "lucide-react";
+
+type ConsultationMode = "video" | "in_person";
+
+type DoctorFormState = {
+  fullName: string;
+  specialization: string;
+  bio: string;
+  profilePicture: File | null;
+  email: string;
+  phone: string;
+  licenseNumber: string;
+  experienceYears: string;
+  consultationFee: string;
+  consultationModes: ConsultationMode[];
+  languages: string;
+  consultationDurationMinutes: string;
+  clinicName: string;
+  clinicStreetAddress: string;
+  clinicBarangay: string;
+  clinicCityMunicipality: string;
+  clinicProvince: string;
+  verified: boolean;
+};
+
+type DoctorFormErrors = Partial<Record<keyof DoctorFormState, string>> & {
+  consultationModes?: string;
+};
 
 const accentSoft = "bg-[#008081]/10";
 const neutralPage = "bg-white";
 
+const initialForm: DoctorFormState = {
+  fullName: "",
+  specialization: "",
+  bio: "",
+  profilePicture: null,
+  email: "",
+  phone: "",
+  licenseNumber: "",
+  experienceYears: "0",
+  consultationFee: "0",
+  consultationModes: [],
+  languages: "",
+  consultationDurationMinutes: "60",
+  clinicName: "",
+  clinicStreetAddress: "",
+  clinicBarangay: "",
+  clinicCityMunicipality: "",
+  clinicProvince: "",
+  verified: false,
+};
+
 export default function DoctorSignupForm() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
-  const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? "";
 
-  const {
-    form,
-    errors,
-    loading,
-    submitted,
-    setErrors,
-    setLoading,
-    setSubmitted,
-    setEmailFromClerk,
-    setProfilePicture,
-    toggleConsultationMode,
-    setField,
-    resetForm,
-  } = useDoctorStore();
-
+  const [form, setForm] = useState<DoctorFormState>(initialForm);
+  const [errors, setErrors] = useState<DoctorFormErrors>({});
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+  const hasInPerson = form.consultationModes.includes("in_person");
+
   useEffect(() => {
-    if (clerkEmail) setEmailFromClerk(clerkEmail);
-  }, [clerkEmail, setEmailFromClerk]);
+    if (clerkEmail) {
+      setForm((prev) => ({
+        ...prev,
+        email: clerkEmail,
+      }));
+    }
+  }, [clerkEmail]);
+
+  useEffect(() => {
+    if (!hasInPerson) {
+      setForm((prev) => ({
+        ...prev,
+        clinicName: "",
+        clinicStreetAddress: "",
+        clinicBarangay: "",
+        clinicCityMunicipality: "",
+        clinicProvince: "",
+      }));
+      setErrors((prev) => ({
+        ...prev,
+        clinicName: undefined,
+        clinicStreetAddress: undefined,
+        clinicBarangay: undefined,
+        clinicCityMunicipality: undefined,
+        clinicProvince: undefined,
+      }));
+    }
+  }, [hasInPerson]);
+
+  const setField = <K extends keyof DoctorFormState>(
+    key: K,
+    value: DoctorFormState[K],
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleConsultationMode = (mode: ConsultationMode) => {
+    setForm((prev) => {
+      const exists = prev.consultationModes.includes(mode);
+      return {
+        ...prev,
+        consultationModes: exists
+          ? prev.consultationModes.filter((item) => item !== mode)
+          : [...prev.consultationModes, mode],
+      };
+    });
+  };
 
   const handleTextChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
-    setField(name as keyof DoctorFormFields, value as never);
+    setField(name as keyof DoctorFormState, value as never);
     setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setProfilePicture(file);
+    setField("profilePicture", file);
+    setErrors((prev) => ({ ...prev, profilePicture: undefined }));
   };
 
   const validate = () => {
-    const nextErrors: Partial<Record<keyof DoctorFormFields, string>> = {};
+    const nextErrors: DoctorFormErrors = {};
 
     if (!form.fullName.trim()) nextErrors.fullName = "Full name is required";
     if (!form.specialization.trim()) {
@@ -74,14 +153,22 @@ export default function DoctorSignupForm() {
       nextErrors.consultationModes = "Choose at least one consultation mode";
     }
 
-    if (!form.clinicName.trim()) {
-      nextErrors.clinicName = "Clinic name is required";
-    }
-    if (!form.clinicCityMunicipality.trim()) {
-      nextErrors.clinicCityMunicipality = "City / municipality is required";
-    }
-    if (!form.clinicProvince.trim()) {
-      nextErrors.clinicProvince = "Province is required";
+    if (hasInPerson) {
+      if (!form.clinicName.trim()) {
+        nextErrors.clinicName = "Clinic name is required";
+      }
+      if (!form.clinicStreetAddress.trim()) {
+        nextErrors.clinicStreetAddress = "Street / landmark is required";
+      }
+      if (!form.clinicBarangay.trim()) {
+        nextErrors.clinicBarangay = "Barangay is required";
+      }
+      if (!form.clinicCityMunicipality.trim()) {
+        nextErrors.clinicCityMunicipality = "City / municipality is required";
+      }
+      if (!form.clinicProvince.trim()) {
+        nextErrors.clinicProvince = "Province is required";
+      }
     }
 
     setErrors(nextErrors);
@@ -103,16 +190,13 @@ export default function DoctorSignupForm() {
       formData.append("bio", form.bio.trim());
       formData.append("email", form.email.trim());
       formData.append("phone", form.phone.trim());
-
       formData.append("licenseNumber", form.licenseNumber.trim());
       formData.append("experienceYears", form.experienceYears || "0");
       formData.append("consultationFee", form.consultationFee || "0");
-
       formData.append(
         "consultationModes",
         JSON.stringify(form.consultationModes),
       );
-
       formData.append(
         "languages",
         JSON.stringify(
@@ -122,22 +206,19 @@ export default function DoctorSignupForm() {
             .filter(Boolean),
         ),
       );
-
-      formData.append(
-        "consultationDurationMinutes",
-        form.consultationDurationMinutes || "60",
-      );
-
-      formData.append("clinicName", form.clinicName.trim());
-      formData.append("clinicStreetAddress", form.clinicStreetAddress.trim());
-      formData.append("clinicBarangay", form.clinicBarangay.trim());
-      formData.append(
-        "clinicCityMunicipality",
-        form.clinicCityMunicipality.trim(),
-      );
-      formData.append("clinicProvince", form.clinicProvince.trim());
-
+      formData.append("consultationDurationMinutes", "60");
       formData.append("verified", String(form.verified));
+
+      if (hasInPerson) {
+        formData.append("clinicName", form.clinicName.trim());
+        formData.append("clinicStreetAddress", form.clinicStreetAddress.trim());
+        formData.append("clinicBarangay", form.clinicBarangay.trim());
+        formData.append(
+          "clinicCityMunicipality",
+          form.clinicCityMunicipality.trim(),
+        );
+        formData.append("clinicProvince", form.clinicProvince.trim());
+      }
 
       if (form.profilePicture) {
         formData.append("profilePicture", form.profilePicture);
@@ -155,7 +236,7 @@ export default function DoctorSignupForm() {
       }
 
       setSubmitted(true);
-      resetForm();
+      setForm(initialForm);
       router.push("/doctor/home");
     } catch (error) {
       console.error(error);
@@ -423,6 +504,13 @@ export default function DoctorSignupForm() {
               </div>
 
               <div>
+                <label className={labelBase}>Consultation Duration</label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">
+                  60 minutes fixed
+                </div>
+              </div>
+
+              <div>
                 <label className={labelBase} htmlFor="experienceYears">
                   Experience (Years)
                 </label>
@@ -454,25 +542,6 @@ export default function DoctorSignupForm() {
                 />
               </div>
 
-              <div>
-                <label
-                  className={labelBase}
-                  htmlFor="consultationDurationMinutes"
-                >
-                  Consultation Duration (Minutes)
-                </label>
-                <input
-                  id="consultationDurationMinutes"
-                  name="consultationDurationMinutes"
-                  value={form.consultationDurationMinutes}
-                  onChange={handleTextChange}
-                  placeholder="30"
-                  type="number"
-                  min="5"
-                  className={fieldBase}
-                />
-              </div>
-
               <div className="sm:col-span-2">
                 <label className={labelBase} htmlFor="languages">
                   Languages Spoken
@@ -491,124 +560,143 @@ export default function DoctorSignupForm() {
                 </p>
               </div>
 
-              <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold text-slate-700">
-                    Clinic Location
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Fill these in so the system can turn your address into map
-                    coordinates.
-                  </p>
+              {hasInPerson && (
+                <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-semibold text-slate-700">
+                      Clinic Location
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      This is required only for in-person consultation.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <label className={labelBase} htmlFor="clinicName">
+                        Clinic / Hospital Name
+                      </label>
+                      <input
+                        id="clinicName"
+                        name="clinicName"
+                        value={form.clinicName}
+                        onChange={handleTextChange}
+                        placeholder="Sevidal Medical Clinic"
+                        type="text"
+                        className={`${fieldBase} ${
+                          errors.clinicName
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                            : ""
+                        }`}
+                      />
+                      {errors.clinicName && (
+                        <p className="mt-1 text-xs text-rose-600">
+                          {errors.clinicName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className={labelBase} htmlFor="clinicStreetAddress">
+                        Street / Building / Landmark
+                      </label>
+                      <input
+                        id="clinicStreetAddress"
+                        name="clinicStreetAddress"
+                        value={form.clinicStreetAddress}
+                        onChange={handleTextChange}
+                        placeholder="Near town hall, beside pharmacy"
+                        type="text"
+                        className={`${fieldBase} ${
+                          errors.clinicStreetAddress
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                            : ""
+                        }`}
+                      />
+                      {errors.clinicStreetAddress && (
+                        <p className="mt-1 text-xs text-rose-600">
+                          {errors.clinicStreetAddress}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className={labelBase} htmlFor="clinicBarangay">
+                        Barangay
+                      </label>
+                      <input
+                        id="clinicBarangay"
+                        name="clinicBarangay"
+                        value={form.clinicBarangay}
+                        onChange={handleTextChange}
+                        placeholder="Sevidal"
+                        type="text"
+                        className={`${fieldBase} ${
+                          errors.clinicBarangay
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                            : ""
+                        }`}
+                      />
+                      {errors.clinicBarangay && (
+                        <p className="mt-1 text-xs text-rose-600">
+                          {errors.clinicBarangay}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        className={labelBase}
+                        htmlFor="clinicCityMunicipality"
+                      >
+                        City / Municipality
+                      </label>
+                      <input
+                        id="clinicCityMunicipality"
+                        name="clinicCityMunicipality"
+                        value={form.clinicCityMunicipality}
+                        onChange={handleTextChange}
+                        placeholder="San Fabian"
+                        type="text"
+                        className={`${fieldBase} ${
+                          errors.clinicCityMunicipality
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                            : ""
+                        }`}
+                      />
+                      {errors.clinicCityMunicipality && (
+                        <p className="mt-1 text-xs text-rose-600">
+                          {errors.clinicCityMunicipality}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className={labelBase} htmlFor="clinicProvince">
+                        Province
+                      </label>
+                      <input
+                        id="clinicProvince"
+                        name="clinicProvince"
+                        value={form.clinicProvince}
+                        onChange={handleTextChange}
+                        placeholder="Pangasinan"
+                        type="text"
+                        className={`${fieldBase} ${
+                          errors.clinicProvince
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
+                            : ""
+                        }`}
+                      />
+                      {errors.clinicProvince && (
+                        <p className="mt-1 text-xs text-rose-600">
+                          {errors.clinicProvince}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className={labelBase} htmlFor="clinicName">
-                      Clinic / Hospital Name
-                    </label>
-                    <input
-                      id="clinicName"
-                      name="clinicName"
-                      value={form.clinicName}
-                      onChange={handleTextChange}
-                      placeholder="Sevidal Medical Clinic"
-                      type="text"
-                      className={`${fieldBase} ${
-                        errors.clinicName
-                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
-                          : ""
-                      }`}
-                    />
-                    {errors.clinicName && (
-                      <p className="mt-1 text-xs text-rose-600">
-                        {errors.clinicName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className={labelBase} htmlFor="clinicStreetAddress">
-                      Street / Building / Landmark
-                    </label>
-                    <input
-                      id="clinicStreetAddress"
-                      name="clinicStreetAddress"
-                      value={form.clinicStreetAddress}
-                      onChange={handleTextChange}
-                      placeholder="Near town hall, beside pharmacy"
-                      type="text"
-                      className={fieldBase}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelBase} htmlFor="clinicBarangay">
-                      Barangay
-                    </label>
-                    <input
-                      id="clinicBarangay"
-                      name="clinicBarangay"
-                      value={form.clinicBarangay}
-                      onChange={handleTextChange}
-                      placeholder="Sevidal"
-                      type="text"
-                      className={fieldBase}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className={labelBase}
-                      htmlFor="clinicCityMunicipality"
-                    >
-                      City / Municipality
-                    </label>
-                    <input
-                      id="clinicCityMunicipality"
-                      name="clinicCityMunicipality"
-                      value={form.clinicCityMunicipality}
-                      onChange={handleTextChange}
-                      placeholder="San Fabian"
-                      type="text"
-                      className={`${fieldBase} ${
-                        errors.clinicCityMunicipality
-                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
-                          : ""
-                      }`}
-                    />
-                    {errors.clinicCityMunicipality && (
-                      <p className="mt-1 text-xs text-rose-600">
-                        {errors.clinicCityMunicipality}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className={labelBase} htmlFor="clinicProvince">
-                      Province
-                    </label>
-                    <input
-                      id="clinicProvince"
-                      name="clinicProvince"
-                      value={form.clinicProvince}
-                      onChange={handleTextChange}
-                      placeholder="Pangasinan"
-                      type="text"
-                      className={`${fieldBase} ${
-                        errors.clinicProvince
-                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/10"
-                          : ""
-                      }`}
-                    />
-                    {errors.clinicProvince && (
-                      <p className="mt-1 text-xs text-rose-600">
-                        {errors.clinicProvince}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
 

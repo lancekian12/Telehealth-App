@@ -15,6 +15,7 @@ const initialForm: FormFields = {
   email: "",
   phone: "",
   basicMedicalHistory: "",
+  role: "patient",
 };
 
 export default function PatientSignupForm() {

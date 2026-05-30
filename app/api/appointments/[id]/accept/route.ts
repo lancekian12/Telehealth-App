@@ -12,6 +12,14 @@ import { notifyBothAppointmentSides } from "@/config/notification-service";
 
 export const runtime = "nodejs";
 
+type WorkingHourSlot = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  isAvailable?: boolean;
+  toObject?: () => WorkingHourSlot;
+};
+
 async function populateAppointment(appointmentId: Types.ObjectId | string) {
   return Appointment.findById(appointmentId)
     .populate(
@@ -79,15 +87,19 @@ export async function PATCH(
       appointment.consultationSessionLink = "";
     }
 
-    doctor.workingHours = (doctor.workingHours || []).map((slot) => {
+    const workingHours = (doctor.workingHours || []) as WorkingHourSlot[];
+
+    doctor.workingHours = workingHours.map((slot: WorkingHourSlot) => {
+      const currentSlot = slot.toObject?.() ?? slot;
+
       const matchesThisSlot =
-        slot.date === dayString(appointment.appointmentDate) &&
-        slot.startTime === appointment.startTime &&
-        slot.endTime === appointment.endTime;
+        currentSlot.date === dayString(appointment.appointmentDate) &&
+        currentSlot.startTime === appointment.startTime &&
+        currentSlot.endTime === appointment.endTime;
 
       return matchesThisSlot
-        ? { ...slot.toObject?.(), isAvailable: false }
-        : slot;
+        ? { ...currentSlot, isAvailable: false }
+        : currentSlot;
     });
 
     await appointment.save();
@@ -98,7 +110,7 @@ export async function PATCH(
     try {
       if (populated) {
         await notifyBothAppointmentSides({
-          appointment: populated as any,
+          appointment: populated as never,
           type: "appointment_accepted",
           patientTitle: "Appointment accepted",
           patientMessage: "Your appointment has been accepted by the doctor.",

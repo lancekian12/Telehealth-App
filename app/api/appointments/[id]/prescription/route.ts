@@ -6,9 +6,9 @@ import { Prescription } from "@/models/prescription";
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 type PrescriptionBody = {
@@ -32,12 +32,11 @@ function normalizeBody(body: PrescriptionBody): PrescriptionBody {
 export async function GET(req: Request, { params }: RouteContext) {
   try {
     console.log("[GET /api/appointments/[id]/prescription] hit");
-    console.log("[GET prescription] params:", params);
     console.log("[GET prescription] url:", req.url);
 
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
 
     console.log("[GET prescription] appointment id:", id);
 
@@ -89,12 +88,11 @@ export async function GET(req: Request, { params }: RouteContext) {
 export async function PATCH(req: Request, { params }: RouteContext) {
   try {
     console.log("[PATCH /api/appointments/[id]/prescription] hit");
-    console.log("[PATCH prescription] params:", params);
     console.log("[PATCH prescription] url:", req.url);
 
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
 
     console.log("[PATCH prescription] appointment id:", id);
 

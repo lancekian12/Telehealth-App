@@ -1,5 +1,4 @@
 // app/post-login/page.tsx
-
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 
@@ -26,11 +25,6 @@ export default async function PostLoginPage() {
     role: "patient",
   }).lean();
 
-  /**
-   * ======================
-   * DOCTOR FLOW
-   * ======================
-   */
   if (doctor) {
     const needsDoctorDetails =
       !doctor.fullName ||
@@ -49,11 +43,6 @@ export default async function PostLoginPage() {
     redirect("/doctor/home");
   }
 
-  /**
-   * ======================
-   * PATIENT FLOW
-   * ======================
-   */
   if (patient) {
     const needsPatientDetails =
       !patient.fullName ||
@@ -71,5 +60,6 @@ export default async function PostLoginPage() {
     redirect("/");
   }
 
-  redirect("/"); 
+  // No record yet, treat this as a fresh patient signup
+  redirect("/patientsignup/patientsignupdetails");
 }
