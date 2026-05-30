@@ -37,3 +37,8 @@
 .dark .scrollbar {
   scrollbar-color: #008081 rgba(15, 23, 42, 0.5);
 }
+
+html {
+  color-scheme: light;
+  background: white;
+}
