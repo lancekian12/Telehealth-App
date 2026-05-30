@@ -33,11 +33,26 @@ type ScheduleOverride = {
   newEndTime?: string | null;
 };
 
+type UnavailableSlot = {
+  date: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  allDay?: boolean;
+  reason?: string;
+};
+
+type BookedSlot = {
+  date: string;
+  startTime: string;
+  endTime: string;
+};
+
 type DoctorScheduleDoc = {
   workingHours?: WorkingHourSlot[];
-  unavailableSlots?: Array<{ date: string }>;
+  unavailableSlots?: UnavailableSlot[];
   scheduleOverrides?: ScheduleOverride[];
   consultationDurationMinutes?: number;
+  bookedSlots?: BookedSlot[];
   save: () => Promise<unknown>;
 };
 
@@ -85,31 +100,133 @@ function dayStart(date: string) {
   return new Date(`${date}T00:00:00.000Z`);
 }
 
-function sameDate(dateA: string, dateB: string) {
-  return dateA === dateB;
+function appointmentStatusAllowed(value: unknown): value is AppointmentStatus {
+  return (
+    value === "pending" ||
+    value === "accepted" ||
+    value === "rejected" ||
+    value === "completed" ||
+    value === "cancelled"
+  );
 }
 
-function isDateBlocked(
-  date: string,
-  unavailableSlots: Array<{ date: string }>,
-  scheduleOverrides: Array<{
-    date: string;
-    action: "rescheduled" | "cancelled";
-    newDate?: string | null;
-  }>,
-) {
-  const blockedByUnavailable = unavailableSlots.some((slot) =>
-    sameDate(slot.date, date),
+function consultationTypeAllowed(value: unknown): value is ConsultationType {
+  return value === "video" || value === "in_person";
+}
+
+function isFullDayBlocked(slot: UnavailableSlot) {
+  return (
+    slot.allDay === true ||
+    (!slot.startTime && !slot.endTime) ||
+    (slot.startTime === "00:00" && slot.endTime === "23:59")
   );
+}
+
+function overlaps(
+  a: { startTime: string; endTime: string },
+  b: { startTime: string; endTime: string },
+) {
+  return a.startTime < b.endTime && b.startTime < a.endTime;
+}
+
+function setExactWorkingHourAvailability(
+  doctorDoc: DoctorScheduleDoc,
+  date: string,
+  startTime: string,
+  endTime: string,
+  isAvailable: boolean,
+) {
+  doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
+    (slot: WorkingHourSlot) => {
+      const matchesThisSlot =
+        slot.date === date &&
+        slot.startTime === startTime &&
+        slot.endTime === endTime;
+
+      if (!matchesThisSlot) return slot;
+
+      return {
+        ...(slot.toObject ? slot.toObject() : slot),
+        isAvailable,
+      };
+    },
+  );
+}
+
+function addBookedSlot(
+  doctorDoc: DoctorScheduleDoc,
+  date: string,
+  startTime: string,
+  endTime: string,
+) {
+  const current = doctorDoc.bookedSlots || [];
+  const exists = current.some(
+    (slot) =>
+      slot.date === date &&
+      slot.startTime === startTime &&
+      slot.endTime === endTime,
+  );
+
+  if (!exists) {
+    doctorDoc.bookedSlots = [...current, { date, startTime, endTime }];
+  }
+}
+
+function removeBookedSlot(
+  doctorDoc: DoctorScheduleDoc,
+  date: string,
+  startTime: string,
+  endTime: string,
+) {
+  doctorDoc.bookedSlots = (doctorDoc.bookedSlots || []).filter(
+    (slot) =>
+      !(
+        slot.date === date &&
+        slot.startTime === startTime &&
+        slot.endTime === endTime
+      ),
+  );
+}
+
+function isSlotBlocked(
+  appointmentDate: string,
+  startTime: string,
+  endTime: string,
+  unavailableSlots: UnavailableSlot[],
+  scheduleOverrides: ScheduleOverride[],
+) {
+  const requestRange = { startTime, endTime };
+
+  const blockedByFullDayUnavailable = unavailableSlots.some(
+    (slot) => slot.date === appointmentDate && isFullDayBlocked(slot),
+  );
+
+  if (blockedByFullDayUnavailable) return true;
 
   const blockedByCancelledOverride = scheduleOverrides.some(
-    (override) => override.date === date && override.action === "cancelled",
+    (override) =>
+      override.date === appointmentDate && override.action === "cancelled",
   );
 
-  return blockedByUnavailable || blockedByCancelledOverride;
+  if (blockedByCancelledOverride) return true;
+
+  const blockedRanges = unavailableSlots
+    .filter(
+      (slot) =>
+        slot.date === appointmentDate &&
+        !isFullDayBlocked(slot) &&
+        slot.startTime &&
+        slot.endTime,
+    )
+    .map((slot) => ({
+      startTime: slot.startTime as string,
+      endTime: slot.endTime as string,
+    }));
+
+  return blockedRanges.some((range) => overlaps(requestRange, range));
 }
 
-function getMatchingWorkingHour(
+function isWithinWorkingHours(
   doctor: {
     workingHours?: Array<{
       date: string;
@@ -129,37 +246,40 @@ function getMatchingWorkingHour(
   startTime: string,
   endTime: string,
 ) {
-  const baseMatch = (doctor.workingHours || []).find(
-    (slot) =>
-      slot.date === appointmentDate &&
-      slot.startTime === startTime &&
-      slot.endTime === endTime &&
-      slot.isAvailable !== false,
+  const request = { startTime, endTime };
+
+  const workingRanges = (doctor.workingHours || []).filter(
+    (slot) => slot.date === appointmentDate && slot.isAvailable !== false,
   );
 
-  const rescheduledMatch = (doctor.scheduleOverrides || []).find(
-    (override) =>
-      override.action === "rescheduled" &&
-      override.newDate === appointmentDate &&
-      override.newStartTime === startTime &&
-      override.newEndTime === endTime,
-  );
+  const rescheduledRanges = (doctor.scheduleOverrides || [])
+    .filter(
+      (override) =>
+        override.action === "rescheduled" &&
+        override.newDate === appointmentDate &&
+        override.newStartTime &&
+        override.newEndTime,
+    )
+    .map((override) => ({
+      startTime: override.newStartTime as string,
+      endTime: override.newEndTime as string,
+    }));
 
-  return baseMatch || rescheduledMatch || null;
+  const allRanges = [
+    ...workingRanges.map((slot) => ({
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    })),
+    ...rescheduledRanges,
+  ];
+
+  return allRanges.some(
+    (range) => request.startTime >= range.startTime && request.endTime <= range.endTime,
+  );
 }
 
-function appointmentStatusAllowed(value: unknown): value is AppointmentStatus {
-  return (
-    value === "pending" ||
-    value === "accepted" ||
-    value === "rejected" ||
-    value === "completed" ||
-    value === "cancelled"
-  );
-}
-
-function consultationTypeAllowed(value: unknown): value is ConsultationType {
-  return value === "video" || value === "in_person";
+function appointmentStatusAllowedArray() {
+  return ["pending", "accepted", "rejected", "completed", "cancelled"] as const;
 }
 
 async function populateAppointment(appointmentId: Types.ObjectId | string) {
@@ -334,36 +454,6 @@ export async function POST(req: Request) {
 
     const doctorDoc = doctor as unknown as DoctorScheduleDoc;
 
-    if (
-      isDateBlocked(
-        appointmentDate,
-        doctorDoc.unavailableSlots || [],
-        doctorDoc.scheduleOverrides || [],
-      )
-    ) {
-      return NextResponse.json(
-        { success: false, message: "Doctor is unavailable on this date" },
-        { status: 409 },
-      );
-    }
-
-    const matchedSlot = getMatchingWorkingHour(
-      doctorDoc,
-      appointmentDate,
-      startTime,
-      endTime,
-    );
-
-    if (!matchedSlot) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Selected time is not within the doctor's working hours",
-        },
-        { status: 409 },
-      );
-    }
-
     const slotStart = parseTimeToMinutes(startTime);
     const slotEnd = parseTimeToMinutes(endTime);
 
@@ -376,6 +466,7 @@ export async function POST(req: Request) {
 
     const consultationDurationMinutes =
       doctorDoc.consultationDurationMinutes || 60;
+
     const expectedEndTime = addMinutesToTime(
       startTime,
       consultationDurationMinutes,
@@ -386,6 +477,38 @@ export async function POST(req: Request) {
         {
           success: false,
           message: `Appointment duration must be exactly ${consultationDurationMinutes} minutes`,
+        },
+        { status: 409 },
+      );
+    }
+
+    const blocked = isSlotBlocked(
+      appointmentDate,
+      startTime,
+      endTime,
+      doctorDoc.unavailableSlots || [],
+      doctorDoc.scheduleOverrides || [],
+    );
+
+    if (blocked) {
+      return NextResponse.json(
+        { success: false, message: "Doctor is unavailable on this date" },
+        { status: 409 },
+      );
+    }
+
+    const withinWorkingHours = isWithinWorkingHours(
+      doctorDoc,
+      appointmentDate,
+      startTime,
+      endTime,
+    );
+
+    if (!withinWorkingHours) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Selected time is not within the doctor's working hours",
         },
         { status: 409 },
       );
@@ -433,17 +556,13 @@ export async function POST(req: Request) {
       },
     });
 
-    doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
-      (slot: WorkingHourSlot) => {
-        const matchesThisSlot =
-          slot.date === appointmentDate &&
-          slot.startTime === startTime &&
-          slot.endTime === endTime;
-
-        return matchesThisSlot
-          ? { ...(slot.toObject ? slot.toObject() : slot), isAvailable: false }
-          : slot;
-      },
+    addBookedSlot(doctorDoc, appointmentDate, startTime, endTime);
+    setExactWorkingHourAvailability(
+      doctorDoc,
+      appointmentDate,
+      startTime,
+      endTime,
+      false,
     );
 
     await doctorDoc.save();
@@ -459,8 +578,8 @@ export async function POST(req: Request) {
           "Your appointment request has been booked and is now pending approval.",
         doctorTitle: "New appointment request",
         doctorMessage: `You have a new appointment request from ${String(
-          (populated as { patient?: { fullName?: string } })?.patient?.fullName ||
-            "a patient",
+          (populated as { patient?: { fullName?: string } })?.patient
+            ?.fullName || "a patient",
         )}.`,
         metadata: {
           status: "pending",
@@ -547,38 +666,8 @@ export async function PATCH(req: Request) {
       .toISOString()
       .slice(0, 10);
 
-    const unlockOldSlot = () => {
-      doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
-        (slot: WorkingHourSlot) => {
-          const matchesThisSlot =
-            slot.date === oldAppointmentDate &&
-            slot.startTime === appointment.startTime &&
-            slot.endTime === appointment.endTime;
-
-          return matchesThisSlot
-            ? { ...(slot.toObject ? slot.toObject() : slot), isAvailable: true }
-            : slot;
-        },
-      );
-    };
-
-    const lockOldSlot = () => {
-      doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
-        (slot: WorkingHourSlot) => {
-          const matchesThisSlot =
-            slot.date === oldAppointmentDate &&
-            slot.startTime === appointment.startTime &&
-            slot.endTime === appointment.endTime;
-
-          return matchesThisSlot
-            ? {
-                ...(slot.toObject ? slot.toObject() : slot),
-                isAvailable: false,
-              }
-            : slot;
-        },
-      );
-    };
+    const oldStartTime = String(appointment.startTime || "");
+    const oldEndTime = String(appointment.endTime || "");
 
     if (notes) appointment.notes = notes;
 
@@ -592,7 +681,14 @@ export async function PATCH(req: Request) {
       appointment.completedAt = null;
       appointment.rejectedAt = null;
 
-      unlockOldSlot();
+      removeBookedSlot(doctorDoc, oldAppointmentDate, oldStartTime, oldEndTime);
+      setExactWorkingHourAvailability(
+        doctorDoc,
+        oldAppointmentDate,
+        oldStartTime,
+        oldEndTime,
+        true,
+      );
 
       await appointment.save();
       await doctorDoc.save();
@@ -654,6 +750,7 @@ export async function PATCH(req: Request) {
 
       const consultationDurationMinutes =
         doctorDoc.consultationDurationMinutes || 60;
+
       const expectedEndTime = addMinutesToTime(
         newStartTime,
         consultationDurationMinutes,
@@ -670,8 +767,10 @@ export async function PATCH(req: Request) {
       }
 
       if (
-        isDateBlocked(
+        isSlotBlocked(
           newAppointmentDate,
+          newStartTime,
+          newEndTime,
           doctorDoc.unavailableSlots || [],
           doctorDoc.scheduleOverrides || [],
         )
@@ -682,14 +781,14 @@ export async function PATCH(req: Request) {
         );
       }
 
-      const matchedSlot = getMatchingWorkingHour(
+      const withinWorkingHours = isWithinWorkingHours(
         doctorDoc,
         newAppointmentDate,
         newStartTime,
         newEndTime,
       );
 
-      if (!matchedSlot) {
+      if (!withinWorkingHours) {
         return NextResponse.json(
           {
             success: false,
@@ -715,7 +814,14 @@ export async function PATCH(req: Request) {
         );
       }
 
-      unlockOldSlot();
+      removeBookedSlot(doctorDoc, oldAppointmentDate, oldStartTime, oldEndTime);
+      setExactWorkingHourAvailability(
+        doctorDoc,
+        oldAppointmentDate,
+        oldStartTime,
+        oldEndTime,
+        true,
+      );
 
       appointment.appointmentDate = dayStart(newAppointmentDate);
       appointment.startTime = newStartTime;
@@ -730,19 +836,13 @@ export async function PATCH(req: Request) {
         rescheduleReason || "Rescheduled by patient";
       appointment.cancellationReason = "";
 
-      lockOldSlot();
-
-      doctorDoc.workingHours = (doctorDoc.workingHours || []).map(
-        (slot: WorkingHourSlot) => {
-          const matchesNewSlot =
-            slot.date === newAppointmentDate &&
-            slot.startTime === newStartTime &&
-            slot.endTime === newEndTime;
-
-          return matchesNewSlot
-            ? { ...(slot.toObject ? slot.toObject() : slot), isAvailable: false }
-            : slot;
-        },
+      addBookedSlot(doctorDoc, newAppointmentDate, newStartTime, newEndTime);
+      setExactWorkingHourAvailability(
+        doctorDoc,
+        newAppointmentDate,
+        newStartTime,
+        newEndTime,
+        false,
       );
 
       await appointment.save();
@@ -788,8 +888,6 @@ export async function PATCH(req: Request) {
         appointment.consultationSessionLink = consultationSessionLink;
       }
 
-      lockOldSlot();
-
       await appointment.save();
       await doctorDoc.save();
 
@@ -807,6 +905,25 @@ export async function PATCH(req: Request) {
             status: "accepted",
           },
         });
+
+        try {
+          const emailResponse = await fetch(
+            new URL("/api/send-email", req.url).toString(),
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                appointmentId: String(appointment._id),
+              }),
+            },
+          );
+
+          await emailResponse.json().catch(() => null);
+        } catch (emailError) {
+          console.error("[PATCH /api/appointments] send-email failed:", emailError);
+        }
       }
 
       return NextResponse.json(
@@ -825,8 +942,6 @@ export async function PATCH(req: Request) {
       appointment.rejectionReason = rejectionReason || "Rejected by doctor";
       appointment.acceptedAt = null;
       appointment.completedAt = null;
-
-      unlockOldSlot();
 
       await appointment.save();
       await doctorDoc.save();
@@ -862,7 +977,6 @@ export async function PATCH(req: Request) {
     if (action === "complete") {
       appointment.status = "completed";
       appointment.completedAt = new Date();
-      lockOldSlot();
 
       await appointment.save();
       await doctorDoc.save();

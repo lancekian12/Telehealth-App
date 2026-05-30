@@ -1,9 +1,9 @@
 "use client";
 
 import React, { JSX, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import CancelAppointmentModal from "@/components/patient/CancelAppointmentModal";
 import RescheduleAppointmentModal from "@/components/patient/RescheduleAppointmentModal";
-import { useSearchParams } from "next/navigation";
 import {
   Video,
   MapPin,
@@ -14,7 +14,6 @@ import {
   CircleX,
   CircleCheckBig,
   Filter,
-  X,
 } from "lucide-react";
 import AppointmentFilterModal from "@/components/patient/AppointmentFilterModal";
 import {
@@ -154,6 +153,7 @@ function filterIcon(status: FilterStatus) {
 }
 
 export default function AppointmentHistoryClient(): JSX.Element {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const patientId = searchParams.get("patientId") || "";
@@ -200,6 +200,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
 
     return appointment.doctor._id || fallbackDoctorId;
   }
+
   useEffect(() => {
     if (!rescheduleOpen || !selectedRescheduleAppointment) return;
 
@@ -723,12 +724,18 @@ export default function AppointmentHistoryClient(): JSX.Element {
 
                             {a.status === "completed" && (
                               <>
-                                <button className="flex-1 md:flex-none px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/50 font-medium text-sm transition-colors flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => router.push("/medicalrecord")}
+                                  className="flex-1 md:flex-none px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/50 font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                                >
                                   <RefreshCw size={16} />
                                   View Prescription
                                 </button>
 
-                                <button className="flex-1 md:flex-none px-4 py-2 rounded-lg text-primary hover:bg-primary/5 font-medium text-sm transition-colors">
+                                <button
+                                  onClick={() => router.push("/finddoctor")}
+                                  className="flex-1 md:flex-none px-4 py-2 rounded-lg text-primary hover:bg-primary/5 font-medium text-sm transition-colors"
+                                >
                                   Book Again
                                 </button>
                               </>

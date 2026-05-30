@@ -92,16 +92,32 @@ const SPECIALTY_KEYWORDS: Array<{
     urgency: "urgent",
   },
   {
-    specialization: "Pulmonology",
+    specialization: "General Practitioner",
     keywords: [
+      "fever",
       "cough",
-      "wheezing",
-      "asthma",
-      "shortness of breath",
-      "phlegm",
-      "respiratory",
+      "sore throat",
+      "flu",
+      "cold",
+      "headache",
+      "body aches",
+      "general checkup",
+      "primary care",
+      "primary doctor",
     ],
-    urgency: "soon",
+    urgency: "routine",
+  },
+  {
+    specialization: "Family Medicine",
+    keywords: [
+      "fever",
+      "cough",
+      "sore throat",
+      "flu",
+      "general checkup",
+      "primary care",
+    ],
+    urgency: "routine",
   },
   {
     specialization: "Internal Medicine",
@@ -116,16 +132,16 @@ const SPECIALTY_KEYWORDS: Array<{
     urgency: "soon",
   },
   {
-    specialization: "Family Medicine",
+    specialization: "Pulmonology",
     keywords: [
-      "fever",
       "cough",
-      "sore throat",
-      "flu",
-      "general checkup",
-      "primary care",
+      "wheezing",
+      "asthma",
+      "shortness of breath",
+      "phlegm",
+      "respiratory",
     ],
-    urgency: "routine",
+    urgency: "soon",
   },
   {
     specialization: "Dermatology",
@@ -229,6 +245,35 @@ const SPECIALTY_KEYWORDS: Array<{
   },
 ];
 
+const SPECIALTY_ALIASES: Record<string, string[]> = {
+  "general practitioner": [
+    "general practitioner",
+    "family medicine",
+    "internal medicine",
+    "primary care",
+    "general physician",
+  ],
+  "family medicine": [
+    "family medicine",
+    "general practitioner",
+    "internal medicine",
+    "primary care",
+    "general physician",
+  ],
+  "internal medicine": [
+    "internal medicine",
+    "general practitioner",
+    "family medicine",
+    "primary care",
+    "general physician",
+  ],
+  cardiology: ["cardiology", "cardiologist", "heart specialist"],
+  pulmonology: ["pulmonology", "pulmonologist", "lung specialist"],
+  dermatology: ["dermatology", "dermatologist", "skin specialist"],
+  neurology: ["neurology", "neurologist", "brain specialist"],
+  orthopedics: ["orthopedics", "orthopedic", "orthopedist", "bone specialist"],
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -244,7 +289,7 @@ function getStringArray(value: unknown): string[] {
 }
 
 function normalizeText(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, " ").trim();
+  return text.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function uniqueStrings(items: string[]): string[] {
@@ -254,6 +299,18 @@ function uniqueStrings(items: string[]): string[] {
 function clampConfidence(value: unknown): number {
   const n = typeof value === "number" && Number.isFinite(value) ? value : 0.5;
   return Math.min(1, Math.max(0, n));
+}
+
+function matchesSpecialty(doctorSpecialty: string, targetSpecialty: string) {
+  const doctor = normalizeText(doctorSpecialty);
+  const target = normalizeText(targetSpecialty);
+
+  const doctorAliases = SPECIALTY_ALIASES[doctor] ?? [doctor];
+  const targetAliases = SPECIALTY_ALIASES[target] ?? [target];
+
+  return doctorAliases.some((d) =>
+    targetAliases.some((t) => d.includes(t) || t.includes(d)),
+  );
 }
 
 function buildFallbackRecommendation(input: string): AiRecommendation {
@@ -279,12 +336,11 @@ function buildFallbackRecommendation(input: string): AiRecommendation {
   const specializations =
     top.length > 0
       ? uniqueStrings(top.map((item) => item.specialization)).slice(0, 3)
-      : ["Internal Medicine", "Family Medicine"];
+      : ["General Practitioner", "Internal Medicine", "Family Medicine"];
 
   const urgency =
     top[0]?.urgency ??
-    (normalized.includes("chest pain") ||
-    normalized.includes("trouble breathing")
+    (normalized.includes("chest pain") || normalized.includes("trouble breathing")
       ? "urgent"
       : "routine");
 
@@ -312,11 +368,7 @@ function buildFallbackRecommendation(input: string): AiRecommendation {
             ...item.matchedKeywords.slice(0, 2),
           ]),
         )
-      : uniqueStrings([
-          "general physician",
-          "internal medicine",
-          "family medicine",
-        ]);
+      : uniqueStrings(["general practitioner", "internal medicine", "family medicine"]);
 
   return {
     urgency,
@@ -378,7 +430,6 @@ function normalizeDoctor(raw: DoctorInput): {
   specialization: string;
   expertiseText: string;
   location: string;
-  original: DoctorInput;
 } {
   const id = getString(raw.id) || getString(raw._id) || crypto.randomUUID();
 
@@ -403,12 +454,9 @@ function normalizeDoctor(raw: DoctorInput): {
     .toLowerCase();
 
   const location =
-    getString(raw.location) ||
-    getString(raw.city) ||
-    getString(raw.clinicAddress) ||
-    "";
+    getString(raw.location) || getString(raw.city) || getString(raw.clinicAddress) || "";
 
-  return { id, name, specialization, expertiseText, location, original: raw };
+  return { id, name, specialization, expertiseText, location };
 }
 
 function rankDoctors(
@@ -421,9 +469,7 @@ function rankDoctors(
 
   const normalizedInput = normalizeText(input);
   const normalizedLocation = normalizeText(location);
-  const targetSpecs = recommendation.specializations.map((item) =>
-    normalizeText(item),
-  );
+  const targetSpecs = recommendation.specializations.map((item) => normalizeText(item));
   const targetKeywords = [
     ...targetSpecs,
     ...recommendation.searchKeywords.map((item) => normalizeText(item)),
@@ -442,7 +488,7 @@ function rankDoctors(
       const reasons: string[] = [];
 
       for (const spec of targetSpecs) {
-        if (specializationText.includes(spec) || doctorText.includes(spec)) {
+        if (matchesSpecialty(d.specialization, spec) || doctorText.includes(spec)) {
           score += 6;
           reasons.push(`Matches ${spec}`);
           break;
@@ -464,7 +510,6 @@ function rankDoctors(
       }
 
       if (score === 0 && recommendation.specializations.length > 0) {
-        // Small baseline score so the list still returns something useful.
         score = 1;
       }
 
@@ -624,11 +669,7 @@ export async function POST(req: Request) {
     let source: ApiResponse["source"] = "gemini";
 
     try {
-      recommendation = await askGemini(
-        input,
-        location,
-        body.doctors?.length || 0,
-      );
+      recommendation = await askGemini(input, location, body.doctors?.length || 0);
     } catch {
       recommendation = buildFallbackRecommendation(input);
       source = "fallback";

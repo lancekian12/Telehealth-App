@@ -289,7 +289,7 @@ export default function Navigation() {
                     {profileOpen && (
                       <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95">
                         <div className="p-2">
-                          <button
+                          {/* <button
                             type="button"
                             onClick={() => setProfileOpen(false)}
                             className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -298,7 +298,7 @@ export default function Navigation() {
                               <UserRound size={18} />
                             </span>
                             View Profile
-                          </button>
+                          </button> */}
 
                           <div className="my-2 h-px bg-slate-100 dark:bg-slate-800" />
 

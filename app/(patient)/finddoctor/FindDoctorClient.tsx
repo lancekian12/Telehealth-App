@@ -20,6 +20,8 @@ import {
   Stethoscope,
   Video,
   Globe,
+  Sparkles,
+  X,
 } from "lucide-react";
 
 import SearchBar from "@/components/patient/SearchBar";
@@ -31,6 +33,204 @@ declare global {
   interface Window {
     __doctorMap?: LeafletMap;
   }
+}
+
+type AiResponse = {
+  success: boolean;
+  source: "gemini" | "fallback";
+  input: string;
+  location: string;
+  recommendation: {
+    urgency: "routine" | "soon" | "urgent" | "emergency";
+    specializations: string[];
+    summary: string;
+    redFlags: string[];
+    searchKeywords: string[];
+    confidence: number;
+  };
+  suggestedSpecializations: string[];
+  suggestedDoctors: Array<{
+    id: string;
+    name: string;
+    specialization: string;
+    location: string;
+    score: number;
+    reason: string;
+  }>;
+  disclaimer: string;
+  message?: string;
+};
+
+function normalize(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const SPECIALTY_ALIASES: Record<string, string[]> = {
+  "general practitioner": [
+    "general practitioner",
+    "family medicine",
+    "internal medicine",
+    "primary care",
+    "general physician",
+  ],
+  "family medicine": [
+    "family medicine",
+    "general practitioner",
+    "internal medicine",
+    "primary care",
+    "general physician",
+  ],
+  "internal medicine": [
+    "internal medicine",
+    "general practitioner",
+    "family medicine",
+    "primary care",
+    "general physician",
+  ],
+  cardiology: ["cardiology", "cardiologist", "heart specialist"],
+  pulmonology: ["pulmonology", "pulmonologist", "lung specialist"],
+  dermatology: ["dermatology", "dermatologist", "skin specialist"],
+  neurology: ["neurology", "neurologist", "brain specialist"],
+  orthopedics: ["orthopedics", "orthopedic", "orthopedist", "bone specialist"],
+};
+
+function matchesSpecialty(doctorSpecialty: string, targetSpecialty: string) {
+  const doctor = normalize(doctorSpecialty);
+  const target = normalize(targetSpecialty);
+
+  const doctorAliases = SPECIALTY_ALIASES[doctor] ?? [doctor];
+  const targetAliases = SPECIALTY_ALIASES[target] ?? [target];
+
+  return doctorAliases.some((d) =>
+    targetAliases.some((t) => d.includes(t) || t.includes(d)),
+  );
+}
+
+function AiSearchModal({
+  open,
+  loading,
+  error,
+  summary,
+  specializations,
+  urgency,
+  onClose,
+}: {
+  open: boolean;
+  loading: boolean;
+  error: string | null;
+  summary: string;
+  specializations: string[];
+  urgency: "routine" | "soon" | "urgent" | "emergency" | null;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  const urgencyLabel =
+    urgency === "emergency"
+      ? "Emergency"
+      : urgency === "urgent"
+        ? "Urgent"
+        : urgency === "soon"
+          ? "Soon"
+          : "Routine";
+
+  return (
+    <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#008081]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#008081]">
+              <Sparkles size={14} />
+              AI Searching
+            </div>
+            <h3 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Finding the best doctor match
+            </h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              The assistant is checking symptoms and matching them to
+              specializations.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-[#008081] dark:hover:bg-slate-800"
+            aria-label="Close AI modal"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+          {loading ? (
+            <div className="flex items-center gap-3">
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#008081] border-t-transparent" />
+              <div>
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  AI is searching doctors...
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Please wait while we rank the most relevant specializations.
+                </p>
+              </div>
+            </div>
+          ) : error ? (
+            <div>
+              <p className="font-semibold text-amber-600">
+                Search completed with a warning
+              </p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                {error}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  {urgencyLabel} priority
+                </p>
+                <span className="rounded-full bg-[#008081]/10 px-3 py-1 text-xs font-semibold text-[#008081]">
+                  AI Ready
+                </span>
+              </div>
+
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                {summary || "Results are ready."}
+              </p>
+
+              {specializations.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {specializations.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full border border-[#008081]/20 bg-white px-3 py-1 text-xs font-medium text-[#008081] dark:border-[#008081]/30 dark:bg-slate-900"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-[#008081] px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-colors hover:bg-[#00736f]"
+          >
+            Show Results
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function MapControls({
@@ -127,6 +327,11 @@ export default function FindDoctorClient(): JSX.Element {
   >([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiUrgency, setAiUrgency] = useState<
+    "routine" | "soon" | "urgent" | "emergency" | null
+  >(null);
 
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -157,7 +362,7 @@ export default function FindDoctorClient(): JSX.Element {
           const tags = [
             ...(doctor.verified ? ["Verified"] : []),
             ...(doctor.acceptsNewPatients ? ["Accepting patients"] : []),
-            ...(doctor.consultationModes.includes("video")
+            ...(doctor.consultationModes?.includes("video")
               ? ["Online Available"]
               : []),
             ...(doctor.languages || []),
@@ -205,13 +410,6 @@ export default function FindDoctorClient(): JSX.Element {
     void loadDoctors();
   }, []);
 
-  const normalize = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[^\w\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
   const specialtyOptions = useMemo(() => {
     const items = doctors.map((d) => d.specialty?.trim()).filter(Boolean);
     return ["All specialties", ...Array.from(new Set(items)).sort()];
@@ -234,13 +432,19 @@ export default function FindDoctorClient(): JSX.Element {
         setAiRankedDoctorIds([]);
         setAiSuggestedSpecializations([]);
         setAiError(null);
+        setAiSummary("");
+        setAiUrgency(null);
+        setAiModalOpen(false);
         return;
       }
 
-      try {
-        setAiLoading(true);
-        setAiError(null);
+      setAiModalOpen(true);
+      setAiLoading(true);
+      setAiError(null);
+      setAiSummary("");
+      setAiUrgency(null);
 
+      try {
         const res = await fetch("/api/ai-recommendation", {
           method: "POST",
           headers: {
@@ -253,7 +457,7 @@ export default function FindDoctorClient(): JSX.Element {
           }),
         });
 
-        const data = await res.json();
+        const data = (await res.json()) as AiResponse;
 
         if (!res.ok || !data.success) {
           throw new Error(data.message || "Failed to get recommendations");
@@ -268,13 +472,18 @@ export default function FindDoctorClient(): JSX.Element {
         setAiRankedDoctorIds(
           Array.isArray(data.suggestedDoctors)
             ? data.suggestedDoctors
-                .map((item: { id?: string }) => item.id)
-                .filter((id: string | undefined): id is string => Boolean(id))
+                .map((item) => item.id)
+                .filter((id): id is string => Boolean(id))
             : [],
         );
+
+        setAiSummary(data.recommendation?.summary || "");
+        setAiUrgency(data.recommendation?.urgency ?? null);
       } catch (error) {
         setAiRankedDoctorIds([]);
         setAiSuggestedSpecializations([]);
+        setAiSummary("");
+        setAiUrgency(null);
         setAiError(
           error instanceof Error ? error.message : "Recommendation unavailable",
         );
@@ -314,14 +523,27 @@ export default function FindDoctorClient(): JSX.Element {
           ].join(" "),
         );
 
-        const matchesQuery = !queryText || searchPool.includes(queryText);
+        const queryMatchesText =
+          !queryText ||
+          searchPool.includes(queryText) ||
+          normalize(d.specialty).includes(queryText) ||
+          normalize(d.name).includes(queryText);
+
+        const queryMatchesAiSpecialization =
+          aiSuggestedSpecializations.length > 0
+            ? aiSuggestedSpecializations.some((spec) =>
+                matchesSpecialty(d.specialty, spec),
+              )
+            : false;
+
+        const matchesQuery = queryMatchesText || queryMatchesAiSpecialization;
 
         const matchesLocation =
           !locationText ||
           locationQuery === "All areas" ||
           searchPool.includes(locationText);
 
-        const matchesSpecialty =
+        const matchesSpecialtyFilter =
           !specialtyText ||
           specialtyFilter === "All specialties" ||
           normalize(d.specialty).includes(specialtyText);
@@ -345,7 +567,7 @@ export default function FindDoctorClient(): JSX.Element {
         return (
           matchesQuery &&
           matchesLocation &&
-          matchesSpecialty &&
+          matchesSpecialtyFilter &&
           matchesLanguage &&
           matchesConsultationMode &&
           matchesVerified &&
@@ -382,7 +604,20 @@ export default function FindDoctorClient(): JSX.Element {
     minPrice,
     maxPrice,
     aiRankMap,
+    aiSuggestedSpecializations,
   ]);
+
+  const visibleDoctors = useMemo(() => {
+    if (!aiSuggestedSpecializations.length) return filteredAll;
+
+    const matches = filteredAll.filter((doctor) =>
+      aiSuggestedSpecializations.some((spec) =>
+        matchesSpecialty(doctor.specialty, spec),
+      ),
+    );
+
+    return matches.length > 0 ? matches : filteredAll;
+  }, [filteredAll, aiSuggestedSpecializations]);
 
   const selectedDate = useMemo(() => {
     const days: {
@@ -423,15 +658,7 @@ export default function FindDoctorClient(): JSX.Element {
   }, [selectedDayIndex]);
 
   const openAvailabilityPanel = (doctor: FindDoctor) => {
-    console.log("[FindDoctorClient] openAvailabilityPanel clicked:", {
-      doctorId: doctor.id,
-      doctorName: doctor.name,
-    });
-
-    if (doctor.status === "fully_booked") {
-      console.log("[FindDoctorClient] doctor is fully booked, not opening panel");
-      return;
-    }
+    if (doctor.status === "fully_booked") return;
 
     setActiveDoctor(doctor);
     setSelectedTime("");
@@ -440,12 +667,12 @@ export default function FindDoctorClient(): JSX.Element {
   };
 
   const PAGE_SIZE = 2;
-  const totalPages = Math.max(1, Math.ceil(filteredAll.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(visibleDoctors.length / PAGE_SIZE));
 
   const displayed = useMemo(() => {
-    const end = Math.min(page * PAGE_SIZE, filteredAll.length);
-    return filteredAll.slice(0, end);
-  }, [filteredAll, page]);
+    const end = Math.min(page * PAGE_SIZE, visibleDoctors.length);
+    return visibleDoctors.slice(0, end);
+  }, [visibleDoctors, page]);
 
   useEffect(() => {
     setHasMounted(true);
@@ -453,7 +680,17 @@ export default function FindDoctorClient(): JSX.Element {
 
   useEffect(() => {
     setPage(1);
-  }, [query, locationQuery, sort, specialtyFilter, minRating, minPrice, maxPrice]);
+  }, [
+    query,
+    locationQuery,
+    sort,
+    specialtyFilter,
+    minRating,
+    minPrice,
+    maxPrice,
+    aiSuggestedSpecializations,
+    aiRankedDoctorIds,
+  ]);
 
   async function createDoctorIcon(img: string): Promise<DivIcon> {
     const L = await import("leaflet");
@@ -553,10 +790,6 @@ export default function FindDoctorClient(): JSX.Element {
       if (doctorsWithCoords.length === 0) {
         return;
       }
-
-      const bounds = L.latLngBounds(
-        doctorsWithCoords.map((doctor) => doctor.coords as [number, number]),
-      );
 
       for (const doctor of doctorsWithCoords) {
         const icon = await createDoctorIcon(doctor.img);
@@ -668,8 +901,10 @@ export default function FindDoctorClient(): JSX.Element {
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
                   {loadingDoctors
                     ? "Loading doctors..."
-                    : `${filteredAll.length} Doctors in ${
-                        locationQuery === "All areas" ? "All Areas" : locationQuery
+                    : `${visibleDoctors.length} Doctors in ${
+                        locationQuery === "All areas"
+                          ? "All Areas"
+                          : locationQuery
                       }`}
                 </h1>
                 <p className="mt-1 text-sm text-slate-500">
@@ -756,8 +991,9 @@ export default function FindDoctorClient(): JSX.Element {
                       </div>
 
                       <p className="mt-3 line-clamp-2 text-sm text-slate-500">
-                        {d.specialty} with years of experience — patient-centered
-                        care, board certifications and community trust.
+                        {d.specialty} with years of experience —
+                        patient-centered care, board certifications and
+                        community trust.
                       </p>
 
                       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-500">
@@ -854,8 +1090,21 @@ export default function FindDoctorClient(): JSX.Element {
         </aside>
       </main>
 
+      <AiSearchModal
+        open={aiModalOpen}
+        loading={aiLoading}
+        error={aiError}
+        summary={aiSummary}
+        specializations={aiSuggestedSpecializations}
+        urgency={aiUrgency}
+        onClose={() => setAiModalOpen(false)}
+      />
+
       {panelOpen && (
-        <div className="fixed inset-0 z-[200] bg-black/30" onClick={closePanel} />
+        <div
+          className="fixed inset-0 z-[200] bg-black/30"
+          onClick={closePanel}
+        />
       )}
 
       <AvailabilityPanel

@@ -22,7 +22,6 @@ import {
   ApiResponse,
   Appointment,
   Patient,
-  PatientRow,
   Prescription,
   SavePrescriptionResponse,
 } from "@/types/prescription";
@@ -100,7 +99,7 @@ function buildMeta(patient: Patient | undefined) {
   return parts.length ? parts.join(" • ") : "No extra details";
 }
 
-function getPatientTags(appointment: Appointment) {
+function getAppointmentTags(appointment: Appointment) {
   const tags: string[] = [];
 
   if (appointment.status) tags.push(appointment.status);
@@ -247,6 +246,26 @@ function PrescriptionField({
   );
 }
 
+type PatientRow = {
+  id: string;
+  name: string;
+  avatar: string;
+  email: string;
+  phone: string;
+  status: string;
+  meta: string;
+  tags: string[];
+  lastSeen: string;
+  appointmentDate?: string;
+  startTime?: string;
+  endTime?: string;
+  consultationType?: Appointment["consultationType"];
+  reasonForVisit?: string;
+  notes?: string;
+  prescription: Prescription | null;
+  lastAppointment: Appointment;
+};
+
 export default function DoctorPatientRecord() {
   const searchParams = useSearchParams();
   const doctorId = searchParams.get("doctorId") || "";
@@ -308,69 +327,52 @@ export default function DoctorPatientRecord() {
   }, [doctorId]);
 
   const patientRows = useMemo(() => {
-    const map = new Map<string, PatientRow>();
+    return appointments
+      .map((appointment) => {
+        const patient =
+          appointment.patient && typeof appointment.patient !== "string"
+            ? appointment.patient
+            : undefined;
 
-    for (const appointment of appointments) {
-      const patient =
-        appointment.patient && typeof appointment.patient !== "string"
-          ? appointment.patient
-          : undefined;
+        const normalizedPrescription = normalizePrescription(
+          appointment.prescription,
+        );
 
-      const patientId = patient?._id || appointment._id;
-      const current = map.get(patientId);
+        const row: PatientRow = {
+          id: appointment._id,
+          name: getPersonName(appointment.patient),
+          avatar: patient?.profilePicture || "",
+          email: patient?.email || "",
+          phone: patient?.phone || "",
+          status: appointment.status || "Unknown",
+          meta: buildMeta(patient),
+          tags: getAppointmentTags(appointment),
+          lastSeen: appointment.appointmentDate
+            ? formatDate(appointment.appointmentDate)
+            : "—",
+          appointmentDate: appointment.appointmentDate,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          consultationType: appointment.consultationType,
+          reasonForVisit: appointment.reasonForVisit || "",
+          notes: appointment.notes || "",
+          prescription: normalizedPrescription,
+          lastAppointment: appointment,
+        };
 
-      const normalizedPrescription = normalizePrescription(
-        appointment.prescription,
-      );
+        return row;
+      })
+      .sort((a, b) => {
+        const aDate = a.appointmentDate
+          ? new Date(a.appointmentDate).getTime()
+          : 0;
+        const bDate = b.appointmentDate
+          ? new Date(b.appointmentDate).getTime()
+          : 0;
 
-      const row: PatientRow = {
-        id: patientId,
-        name: getPersonName(appointment.patient),
-        avatar: patient?.profilePicture || "",
-        email: patient?.email || "",
-        phone: patient?.phone || "",
-        status: appointment.status,
-        meta: buildMeta(patient),
-        tags: getPatientTags(appointment),
-        lastSeen: appointment.appointmentDate
-          ? formatDate(appointment.appointmentDate)
-          : "—",
-        appointmentDate: appointment.appointmentDate,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime,
-        consultationType: appointment.consultationType,
-        reasonForVisit: appointment.reasonForVisit || "",
-        notes: appointment.notes || "",
-        prescription: normalizedPrescription,
-        lastAppointment: appointment,
-      };
-
-      if (!current) {
-        map.set(patientId, row);
-        continue;
-      }
-
-      const currentDate = current.appointmentDate
-        ? new Date(current.appointmentDate).getTime()
-        : 0;
-      const nextDate = appointment.appointmentDate
-        ? new Date(appointment.appointmentDate).getTime()
-        : 0;
-
-      if (nextDate >= currentDate) {
-        map.set(patientId, row);
-      }
-    }
-
-    return Array.from(map.values()).sort((a, b) => {
-      const aDate = a.appointmentDate
-        ? new Date(a.appointmentDate).getTime()
-        : 0;
-      const bDate = b.appointmentDate
-        ? new Date(b.appointmentDate).getTime()
-        : 0;
-      return bDate - aDate;
-    });
+        if (aDate !== bDate) return bDate - aDate;
+        return (b.startTime || "").localeCompare(a.startTime || "");
+      });
   }, [appointments]);
 
   const filtered = useMemo(() => {
@@ -481,8 +483,7 @@ export default function DoctorPatientRecord() {
               Appointments and prescriptions
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500">
-              Built from live appointment data only. No filler metrics, just
-              what matters.
+              Every appointment is shown separately, even for the same patient.
             </p>
           </div>
         </header>
@@ -537,7 +538,7 @@ export default function DoctorPatientRecord() {
           <section className="min-h-0 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
             {!patient ? (
               <div className="flex h-full min-h-[500px] items-center justify-center p-8 text-slate-500">
-                Select a patient record to view details.
+                Select an appointment record to view details.
               </div>
             ) : (
               <div className="relative flex h-full flex-col">
@@ -605,8 +606,8 @@ export default function DoctorPatientRecord() {
                 <div className="custom-scrollbar flex-1 overflow-y-auto p-6 sm:p-8">
                   <div className="grid gap-4 sm:grid-cols-3">
                     <InfoCard
-                      label="Last visit"
-                      value={patient.lastSeen || "—"}
+                      label="Appointment date"
+                      value={formatDate(patient.appointmentDate)}
                     />
                     <InfoCard
                       label="Consultation"
@@ -629,7 +630,7 @@ export default function DoctorPatientRecord() {
                       <div className="mb-4 flex items-center justify-between">
                         <h3 className="flex items-center gap-2 text-lg font-bold">
                           <Clock className="text-primary" />
-                          Latest appointment
+                          Appointment details
                         </h3>
                         <span className="text-xs text-slate-400">
                           {formatDate(patient.appointmentDate)}
@@ -874,9 +875,7 @@ export default function DoctorPatientRecord() {
                       ) : (
                         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
                           No prescription attached yet. Click{" "}
-                          <span className="font-semibold">
-                            Add prescription
-                          </span>{" "}
+                          <span className="font-semibold">Add prescription</span>{" "}
                           to create one.
                         </div>
                       )}
@@ -887,7 +886,7 @@ export default function DoctorPatientRecord() {
                 <div className="border-t border-slate-100 bg-white px-6 py-2 sm:px-8">
                   <div className="flex">
                     <span className="ml-auto text-xs text-slate-400">
-                      Last visit: {patient.lastSeen || "—"}
+                      Appointment ID: {patient.id}
                     </span>
                   </div>
                 </div>

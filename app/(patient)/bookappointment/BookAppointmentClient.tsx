@@ -15,6 +15,32 @@ import {
 
 type ConsultationType = "video" | "in_person";
 
+type WorkingHour = {
+  date: string;
+  startTime: string;
+  endTime: string;
+  isAvailable?: boolean;
+};
+
+type ScheduleOverride = {
+  date: string;
+  action: "rescheduled" | "cancelled";
+  startTime?: string | null;
+  endTime?: string | null;
+  newDate?: string | null;
+  newStartTime?: string | null;
+  newEndTime?: string | null;
+  reason?: string;
+};
+
+type UnavailableSlot = {
+  date: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  allDay?: boolean;
+  reason?: string;
+};
+
 type DoctorDetailsResponse = {
   success: boolean;
   message?: string;
@@ -27,22 +53,9 @@ type DoctorDetailsResponse = {
     clinicAddress?: string;
     rating?: number;
     consultationDurationMinutes?: number;
-    workingHours?: Array<{
-      date: string;
-      startTime: string;
-      endTime: string;
-      isAvailable?: boolean;
-    }>;
-    unavailableSlots?: Array<{
-      date: string;
-    }>;
-    scheduleOverrides?: Array<{
-      date: string;
-      action: "rescheduled" | "cancelled";
-      newDate?: string | null;
-      newStartTime?: string | null;
-      newEndTime?: string | null;
-    }>;
+    workingHours?: WorkingHour[];
+    unavailableSlots?: UnavailableSlot[];
+    scheduleOverrides?: ScheduleOverride[];
     bookedSlots?: Array<{
       date: string;
       startTime: string;
@@ -68,6 +81,11 @@ type TimeSlot = {
   startTime: string;
   endTime: string;
   label: string;
+};
+
+type TimeRange = {
+  startTime: string;
+  endTime: string;
 };
 
 function parseTimeToMinutes(value: string) {
@@ -126,9 +144,7 @@ function toYmd(date: Date) {
 function generateWeek(anchor: Date) {
   return Array.from({ length: 7 }, (_, index) => {
     const d = addDays(anchor, index);
-    const day = d
-      .toLocaleDateString("en-US", { weekday: "short" })
-      .toUpperCase();
+    const day = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
 
     return {
       key: toYmd(d),
@@ -137,6 +153,64 @@ function generateWeek(anchor: Date) {
       fullDate: toYmd(d),
     };
   });
+}
+
+function isFullDayBlocked(slot: UnavailableSlot) {
+  return (
+    slot.allDay === true ||
+    (!slot.startTime && !slot.endTime) ||
+    (slot.startTime === "00:00" && slot.endTime === "23:59")
+  );
+}
+
+function overlaps(a: TimeRange, b: TimeRange) {
+  return a.startTime < b.endTime && b.startTime < a.endTime;
+}
+
+function subtractRanges(base: TimeRange, blocks: TimeRange[]) {
+  let segments: TimeRange[] = [base];
+
+  const sortedBlocks = [...blocks].sort((x, y) =>
+    x.startTime.localeCompare(y.startTime),
+  );
+
+  for (const block of sortedBlocks) {
+    const nextSegments: TimeRange[] = [];
+
+    for (const segment of segments) {
+      if (!overlaps(segment, block)) {
+        nextSegments.push(segment);
+        continue;
+      }
+
+      if (segment.startTime < block.startTime) {
+        nextSegments.push({
+          startTime: segment.startTime,
+          endTime: block.startTime,
+        });
+      }
+
+      if (block.endTime < segment.endTime) {
+        nextSegments.push({
+          startTime: block.endTime,
+          endTime: segment.endTime,
+        });
+      }
+    }
+
+    segments = nextSegments;
+  }
+
+  return segments.filter((segment) => segment.startTime < segment.endTime);
+}
+
+function dedupeSlots(slots: TimeSlot[]) {
+  return slots.filter(
+    (slot, index, arr) =>
+      arr.findIndex(
+        (x) => x.startTime === slot.startTime && x.endTime === slot.endTime,
+      ) === index,
+  );
 }
 
 export default function BookAppointmentClient(): JSX.Element {
@@ -270,54 +344,80 @@ export default function BookAppointmentClient(): JSX.Element {
   const workingHoursForSelectedDate = useMemo<TimeSlot[]>(() => {
     if (!doctor || !selectedDate) return [];
 
-    const isBlocked = doctor.unavailableSlots?.some(
-      (slot) => slot.date === selectedDate.fullDate,
+    const day = selectedDate.fullDate;
+
+    const unavailableForDay = doctor.unavailableSlots?.filter(
+      (slot) => slot.date === day,
+    ) || [];
+
+    const blockedByFullDayUnavailable = unavailableForDay.some((slot) =>
+      isFullDayBlocked(slot),
     );
-    if (isBlocked) return [];
 
-    const cancelled = doctor.scheduleOverrides?.some(
-      (item) =>
-        item.date === selectedDate.fullDate && item.action === "cancelled",
+    const cancelledOverride = doctor.scheduleOverrides?.some(
+      (item) => item.date === day && item.action === "cancelled",
     );
-    if (cancelled) return [];
 
-    const bookedOnThatDate =
-      doctor.bookedSlots?.filter((slot) => slot.date === selectedDate.fullDate) ||
-      [];
+    if (blockedByFullDayUnavailable || cancelledOverride) {
+      return [];
+    }
 
-    const base = (doctor.workingHours || [])
+    const workingHoursForDay = (doctor.workingHours || []).filter(
+      (hour) => hour.date === day && hour.isAvailable !== false,
+    );
+
+    const blockedRanges = unavailableForDay
       .filter(
         (slot) =>
-          slot.date === selectedDate.fullDate && slot.isAvailable !== false,
+          !isFullDayBlocked(slot) && slot.startTime && slot.endTime,
       )
-      .filter((slot) => {
-        return !bookedOnThatDate.some(
-          (booked) =>
-            booked.startTime === slot.startTime &&
-            booked.endTime === slot.endTime,
-        );
-      });
+      .map((slot) => ({
+        startTime: slot.startTime as string,
+        endTime: slot.endTime as string,
+      }));
 
-    const rescheduled = (doctor.scheduleOverrides || [])
+    const bookedRanges = (doctor.bookedSlots || [])
+      .filter((slot) => slot.date === day)
+      .map((slot) => ({
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      }));
+
+    const rescheduledSlots = (doctor.scheduleOverrides || [])
       .filter(
         (item) =>
           item.action === "rescheduled" &&
-          item.newDate === selectedDate.fullDate &&
+          item.newDate === day &&
           item.newStartTime &&
           item.newEndTime,
       )
       .map((item) => ({
         startTime: item.newStartTime as string,
         endTime: item.newEndTime as string,
+        label: `${formatTimeLabel(item.newStartTime as string)} - ${formatTimeLabel(
+          item.newEndTime as string,
+        )}`,
       }));
 
-    return [...base, ...rescheduled].map((slot) => ({
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      label: `${formatTimeLabel(slot.startTime)} - ${formatTimeLabel(
-        slot.endTime,
-      )}`,
-    }));
+    const baseSlots = workingHoursForDay.flatMap((slot) => {
+      const remaining = subtractRanges(
+        {
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        },
+        [...blockedRanges, ...bookedRanges],
+      );
+
+      return remaining.map((range) => ({
+        startTime: range.startTime,
+        endTime: range.endTime,
+        label: `${formatTimeLabel(range.startTime)} - ${formatTimeLabel(
+          range.endTime,
+        )}`,
+      }));
+    });
+
+    return dedupeSlots([...baseSlots, ...rescheduledSlots]);
   }, [doctor, selectedDate]);
 
   useEffect(() => {
@@ -348,9 +448,8 @@ export default function BookAppointmentClient(): JSX.Element {
 
   const selectedSlot = useMemo(() => {
     return (
-      workingHoursForSelectedDate.find(
-        (slot) => slot.startTime === selectedTime,
-      ) || null
+      workingHoursForSelectedDate.find((slot) => slot.startTime === selectedTime) ||
+      null
     );
   }, [workingHoursForSelectedDate, selectedTime]);
 

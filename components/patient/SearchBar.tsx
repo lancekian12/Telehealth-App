@@ -90,9 +90,7 @@ export default function SearchBar({
 
   const queryText = useMemo(() => {
     const value = query.trim();
-    return value.length > 0
-      ? value
-      : "Search doctors, symptoms, or specialties";
+    return value.length > 0 ? value : "Search doctors, symptoms, or specialties";
   }, [query]);
 
   const locationText = useMemo(() => {
@@ -184,16 +182,13 @@ export default function SearchBar({
         {["All areas", "Davao City, PH", "Matina", "Poblacion", "Lanang", "Bajada"].map(
           (place) => {
             const active =
-              (place === "All areas" && !locationQuery) ||
-              place === locationQuery;
+              (place === "All areas" && !locationQuery) || place === locationQuery;
 
             return (
               <button
                 key={place}
                 type="button"
-                onClick={() =>
-                  setLocationQuery(place === "All areas" ? "" : place)
-                }
+                onClick={() => setLocationQuery(place === "All areas" ? "" : place)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
                     ? "border-[#008081] bg-[#008081]/10 text-[#008081]"
@@ -240,12 +235,10 @@ export default function SearchBar({
             <div className="flex flex-col gap-8 px-8 pb-8">
               <div className="rounded-2xl bg-slate-50 p-6">
                 <p className="mb-1 text-base font-semibold text-slate-900">
-                  Describe what you feel, and we’ll narrow down the best doctor
-                  type.
+                  Describe what you feel, and we’ll narrow down the best doctor type.
                 </p>
                 <p className="text-sm text-slate-500">
-                  Example: fever, cough, sore throat, skin rash, chest pain, or
-                  headache.
+                  Example: fever, cough, sore throat, skin rash, chest pain, or headache.
                 </p>
               </div>
 
@@ -379,9 +372,7 @@ export default function SearchBar({
                           >
                             {item.label}
                           </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {item.note}
-                          </p>
+                          <p className="mt-1 text-xs text-slate-500">{item.note}</p>
                         </div>
 
                         <span
