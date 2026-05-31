@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { ChevronDown, ChevronUp, UploadCloud } from "lucide-react";
+import imageCompression from "browser-image-compression";
 
 type ConsultationMode = "video" | "in_person";
 
@@ -57,6 +58,8 @@ const initialForm: DoctorFormState = {
   verified: false,
 };
 
+const MAX_FILE_MB = 5;
+
 export default function DoctorSignupForm() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
@@ -66,6 +69,7 @@ export default function DoctorSignupForm() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [compressing, setCompressing] = useState(false);
 
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? "";
   const hasInPerson = form.consultationModes.includes("in_person");
@@ -127,10 +131,46 @@ export default function DoctorSignupForm() {
     setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setField("profilePicture", file);
-    setErrors((prev) => ({ ...prev, profilePicture: undefined }));
+    if (!file) return;
+
+    try {
+      setCompressing(true);
+
+      if (!file.type.startsWith("image/")) {
+        setErrors((prev) => ({
+          ...prev,
+          profilePicture: "Please select a valid image file",
+        }));
+        return;
+      }
+
+      const compressedFile = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true,
+      });
+
+      if (compressedFile.size > MAX_FILE_MB * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          profilePicture: `Image must be smaller than ${MAX_FILE_MB}MB`,
+        }));
+        return;
+      }
+
+      setField("profilePicture", compressedFile);
+      setErrors((prev) => ({ ...prev, profilePicture: undefined }));
+    } catch (error) {
+      console.error("Image compression failed:", error);
+      setErrors((prev) => ({
+        ...prev,
+        profilePicture: "Failed to process image",
+      }));
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const validate = () => {
@@ -240,6 +280,10 @@ export default function DoctorSignupForm() {
       router.push("/doctor/home");
     } catch (error) {
       console.error(error);
+      setErrors((prev) => ({
+        ...prev,
+        profilePicture: "Upload failed. Please try again.",
+      }));
     } finally {
       setLoading(false);
     }
@@ -406,6 +450,11 @@ export default function DoctorSignupForm() {
                   errors.profilePicture ? "border-rose-500" : ""
                 }`}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                {compressing
+                  ? "Compressing image..."
+                  : "Image will be compressed before upload"}
+              </p>
               {errors.profilePicture && (
                 <p className="mt-1 text-xs text-rose-600">
                   {errors.profilePicture}
@@ -702,7 +751,7 @@ export default function DoctorSignupForm() {
           <div className="mt-6">
             <button
               type="submit"
-              disabled={loading || !isLoaded}
+              disabled={loading || compressing || !isLoaded}
               className="
                 w-full rounded-xl bg-[#008081]
                 py-4 font-bold text-white
@@ -713,7 +762,7 @@ export default function DoctorSignupForm() {
                 disabled:cursor-not-allowed disabled:opacity-70
               "
             >
-              {loading ? "Saving..." : "Create Doctor Profile"}
+              {loading ? "Saving..." : compressing ? "Compressing..." : "Create Doctor Profile"}
             </button>
           </div>
 

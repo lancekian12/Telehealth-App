@@ -1,4 +1,3 @@
-// app/api/patient/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { v2 as cloudinary } from "cloudinary";
@@ -83,14 +82,19 @@ export async function POST(req: NextRequest) {
     const height = String(formData.get("height") || "");
     const email = String(formData.get("email") || "");
     const phone = String(formData.get("phone") || "");
-    const basicMedicalHistory = String(
-      formData.get("basicMedicalHistory") || "",
-    );
+    const basicMedicalHistory = String(formData.get("basicMedicalHistory") || "");
     const file = formData.get("profilePicture");
 
     if (!(file instanceof File)) {
       return NextResponse.json(
         { success: false, message: "Profile picture is required" },
+        { status: 400 },
+      );
+    }
+
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json(
+        { success: false, message: "Invalid image file" },
         { status: 400 },
       );
     }
@@ -101,7 +105,10 @@ export async function POST(req: NextRequest) {
     const uploadedImage = await new Promise<UploadApiResponse>(
       (resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder: "appointcare" },
+          {
+            folder: "appointcare",
+            resource_type: "image",
+          },
           (error, result) => {
             if (error) return reject(error);
             if (!result) return reject(new Error("Cloudinary upload failed"));
@@ -117,6 +124,7 @@ export async function POST(req: NextRequest) {
       { clerkId: userId },
       {
         clerkId: userId,
+        role: "patient",
         fullName,
         birthday,
         weight,

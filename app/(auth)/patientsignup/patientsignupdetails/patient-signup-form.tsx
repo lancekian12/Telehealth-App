@@ -3,8 +3,9 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormFields } from "@/types/patient";
 import { useUser } from "@clerk/nextjs";
+import imageCompression from "browser-image-compression";
+import { FormFields } from "@/types/patient";
 
 const initialForm: FormFields = {
   fullName: "",
@@ -18,16 +19,20 @@ const initialForm: FormFields = {
   role: "patient",
 };
 
+const MAX_FILE_SIZE_MB = 10;
+
 export default function PatientSignupForm() {
   const { user } = useUser();
   const clerkEmail = user?.primaryEmailAddress?.emailAddress ?? "";
   const router = useRouter();
+
   const [form, setForm] = useState<FormFields>(initialForm);
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormFields, string>>
   >({});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -37,10 +42,47 @@ export default function PatientSignupForm() {
     setErrors((p) => ({ ...p, [name]: undefined }));
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    setForm((p) => ({ ...p, profilePicture: file }));
-    setErrors((p) => ({ ...p, profilePicture: undefined }));
+
+    if (!file) return;
+
+    try {
+      setCompressing(true);
+
+      if (!file.type.startsWith("image/")) {
+        setErrors((p) => ({
+          ...p,
+          profilePicture: "Please select a valid image file",
+        }));
+        return;
+      }
+
+      const compressedFile = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true,
+      });
+
+      if (compressedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        setErrors((p) => ({
+          ...p,
+          profilePicture: `Image must be smaller than ${MAX_FILE_SIZE_MB}MB`,
+        }));
+        return;
+      }
+
+      setForm((p) => ({ ...p, profilePicture: compressedFile }));
+      setErrors((p) => ({ ...p, profilePicture: undefined }));
+    } catch (error) {
+      console.error("Image compression failed:", error);
+      setErrors((p) => ({
+        ...p,
+        profilePicture: "Failed to process image",
+      }));
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const validate = () => {
@@ -99,6 +141,10 @@ export default function PatientSignupForm() {
       router.push("/");
     } catch (error) {
       console.error(error);
+      setErrors((p) => ({
+        ...p,
+        profilePicture: "Upload failed. Please try again.",
+      }));
     } finally {
       setLoading(false);
     }
@@ -136,9 +182,7 @@ export default function PatientSignupForm() {
         <div className="text-center mb-8 sm:mb-10">
           <div className="flex flex-col items-center gap-2">
             <div className="text-primary flex items-center justify-center">
-              <span
-                className="material-icons text-[#008081] text-[40px] sm:text-[50px]"
-              >
+              <span className="material-icons text-[#008081] text-[40px] sm:text-[50px]">
                 eco
               </span>
             </div>
@@ -277,6 +321,11 @@ export default function PatientSignupForm() {
                   errors.profilePicture ? "border-rose-500" : "border-slate-200"
                 }`}
               />
+              <p className="mt-1 text-xs text-slate-500">
+                {compressing
+                  ? "Compressing image..."
+                  : "Image will be compressed before upload"}
+              </p>
               {errors.profilePicture && (
                 <p className="mt-1 text-xs text-rose-600">
                   {errors.profilePicture}
@@ -354,7 +403,7 @@ export default function PatientSignupForm() {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || compressing}
                 className="
                   w-full bg-[#008081]
                   text-white py-4
@@ -367,7 +416,7 @@ export default function PatientSignupForm() {
                   disabled:opacity-70
                 "
               >
-                {loading ? "Saving..." : "Create Account"}
+                {loading ? "Saving..." : compressing ? "Compressing..." : "Create Account"}
               </button>
             </div>
 
