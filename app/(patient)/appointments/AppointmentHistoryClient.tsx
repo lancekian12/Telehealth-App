@@ -4,22 +4,15 @@ import React, { JSX, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import CancelAppointmentModal from "@/components/patient/CancelAppointmentModal";
 import RescheduleAppointmentModal from "@/components/patient/RescheduleAppointmentModal";
+import AppointmentFilterModal from "@/components/patient/AppointmentFilterModal";
 import {
   Video,
   MapPin,
   RefreshCw,
   ChevronDown,
-  CircleDashed,
-  Clock3,
-  CircleX,
-  CircleCheckBig,
   Filter,
   X,
-  Navigation2,
-  LocateFixed,
-  ArrowRight,
 } from "lucide-react";
-import AppointmentFilterModal from "@/components/patient/AppointmentFilterModal";
 import {
   AppointmentApiResponse,
   AppointmentItem,
@@ -30,16 +23,18 @@ import {
 
 type FilterStatus = "all" | "pending" | "accepted" | "rejected" | "completed";
 
-function isValidAppointmentStatus(
-  value: string | null,
-): value is AppointmentStatus {
-  return (
-    value === "pending" ||
-    value === "accepted" ||
-    value === "rejected" ||
-    value === "completed" ||
-    value === "cancelled"
-  );
+function getDateOnly(value: string) {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function getDoctorName(appointment: AppointmentItem) {
@@ -63,9 +58,8 @@ function getDoctorPhoto(appointment: AppointmentItem) {
 }
 
 function getAppointmentDateTime(appointment: AppointmentItem) {
-  const dateKey = appointment.appointmentDate
-    ? new Date(appointment.appointmentDate).toISOString().slice(0, 10)
-    : "";
+  const dateKey = getDateOnly(String(appointment.appointmentDate || ""));
+  if (!dateKey) return null;
 
   const iso = `${dateKey}T${appointment.startTime || "00:00"}:00`;
   const parsed = new Date(iso);
@@ -136,27 +130,10 @@ function statusLabel(status: AppointmentStatus) {
   }
 }
 
-function filterIcon(status: FilterStatus) {
-  switch (status) {
-    case "pending":
-      return <CircleDashed size={14} />;
-    case "accepted":
-      return <Clock3 size={14} />;
-    case "rejected":
-      return <CircleX size={14} />;
-    case "completed":
-      return <CircleCheckBig size={14} />;
-    default:
-      return <CircleDashed size={14} />;
-  }
-}
-
 function getAppointmentPriority(appointment: AppointmentItem) {
   if (appointment.status === "accepted") return 0;
-  if (appointment.status === "pending" && !appointment.rescheduleReason)
-    return 1;
-  if (appointment.status === "pending" && appointment.rescheduleReason)
-    return 2;
+  if (appointment.status === "pending" && !appointment.rescheduleReason) return 1;
+  if (appointment.status === "pending" && appointment.rescheduleReason) return 2;
   if (appointment.status === "rejected") return 3;
   if (appointment.status === "cancelled") return 4;
   if (appointment.status === "completed") return 5;
@@ -170,12 +147,15 @@ function getDirectionsUrl(address: string) {
   )}`;
 }
 
+function getAppointmentDoctorId(appointment: AppointmentItem | null) {
+  if (!appointment) return "";
+  if (typeof appointment.doctor === "string") return appointment.doctor;
+  return appointment.doctor._id || "";
+}
+
 export default function AppointmentHistoryClient(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const patientId = searchParams.get("patientId") || "";
-  const doctorId = searchParams.get("doctorId") || "";
   const statusParam = searchParams.get("status");
 
   const [doctorWorkingHours, setDoctorWorkingHours] = useState<
@@ -187,7 +167,6 @@ export default function AppointmentHistoryClient(): JSX.Element {
     useState<AppointmentItem | null>(null);
 
   const ITEMS_PER_PAGE = 2;
-
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
@@ -202,7 +181,6 @@ export default function AppointmentHistoryClient(): JSX.Element {
     ) {
       return statusParam;
     }
-
     return "all";
   });
   const [filterOpen, setFilterOpen] = useState(false);
@@ -216,17 +194,6 @@ export default function AppointmentHistoryClient(): JSX.Element {
   const [selectedDirectionsAppointment, setSelectedDirectionsAppointment] =
     useState<AppointmentItem | null>(null);
 
-  function getAppointmentDoctorId(
-    appointment: AppointmentItem,
-    fallbackDoctorId: string,
-  ) {
-    if (typeof appointment.doctor === "string") {
-      return appointment.doctor;
-    }
-
-    return appointment.doctor._id || fallbackDoctorId;
-  }
-
   useEffect(() => {
     setVisibleCount(ITEMS_PER_PAGE);
   }, [activeFilter]);
@@ -238,24 +205,32 @@ export default function AppointmentHistoryClient(): JSX.Element {
 
     async function loadDoctorWorkingHours() {
       try {
+        const targetDoctorId = getAppointmentDoctorId(
+          selectedRescheduleAppointment,
+        );
+
+        if (!targetDoctorId) {
+          setDoctorWorkingHours([]);
+          return;
+        }
+
         const res = await fetch("/api/doctors", {
           signal: controller.signal,
           cache: "no-store",
         });
 
-        const data = await res.json();
+        const data: {
+          success?: boolean;
+          doctors?: Array<DoctorApiItem & { _id?: string; id?: string }>;
+        } = await res.json();
 
-        if (!res.ok || !data.success) {
+        if (!res.ok || !data.success || !Array.isArray(data.doctors)) {
           setDoctorWorkingHours([]);
           return;
         }
 
-        const targetDoctorId = selectedRescheduleAppointment
-          ? getAppointmentDoctorId(selectedRescheduleAppointment, doctorId)
-          : doctorId;
-
-        const doctor = (data.doctors as DoctorApiItem[]).find(
-          (item) => item.id === targetDoctorId,
+        const doctor = data.doctors.find(
+          (item) => item._id === targetDoctorId || item.id === targetDoctorId,
         );
 
         setDoctorWorkingHours(doctor?.workingHours || []);
@@ -267,14 +242,14 @@ export default function AppointmentHistoryClient(): JSX.Element {
     loadDoctorWorkingHours();
 
     return () => controller.abort();
-  }, [rescheduleOpen, selectedRescheduleAppointment, doctorId]);
+  }, [rescheduleOpen, selectedRescheduleAppointment]);
 
   const availableSlotsForSelectedDate = useMemo(() => {
     if (!selectedRescheduleAppointment) return [];
 
-    const selectedDate = selectedRescheduleAppointment
-      ? getYmdInputValue(selectedRescheduleAppointment.appointmentDate)
-      : "";
+    const selectedDate = getDateOnly(
+      String(selectedRescheduleAppointment.appointmentDate || ""),
+    );
 
     return doctorWorkingHours
       .filter(
@@ -381,7 +356,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
         }),
       });
 
-      const data = await res.json();
+      const data: { success: boolean; message?: string } = await res.json();
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Failed to cancel appointment");
@@ -412,19 +387,20 @@ export default function AppointmentHistoryClient(): JSX.Element {
     }
   };
 
-  function getYmdInputValue(dateValue: string) {
-    if (!dateValue) return "";
-    return new Date(dateValue).toISOString().slice(0, 10);
-  }
-
-  const queryString = useMemo(() => {
+  const usePatientHistoryQuery = useMemo(() => {
     const params = new URLSearchParams();
 
-    if (patientId) params.set("patientId", patientId);
-    if (doctorId) params.set("doctorId", doctorId);
+    if (
+      statusParam === "pending" ||
+      statusParam === "accepted" ||
+      statusParam === "rejected" ||
+      statusParam === "completed"
+    ) {
+      params.set("status", statusParam);
+    }
 
     return params.toString();
-  }, [doctorId, patientId]);
+  }, [statusParam]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -435,7 +411,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
         setError("");
 
         const res = await fetch(
-          `/api/appointments${queryString ? `?${queryString}` : ""}`,
+          `/api/appointments${usePatientHistoryQuery ? `?${usePatientHistoryQuery}` : ""}`,
           {
             signal: controller.signal,
             cache: "no-store",
@@ -479,7 +455,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
     fetchAppointments();
 
     return () => controller.abort();
-  }, [queryString]);
+  }, [usePatientHistoryQuery]);
 
   const visibleAppointments = useMemo(() => {
     const filtered =
@@ -517,14 +493,6 @@ export default function AppointmentHistoryClient(): JSX.Element {
       completed: appointments.filter((a) => a.status === "completed").length,
     };
   }, [appointments]);
-
-  const filters: Array<{ key: FilterStatus; label: string; count: number }> = [
-    { key: "all", label: "All", count: counts.all },
-    { key: "pending", label: "Pending", count: counts.pending },
-    { key: "accepted", label: "Accepted", count: counts.accepted },
-    { key: "rejected", label: "Rejected", count: counts.rejected },
-    { key: "completed", label: "Completed", count: counts.completed },
-  ];
 
   return (
     <div className="min-h-screen mt-20 flex flex-col font-sans bg-organic-pattern bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100 selection:bg-primary/20">
@@ -606,9 +574,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
                       </span>
                     )}
                     <span className="text-xs text-slate-400 mt-1">
-                      {a.endTime
-                        ? `${a.startTime} - ${a.endTime}`
-                        : a.startTime}
+                      {a.endTime ? `${a.startTime} - ${a.endTime}` : a.startTime}
                     </span>
                   </div>
 
@@ -680,12 +646,8 @@ export default function AppointmentHistoryClient(): JSX.Element {
                               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                                 {getDoctorName(a)}
                               </h3>
-                              <span
-                                className={`status-badge ${statusBadge(a.status)}`}
-                              >
-                                {isRescheduled
-                                  ? "Rescheduled"
-                                  : statusLabel(a.status)}
+                              <span className={`status-badge ${statusBadge(a.status)}`}>
+                                {isRescheduled ? "Rescheduled" : statusLabel(a.status)}
                               </span>
                             </div>
 
@@ -694,11 +656,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
                             </p>
 
                             <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
-                              {isVideo ? (
-                                <Video size={14} />
-                              ) : (
-                                <MapPin size={14} />
-                              )}
+                              {isVideo ? <Video size={14} /> : <MapPin size={14} />}
                               <span className="ml-1 text-xs text-slate-500">
                                 {isVideo
                                   ? "Video Consultation"
@@ -870,7 +828,9 @@ export default function AppointmentHistoryClient(): JSX.Element {
         }
         defaultDate={
           selectedRescheduleAppointment
-            ? getYmdInputValue(selectedRescheduleAppointment.appointmentDate)
+            ? getDateOnly(
+                String(selectedRescheduleAppointment.appointmentDate || ""),
+              )
             : ""
         }
         defaultStartTime={selectedRescheduleAppointment?.startTime || ""}

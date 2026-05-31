@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { Types } from "mongoose";
+import { auth } from "@clerk/nextjs/server";
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
+import { Patient } from "@/models/patient";
 import { Appointment } from "@/models/appointment";
 import "@/models/prescription";
 import { notifyBothAppointmentSides } from "@/config/notification-service";
@@ -274,12 +276,10 @@ function isWithinWorkingHours(
   ];
 
   return allRanges.some(
-    (range) => request.startTime >= range.startTime && request.endTime <= range.endTime,
+    (range) =>
+      request.startTime >= range.startTime &&
+      request.endTime <= range.endTime,
   );
-}
-
-function appointmentStatusAllowedArray() {
-  return ["pending", "accepted", "rejected", "completed", "cancelled"] as const;
 }
 
 async function populateAppointment(appointmentId: Types.ObjectId | string) {
@@ -296,15 +296,43 @@ async function populateAppointment(appointmentId: Types.ObjectId | string) {
     .lean();
 }
 
+async function getCurrentPatientId() {
+  const { userId } = await auth();
+
+  if (!userId) return null;
+
+  const patient = await Patient.findOne({ clerkId: userId }).select("_id").lean();
+
+  return patient ? String(patient._id) : null;
+}
+
+async function getCurrentDoctorId() {
+  const { userId } = await auth();
+
+  if (!userId) return null;
+
+  const doctor = await Doctor.findOne({ clerkId: userId }).select("_id").lean();
+
+  return doctor ? String(doctor._id) : null;
+}
+
 export async function GET(req: Request) {
   try {
     await connectDB();
 
     const url = new URL(req.url);
     const appointmentId = url.searchParams.get("appointmentId");
-    const doctorId = url.searchParams.get("doctorId");
-    const patientId = url.searchParams.get("patientId");
     const status = url.searchParams.get("status");
+
+    const currentPatientId = await getCurrentPatientId();
+    const currentDoctorId = await getCurrentDoctorId();
+
+    if (!currentPatientId && !currentDoctorId) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
+    }
 
     if (appointmentId) {
       if (!Types.ObjectId.isValid(appointmentId)) {
@@ -314,7 +342,25 @@ export async function GET(req: Request) {
         );
       }
 
-      const appointment = await populateAppointment(appointmentId);
+      const query: Record<string, unknown> = { _id: appointmentId };
+
+      if (currentPatientId) {
+        query.patient = currentPatientId;
+      } else if (currentDoctorId) {
+        query.doctor = currentDoctorId;
+      }
+
+      const appointment = await Appointment.findOne(query)
+        .populate(
+          "doctor",
+          "fullName specialization profilePicture clinicAddress licenseNumber",
+        )
+        .populate(
+          "patient",
+          "fullName email profilePicture phone birthday height weight basicMedicalHistory",
+        )
+        .populate("prescription")
+        .lean();
 
       if (!appointment) {
         return NextResponse.json(
@@ -328,26 +374,10 @@ export async function GET(req: Request) {
 
     const filter: Record<string, unknown> = {};
 
-    if (doctorId) {
-      const objectId = toObjectId(doctorId);
-      if (!objectId) {
-        return NextResponse.json(
-          { success: false, message: "Invalid doctorId" },
-          { status: 400 },
-        );
-      }
-      filter.doctor = objectId;
-    }
-
-    if (patientId) {
-      const objectId = toObjectId(patientId);
-      if (!objectId) {
-        return NextResponse.json(
-          { success: false, message: "Invalid patientId" },
-          { status: 400 },
-        );
-      }
-      filter.patient = objectId;
+    if (currentPatientId) {
+      filter.patient = toObjectId(currentPatientId);
+    } else if (currentDoctorId) {
+      filter.doctor = toObjectId(currentDoctorId);
     }
 
     if (status) {
@@ -391,10 +421,18 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
+    const currentPatientId = await getCurrentPatientId();
+
+    if (!currentPatientId) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
 
     const doctorId = String(body.doctorId || "");
-    const patientId = String(body.patientId || "");
     const appointmentDate = String(body.appointmentDate || "");
     const startTime = String(body.startTime || "");
     const endTime = String(body.endTime || "");
@@ -403,7 +441,6 @@ export async function POST(req: Request) {
 
     if (
       !doctorId ||
-      !patientId ||
       !appointmentDate ||
       !startTime ||
       !endTime ||
@@ -413,7 +450,7 @@ export async function POST(req: Request) {
         {
           success: false,
           message:
-            "doctorId, patientId, appointmentDate, startTime, endTime, and consultationType are required",
+            "doctorId, appointmentDate, startTime, endTime, and consultationType are required",
         },
         { status: 400 },
       );
@@ -434,7 +471,7 @@ export async function POST(req: Request) {
     }
 
     const doctorObjectId = toObjectId(doctorId);
-    const patientObjectId = toObjectId(patientId);
+    const patientObjectId = toObjectId(currentPatientId);
 
     if (!doctorObjectId || !patientObjectId) {
       return NextResponse.json(
@@ -650,6 +687,41 @@ export async function PATCH(req: Request) {
         { success: false, message: "Appointment not found" },
         { status: 404 },
       );
+    }
+
+    const currentPatientId = await getCurrentPatientId();
+    const currentDoctorId = await getCurrentDoctorId();
+
+    if (action === "cancel" || action === "reschedule") {
+      if (!currentPatientId) {
+        return NextResponse.json(
+          { success: false, message: "Unauthorized" },
+          { status: 401 },
+        );
+      }
+
+      if (String(appointment.patient) !== currentPatientId) {
+        return NextResponse.json(
+          { success: false, message: "Forbidden" },
+          { status: 403 },
+        );
+      }
+    }
+
+    if (action === "accept" || action === "reject" || action === "complete") {
+      if (!currentDoctorId) {
+        return NextResponse.json(
+          { success: false, message: "Unauthorized" },
+          { status: 401 },
+        );
+      }
+
+      if (String(appointment.doctor) !== currentDoctorId) {
+        return NextResponse.json(
+          { success: false, message: "Forbidden" },
+          { status: 403 },
+        );
+      }
     }
 
     const doctor = await Doctor.findById(appointment.doctor);
@@ -922,7 +994,10 @@ export async function PATCH(req: Request) {
 
           await emailResponse.json().catch(() => null);
         } catch (emailError) {
-          console.error("[PATCH /api/appointments] send-email failed:", emailError);
+          console.error(
+            "[PATCH /api/appointments] send-email failed:",
+            emailError,
+          );
         }
       }
 
