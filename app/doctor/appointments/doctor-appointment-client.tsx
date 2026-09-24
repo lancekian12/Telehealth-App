@@ -363,6 +363,18 @@ export default function DoctorAppointmentClient() {
     });
   }, [workingHours]);
 
+  const upcomingWorkingHours = useMemo(() => {
+    const todayDateString = getLocalDateString(new Date());
+
+    return [...workingHours]
+      .filter((item) => item.date >= todayDateString)
+      .sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.startTime.localeCompare(b.startTime);
+      });
+  }, [workingHours]);
+
   const blockedEvents = useMemo<EventInput[]>(() => {
     return unavailableSlots.map((slot, index) => {
       const fullDay = isFullBlockedDay(slot);
@@ -608,7 +620,7 @@ export default function DoctorAppointmentClient() {
               <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
                 <div className="flex flex-col gap-4">
                   <WorkingHoursCard
-                    workingHours={workingHours}
+                    workingHours={upcomingWorkingHours}
                     onViewAll={() => setShowAllWorkingHours(true)}
                   />
 
@@ -720,7 +732,7 @@ export default function DoctorAppointmentClient() {
         <WorkingHoursModal
           open={showAllWorkingHours}
           onClose={() => setShowAllWorkingHours(false)}
-          workingHours={workingHours}
+          workingHours={upcomingWorkingHours}
         />
       ) : null}
     </div>
