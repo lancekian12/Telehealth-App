@@ -699,7 +699,7 @@ export default function FindDoctorClient(): JSX.Element {
       className: "custom-doctor-icon",
       html: `
         <div class="h-12 w-12 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
-          <img src="${img}" alt="Doctor" class="h-full w-full object-cover" />
+          <img src="${img}" alt="Doctor" class="h-full w-full object-cover" style="width:100%;height:100%;object-fit:cover;object-position:center;" />
         </div>
       `,
       iconSize: [48, 48],
@@ -841,7 +841,7 @@ export default function FindDoctorClient(): JSX.Element {
   return (
     <div className="flex min-h-[100dvh] flex-col text-slate-900 dark:bg-[#0f172a] dark:text-slate-100">
       <main className="isolate relative flex min-h-[100dvh] flex-col overflow-hidden lg:flex-row">
-        <section className="relative z-30 w-full min-w-0 overflow-y-auto px-4 py-4 pb-24 no-scrollbar sm:px-6 sm:py-6 lg:h-[100dvh] lg:w-1/2 lg:flex-none lg:p-8 dark:bg-[#0f172a]">
+        <section className="relative z-30 w-full min-w-0 overflow-y-auto bg-gradient-to-b from-slate-50 to-white px-4 py-4 pb-24 no-scrollbar sm:px-6 sm:py-6 lg:h-[100dvh] lg:w-1/2 lg:flex-none lg:p-8 dark:bg-[#0f172a] dark:from-transparent dark:to-transparent">
           <div className="relative z-[120] mx-auto max-w-4xl">
             <SearchBar
               query={query}
@@ -896,179 +896,188 @@ export default function FindDoctorClient(): JSX.Element {
               }}
             />
 
-            <div className="mb-5 flex flex-col gap-3 lg:mb-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="min-w-0">
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">
-                  {loadingDoctors
-                    ? "Loading doctors..."
-                    : `${visibleDoctors.length} Doctors in ${
-                        locationQuery === "All areas"
-                          ? "All Areas"
-                          : locationQuery
-                      }`}
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">
-                  Found near Poblacion District &amp; Matina
-                </p>
-
+            {aiLoading ||
+            aiSuggestedSpecializations.length > 0 ||
+            aiError ||
+            doctorError ? (
+              <div className="mb-5 space-y-2 lg:mb-6">
                 {aiLoading ? (
-                  <p className="mt-1 text-sm text-[#008081]">
+                  <p className="inline-flex items-center gap-2 text-sm font-medium text-[#008081]">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#008081] border-t-transparent" />
                     Getting AI doctor suggestions...
                   </p>
                 ) : aiSuggestedSpecializations.length > 0 ? (
-                  <p className="mt-1 text-sm text-[#008081]">
+                  <p className="inline-flex items-center gap-1.5 rounded-full bg-[#008081]/10 px-3 py-1 text-xs font-semibold text-[#008081] dark:bg-[#008081]/20">
+                    <Sparkles size={12} />
                     Suggested: {aiSuggestedSpecializations.join(", ")}
                   </p>
                 ) : aiError ? (
-                  <p className="mt-1 text-sm text-amber-600">{aiError}</p>
+                  <p className="text-sm text-amber-600">{aiError}</p>
                 ) : null}
 
                 {doctorError ? (
-                  <p className="mt-1 text-sm text-red-500">{doctorError}</p>
+                  <p className="text-sm text-red-500">{doctorError}</p>
                 ) : null}
               </div>
+            ) : null}
 
-              <div className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 lg:w-auto">
-                <span className="shrink-0">Sort:</span>
-                <select
-                  value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value);
-                    setPage(1);
-                  }}
-                  className="min-w-0 cursor-pointer border-none bg-transparent p-0 pr-6 text-sm font-semibold text-slate-700 focus:ring-0 dark:text-slate-300"
-                >
-                  <option>Recommended</option>
-                  <option>Highest Rated</option>
-                  <option>Consultation Fee</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-4 sm:space-y-6">
-              {displayed.map((d) => (
-                <article
-                  key={d.id}
-                  data-doctor={d.id}
-                  className="doctor-card group flex flex-col gap-4 rounded-2xl border border-slate-100 bg-white p-4 transition-all hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:gap-6 sm:p-6 lg:flex-row"
-                >
-                  <div className="relative h-48 w-full flex-shrink-0 overflow-hidden rounded-xl sm:h-40 sm:w-40">
-                    <img
-                      src={d.img}
-                      alt={d.name}
-                      className="h-full w-full object-cover shadow-md"
-                    />
-                    <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-slate-100 bg-white/95 px-2 py-0.5 text-xs font-bold shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
-                      <Star size={14} className="text-yellow-400" />
-                      <span>{d.rating.toFixed(1)}</span>
+            <div className="space-y-4 sm:space-y-5">
+              {loadingDoctors
+                ? Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="flex animate-pulse flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-4 dark:border-slate-700 dark:bg-slate-800 sm:gap-6 sm:p-6 lg:flex-row"
+                    >
+                      <div className="h-48 w-full flex-shrink-0 rounded-2xl bg-slate-100 dark:bg-slate-700 sm:h-40 sm:w-40" />
+                      <div className="flex flex-1 flex-col gap-3">
+                        <div className="h-5 w-2/3 rounded-full bg-slate-100 dark:bg-slate-700" />
+                        <div className="h-3 w-1/3 rounded-full bg-slate-100 dark:bg-slate-700" />
+                        <div className="h-3 w-full rounded-full bg-slate-100 dark:bg-slate-700" />
+                        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-700">
+                          <div className="h-8 w-20 rounded-full bg-slate-100 dark:bg-slate-700" />
+                          <div className="h-9 w-32 rounded-full bg-slate-100 dark:bg-slate-700" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))
+                : displayed.map((d) => (
+                    <article
+                      key={d.id}
+                      data-doctor={d.id}
+                      className="doctor-card group flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#008081]/25 hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:gap-6 sm:p-6 lg:flex-row"
+                    >
+                      <div className="relative h-48 w-full flex-shrink-0 overflow-hidden rounded-2xl sm:h-40 sm:w-40">
+                        <img
+                          src={d.img}
+                          alt={d.name}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full border border-slate-100 bg-white/95 px-2.5 py-1 text-xs font-bold text-slate-700 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
+                          <Star size={13} className="fill-yellow-400 text-yellow-400" />
+                          <span>{d.rating.toFixed(1)}</span>
+                        </div>
+                      </div>
 
-                  <div className="z-10 flex flex-1 flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-lg font-bold text-slate-900 transition-colors group-hover:text-[#008081] dark:text-white sm:text-xl">
-                            {d.name}
-                          </h3>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-bold text-[#008081]">
-                              {d.specialty}
-                            </p>
-                            <span className="h-1 w-1 rounded-full bg-slate-300" />
-                            <p className="text-xs text-slate-500">
-                              {d.hospital}
-                            </p>
+                      <div className="z-10 flex flex-1 flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="truncate text-lg font-bold text-slate-900 transition-colors group-hover:text-[#008081] dark:text-white sm:text-xl">
+                                {d.name}
+                              </h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-[#008081]/10 px-2.5 py-0.5 text-xs font-bold text-[#008081] dark:bg-[#008081]/20">
+                                  {d.specialty}
+                                </span>
+                                <p className="truncate text-xs text-slate-500">
+                                  {d.hospital}
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                              aria-label="favorite"
+                            >
+                              <Heart size={18} />
+                            </button>
+                          </div>
+
+                          <p className="mt-3 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
+                            {d.specialty} with years of experience — patient-centered
+                            care, board certifications and community trust.
+                          </p>
+
+                          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-medium">
+                            {d.tags?.map((tag) => (
+                              <div
+                                key={tag}
+                                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${
+                                  tag.includes("Accepting")
+                                    ? "bg-green-50 text-[#81B641] dark:bg-green-900/20"
+                                    : tag === "Verified"
+                                      ? "bg-[#008081]/10 text-[#008081] dark:bg-[#008081]/20"
+                                      : "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-300"
+                                }`}
+                              >
+                                {tag.includes("Online") ? (
+                                  <Video size={14} />
+                                ) : tag.toLowerCase().includes("language") ? (
+                                  <Globe size={14} />
+                                ) : (
+                                  <Stethoscope size={14} />
+                                )}
+                                <span className="text-[11px]">{tag}</span>
+                              </div>
+                            ))}
+
+                            <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-500 dark:bg-slate-700/50 dark:text-slate-300">
+                              <span className="text-[#008081]">
+                                <MapIcon size={14} />
+                              </span>
+                              <span className="text-[11px]">{d.locationLabel}</span>
+                            </div>
                           </div>
                         </div>
 
-                        <button
-                          className="p-1 text-slate-300 transition-colors hover:text-red-500"
-                          aria-label="favorite"
-                        >
-                          <Heart size={18} />
-                        </button>
-                      </div>
-
-                      <p className="mt-3 line-clamp-2 text-sm text-slate-500">
-                        {d.specialty} with years of experience — patient-centered
-                        care, board certifications and community trust.
-                      </p>
-
-                      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium text-slate-500">
-                        {d.tags?.map((tag) => (
-                          <div
-                            key={tag}
-                            className={`flex items-center gap-1.5 rounded px-2 py-1 ${
-                              tag.includes("Accepting")
-                                ? "bg-green-50 text-[#81B641] dark:bg-green-900/20"
-                                : "bg-slate-100 dark:bg-slate-700/50"
-                            }`}
-                          >
-                            {tag.includes("Online") ? (
-                              <Video size={14} />
-                            ) : tag.toLowerCase().includes("language") ? (
-                              <Globe size={14} />
-                            ) : (
-                              <Stethoscope size={14} />
-                            )}
-                            <span className="text-[11px]">{tag}</span>
+                        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <span className="mb-0.5 block text-xs text-slate-400">
+                              Consultation Fee
+                            </span>
+                            <div className="text-lg font-bold text-slate-900 dark:text-white">
+                              ₱{d.fee}{" "}
+                              <span className="text-xs font-normal text-slate-400">
+                                / visit
+                              </span>
+                            </div>
                           </div>
-                        ))}
 
-                        <div className="flex items-center gap-1.5 rounded bg-slate-100 px-2 py-1 dark:bg-slate-700/50">
-                          <span className="text-[#008081]">
-                            <MapIcon size={14} />
-                          </span>
-                          <span className="text-[11px]">{d.locationLabel}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <span className="mb-0.5 block text-xs text-slate-400">
-                          Consultation Fee
-                        </span>
-                        <div className="text-lg font-bold text-slate-900 dark:text-white">
-                          ₱{d.fee}{" "}
-                          <span className="text-xs font-normal text-slate-400">
-                            / visit
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex w-full items-center gap-3 sm:w-auto">
-                        {hasMounted && (
-                          <>
-                            {d.status === "fully_booked" ? (
-                              <button
-                                className="w-full cursor-not-allowed rounded-full bg-slate-100 px-6 py-2.5 text-sm font-bold text-slate-400 sm:w-auto"
-                                disabled
-                              >
-                                Fully Booked
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => openAvailabilityPanel(d)}
-                                className="w-full rounded-full bg-[#008081] px-6 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#00736f] hover:shadow-xl sm:w-auto"
-                              >
-                                Book Consultation
-                              </button>
+                          <div className="flex w-full items-center gap-3 sm:w-auto">
+                            {hasMounted && (
+                              <>
+                                {d.status === "fully_booked" ? (
+                                  <button
+                                    className="w-full cursor-not-allowed rounded-full bg-slate-100 px-6 py-2.5 text-sm font-bold text-slate-400 dark:bg-slate-700 dark:text-slate-500 sm:w-auto"
+                                    disabled
+                                  >
+                                    Fully Booked
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => openAvailabilityPanel(d)}
+                                    className="w-full rounded-full bg-[#008081] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#008081]/20 transition-all hover:bg-[#00736f] hover:shadow-xl sm:w-auto"
+                                  >
+                                    Book Consultation
+                                  </button>
+                                )}
+                              </>
                             )}
-                          </>
-                        )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </article>
+                  ))}
+
+              {!loadingDoctors && displayed.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#008081]/10 text-[#008081] dark:bg-[#008081]/20">
+                    <Stethoscope size={22} />
                   </div>
-                </article>
-              ))}
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    No doctors match your search
+                  </p>
+                  <p className="mt-1 max-w-xs text-xs text-slate-400">
+                    Try adjusting your filters, location, or search keywords.
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <div className="mb-10 mt-6 flex justify-center">
               <button
                 onClick={loadMore}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-[#008081]/20 px-8 py-3 font-bold text-[#008081] transition-colors hover:bg-[#008081]/5 sm:w-auto"
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-[#008081]/20 bg-white px-8 py-3 font-bold text-[#008081] shadow-sm transition-colors hover:bg-[#008081]/5 dark:bg-slate-800 sm:w-auto"
               >
                 {isAllLoaded ? "Show Less" : "Load More Specialists"}
                 <RefreshCw size={18} />

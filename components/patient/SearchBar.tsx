@@ -121,56 +121,48 @@ export default function SearchBar({
 
   return (
     <div className="mb-6 space-y-4">
-      <div className="flex flex-col gap-2 md:flex-row">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:flex-row md:items-stretch">
         <button
           type="button"
           onClick={() => setSearchOpen((prev) => !prev)}
-          className="flex w-full flex-1 items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-slate-50"
+          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
         >
-          <span className="text-slate-400">
+          <span className="shrink-0 text-slate-400">
             {searchOpen ? <X size={18} /> : <Search size={18} />}
           </span>
 
-          <div className="min-w-0 flex-1">
-            <p
-              className={`truncate text-sm font-medium ${
-                query.trim() ? "text-slate-900" : "text-slate-400"
-              }`}
-            >
-              {queryText}
-            </p>
-          </div>
+          <p
+            className={`min-w-0 flex-1 truncate text-sm font-medium ${
+              query.trim() ? "text-slate-900" : "text-slate-400"
+            }`}
+          >
+            {queryText}
+          </p>
         </button>
+
+        <div className="h-px w-full bg-slate-100 md:h-auto md:w-px" />
 
         <button
           type="button"
           onClick={() => setLocationOpen(true)}
-          className="flex w-full items-center justify-between gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-sm transition-colors hover:bg-slate-50 md:w-72"
+          className="flex min-w-0 items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-slate-50 md:w-56"
         >
-          <div className="flex min-w-0 items-center gap-2">
-            <MapPin size={16} className="shrink-0 text-[#008081]" />
-            <div className="min-w-0 text-left">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                Location
-              </p>
-              <span
-                className={`block truncate text-sm font-medium ${
-                  locationQuery.trim() ? "text-slate-900" : "text-slate-400"
-                }`}
-              >
-                {locationText}
-              </span>
-            </div>
-          </div>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-            Pick area
+          <MapPin size={16} className="shrink-0 text-[#008081]" />
+          <span
+            className={`min-w-0 flex-1 truncate text-sm font-medium ${
+              locationQuery.trim() ? "text-slate-900" : "text-slate-400"
+            }`}
+          >
+            {locationText}
           </span>
         </button>
+
+        <div className="h-px w-full bg-slate-100 md:h-auto md:w-px" />
 
         <button
           type="button"
           onClick={onOpenFilters}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50 md:w-auto"
+          className="flex items-center justify-center gap-2 px-5 py-3 font-medium text-slate-600 transition-colors hover:bg-slate-50"
         >
           <Sliders size={16} />
           Filters
