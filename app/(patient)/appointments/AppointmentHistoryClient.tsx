@@ -933,6 +933,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
             </div>
           </div>
         </div>
+        
       )}
     </div>
   );

@@ -19,7 +19,6 @@ export default function Navigation() {
   const [notificationOpen, setNotificationOpen] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
-  const notificationRef = useRef<HTMLDivElement>(null);
 
   const setPatient = useAuthStore((state) => state.setPatient);
   const patient = useAuthStore((state) => state.patient);
@@ -120,15 +119,21 @@ export default function Navigation() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
+      const targetElement = target instanceof Element ? target : null;
 
       if (profileRef.current && !profileRef.current.contains(target)) {
         setProfileOpen(false);
       }
 
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(target)
-      ) {
+      // The notification panel renders through a portal on mobile, so it is
+      // never a DOM descendant of any wrapper ref — check via data
+      // attributes instead, or clicks on the trigger button / inside the
+      // panel would be treated as "outside" and close it prematurely.
+      const insideNotificationUI = !!targetElement?.closest(
+        '[data-notification-panel="true"], [data-notification-trigger="true"]',
+      );
+
+      if (!insideNotificationUI) {
         setNotificationOpen(false);
       }
     };
@@ -154,8 +159,7 @@ export default function Navigation() {
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await Promise.resolve(markAsRead(notificationId));
-      await refreshNotifications();
+      await markAsRead(notificationId);
     } catch (error) {
       console.log("markAsRead error:", error);
     }
@@ -163,17 +167,20 @@ export default function Navigation() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await Promise.resolve(markAllAsRead());
-      await refreshNotifications();
+      await markAllAsRead();
     } catch (error) {
       console.log("markAllAsRead error:", error);
     }
   };
 
-  const renderBell = (mobile = false) => (
-    <div ref={notificationRef} className="relative flex items-center justify-center">
+  // withPanel must be true for exactly one call site. Mounting NotificationModal
+  // per bell instance meant every trigger location rendered its own portal,
+  // stacking duplicate panels/backdrops on top of each other on mobile.
+  const renderBell = (mobile = false, withPanel = false) => (
+    <div className="relative flex items-center justify-center">
       <button
         type="button"
+        data-notification-trigger="true"
         onClick={() => setNotificationOpen((prev) => !prev)}
         aria-label="Open notifications"
         aria-expanded={notificationOpen}
@@ -193,14 +200,16 @@ export default function Navigation() {
         )}
       </button>
 
-      <NotificationModal
-        open={notificationOpen}
-        onClose={() => setNotificationOpen(false)}
-        notifications={notifications}
-        loading={notificationLoading}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-      />
+      {withPanel && (
+        <NotificationModal
+          open={notificationOpen}
+          onClose={() => setNotificationOpen(false)}
+          notifications={notifications}
+          loading={notificationLoading}
+          onMarkAsRead={handleMarkAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+        />
+      )}
     </div>
   );
 
@@ -261,7 +270,7 @@ export default function Navigation() {
                   <div className="h-12 w-px bg-slate-200" />
 
                   <div className="flex items-center gap-3">
-                    {renderBell(false)}
+                    {renderBell(false, true)}
 
                     <div className="text-right leading-tight">
                       <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">

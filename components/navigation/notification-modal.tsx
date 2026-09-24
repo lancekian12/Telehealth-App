@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, X } from "lucide-react";
 
 export type NotificationItem = {
@@ -78,6 +79,7 @@ export default function NotificationModal({
   onMarkAsRead,
   onMarkAllAsRead,
 }: NotificationModalProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -121,6 +123,7 @@ export default function NotificationModal({
 
   const panel = (
     <div
+      data-notification-panel="true"
       className={[
         "z-[10000] overflow-hidden border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95",
         isMobile
@@ -129,6 +132,7 @@ export default function NotificationModal({
       ].join(" ")}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 md:px-4 md:py-3">
@@ -187,7 +191,13 @@ export default function NotificationModal({
                   key={item._id}
                   type="button"
                   onClick={async () => {
-                    await onMarkAsRead(item._id);
+                    if (!isRead) {
+                      await onMarkAsRead(item._id);
+                    }
+                    onClose();
+                    if (item.href) {
+                      router.push(item.href);
+                    }
                   }}
                   className={[
                     "mb-2 flex w-full cursor-pointer touch-manipulation gap-3 rounded-xl border px-3 py-3 text-left transition-all duration-200 outline-none active:scale-[0.99]",
