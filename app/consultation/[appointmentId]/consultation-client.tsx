@@ -13,6 +13,7 @@ import "@stream-io/video-react-sdk/dist/css/styles.css";
 import { useEffect, useState } from "react";
 import { Call } from "@stream-io/video-client";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import ConfirmDialog from "@/components/modal/ConfirmDialog";
 
 type Props = {
   currentUserRole?: "doctor" | "patient";
@@ -37,6 +38,42 @@ export default function ConsultationClient({ currentUserRole }: Props) {
 
   const [call, setCall] = useState<Call | null>(null);
   const [isLoadingCall, setIsLoadingCall] = useState(true);
+  const [endDialogOpen, setEndDialogOpen] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const [endError, setEndError] = useState<string | null>(null);
+
+  async function confirmEndConsultation() {
+    if (!appointmentId) return;
+    setEnding(true);
+    setEndError(null);
+    try {
+      const res = await fetch("/api/appointments", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId, action: "end_consultation" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to end consultation");
+      }
+      router.replace("/appointments");
+    } catch (error) {
+      setEndError(
+        error instanceof Error ? error.message : "Failed to end consultation",
+      );
+      setEnding(false);
+    }
+  }
+
+  async function rejoinCall() {
+    setEndDialogOpen(false);
+    setEndError(null);
+    try {
+      await call?.join();
+    } catch (error) {
+      console.error("Failed to rejoin call:", error);
+    }
+  }
 
   useEffect(() => {
     if (!client || !roomId) return;
@@ -118,13 +155,28 @@ export default function ConsultationClient({ currentUserRole }: Props) {
                         : "/doctor/prescription",
                     );
                   } else {
-                    router.replace("/appointments");
+                    setEndDialogOpen(true);
                   }
                 })();
               }}
             />
           </div>
         </div>
+
+        <ConfirmDialog
+          open={endDialogOpen}
+          danger={false}
+          loading={ending}
+          title="End your consultation?"
+          description={
+            endError ??
+            "You've left the call. Confirming marks your consultation as completed — your prescription will stay pending until the doctor provides it."
+          }
+          confirmLabel="Yes, end consultation"
+          cancelLabel="Rejoin call"
+          onConfirm={confirmEndConsultation}
+          onCancel={rejoinCall}
+        />
       </StreamTheme>
     </StreamCall>
   );

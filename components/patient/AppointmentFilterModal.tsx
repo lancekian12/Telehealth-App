@@ -13,8 +13,11 @@ export type FilterStatus =
   | "all"
   | "pending"
   | "accepted"
-  | "rejected"
-  | "completed";
+  | "ongoing"
+  | "completed"
+  | "unattended"
+  | "cancelled"
+  | "rejected";
 
 type AppointmentFilterModalProps = {
   open: boolean;
@@ -25,8 +28,11 @@ type AppointmentFilterModalProps = {
     all: number;
     pending: number;
     accepted: number;
-    rejected: number;
+    ongoing: number;
     completed: number;
+    unattended: number;
+    cancelled: number;
+    rejected: number;
   };
 };
 
@@ -58,8 +64,11 @@ export default function AppointmentFilterModal({
     { key: "all", label: "All", count: counts.all },
     { key: "pending", label: "Pending", count: counts.pending },
     { key: "accepted", label: "Accepted", count: counts.accepted },
-    { key: "rejected", label: "Rejected", count: counts.rejected },
+    { key: "ongoing", label: "Ongoing", count: counts.ongoing },
     { key: "completed", label: "Completed", count: counts.completed },
+    { key: "unattended", label: "Unattended", count: counts.unattended },
+    { key: "cancelled", label: "Cancelled", count: counts.cancelled },
+    { key: "rejected", label: "Rejected", count: counts.rejected },
   ];
 
   return (

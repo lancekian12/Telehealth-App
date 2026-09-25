@@ -9,6 +9,9 @@ export type AppointmentItem = {
   consultationSessionLink?: string;
   consultationSessionId?: string;
   cancellationReason?: string;
+  cancelledAt?: string | null;
+  completedAt?: string | null;
+  prescription?: unknown;
   reasonForVisit?: string;
   rejectionReason?: string;
   rescheduleReason?: string;
@@ -34,7 +37,8 @@ export type AppointmentStatus =
   | "accepted"
   | "rejected"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "unattended";
 
 export type ConsultationType = "video" | "in_person";
 

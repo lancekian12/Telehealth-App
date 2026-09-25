@@ -121,7 +121,20 @@ export default function Navigation() {
       const target = event.target as Node;
       const targetElement = target instanceof Element ? target : null;
 
-      if (profileRef.current && !profileRef.current.contains(target)) {
+      // Confirm dialogs (e.g. the logout confirmation inside this dropdown)
+      // render through a portal at document.body, so they're never a DOM
+      // descendant of profileRef — without this exemption, clicking inside
+      // one closes the dropdown first and unmounts the dialog before its
+      // own click handler can run.
+      const insideConfirmDialog = !!targetElement?.closest(
+        '[data-confirm-dialog="true"]',
+      );
+
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(target) &&
+        !insideConfirmDialog
+      ) {
         setProfileOpen(false);
       }
 
@@ -133,7 +146,7 @@ export default function Navigation() {
         '[data-notification-panel="true"], [data-notification-trigger="true"]',
       );
 
-      if (!insideNotificationUI) {
+      if (!insideNotificationUI && !insideConfirmDialog) {
         setNotificationOpen(false);
       }
     };
@@ -442,9 +455,7 @@ export default function Navigation() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1">{renderBell(true)}</div>
                       <div className="flex-1">
-                        <div onClick={() => setMenuOpen(false)}>
-                          <Logout />
-                        </div>
+                        <Logout />
                       </div>
                     </div>
                   </div>

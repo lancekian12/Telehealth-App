@@ -5,6 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import CancelAppointmentModal from "@/components/patient/CancelAppointmentModal";
 import RescheduleAppointmentModal from "@/components/patient/RescheduleAppointmentModal";
 import AppointmentFilterModal from "@/components/patient/AppointmentFilterModal";
+import {
+  resolveDisplayStatus,
+  hasPrescription,
+  STATUS_LABELS,
+  type DisplayStatus,
+} from "@/config/appointmentStatus";
 import AppointmentTracker, {
   type TrackerStage,
 } from "@/components/patient/AppointmentTracker";
@@ -24,7 +30,15 @@ import {
   DoctorWorkingHour,
 } from "@/types/appointment";
 
-type FilterStatus = "all" | "pending" | "accepted" | "rejected" | "completed";
+type FilterStatus =
+  | "all"
+  | "pending"
+  | "accepted"
+  | "ongoing"
+  | "completed"
+  | "unattended"
+  | "cancelled"
+  | "rejected";
 
 function getDateOnly(value: string) {
   if (!value) return "";
@@ -71,26 +85,13 @@ function getAppointmentDateTime(appointment: AppointmentItem) {
 }
 
 function getTrackerStage(appointment: AppointmentItem): TrackerStage | null {
-  if (appointment.status === "pending") return "pending";
-  if (appointment.status === "completed") return "completed";
-
-  if (appointment.status === "accepted") {
-    const dateKey = getDateOnly(String(appointment.appointmentDate || ""));
-    const todayKey = getDateOnly(new Date().toISOString());
-
-    if (dateKey === todayKey && appointment.startTime && appointment.endTime) {
-      const now = new Date();
-      const start = new Date(`${dateKey}T${appointment.startTime}:00`);
-      const end = new Date(`${dateKey}T${appointment.endTime}:00`);
-
-      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
-        if (now >= start && now < end) return "in_progress";
-      }
-    }
-
-    return "accepted";
+  const ds = resolveDisplayStatus(appointment);
+  if (ds === "pending") return "pending";
+  if (ds === "accepted") return "accepted";
+  if (ds === "ongoing") return "in_progress";
+  if (ds === "completed") {
+    return hasPrescription(appointment) ? "prescription" : "completed";
   }
-
   return null;
 }
 
@@ -123,48 +124,55 @@ function formatSmallDate(date: Date | null) {
   });
 }
 
-function statusBadge(status: AppointmentStatus) {
+function statusBadge(status: DisplayStatus) {
   switch (status) {
     case "accepted":
       return "bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary";
+    case "ongoing":
+      return "bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300";
     case "pending":
       return "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300";
     case "completed":
       return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300";
     case "rejected":
       return "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300";
+    case "unattended":
+      return "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300";
     case "cancelled":
-      return "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400";
+      return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
     default:
       return "bg-slate-100 text-slate-600";
   }
 }
 
-function statusLabel(status: AppointmentStatus) {
-  switch (status) {
-    case "pending":
-      return "Pending";
-    case "accepted":
-      return "Accepted";
-    case "completed":
-      return "Completed";
-    case "rejected":
-      return "Rejected";
-    case "cancelled":
-      return "Cancelled";
-    default:
-      return status;
-  }
+function statusLabel(status: DisplayStatus) {
+  return STATUS_LABELS[status] ?? status;
 }
 
 function getAppointmentPriority(appointment: AppointmentItem) {
-  if (appointment.status === "accepted") return 0;
-  if (appointment.status === "pending" && !appointment.rescheduleReason) return 1;
-  if (appointment.status === "pending" && appointment.rescheduleReason) return 2;
-  if (appointment.status === "rejected") return 3;
-  if (appointment.status === "cancelled") return 4;
-  if (appointment.status === "completed") return 5;
-  return 6;
+  const ds = resolveDisplayStatus(appointment);
+  if (ds === "ongoing") return 0;
+  if (ds === "accepted") return 1;
+  if (ds === "pending" && !appointment.rescheduleReason) return 2;
+  if (ds === "pending" && appointment.rescheduleReason) return 3;
+  if (ds === "completed") return hasPrescription(appointment) ? 6 : 4;
+  if (ds === "unattended") return 5;
+  if (ds === "rejected") return 7;
+  if (ds === "cancelled") return 8;
+  return 9;
+}
+
+function formatFullDate(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function getDirectionsUrl(address: string) {
@@ -489,7 +497,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
       activeFilter === "all"
         ? appointments
         : appointments.filter(
-            (appointment) => appointment.status === activeFilter,
+            (appointment) => resolveDisplayStatus(appointment) === activeFilter,
           );
 
     return [...filtered].sort((a, b) => {
@@ -512,13 +520,11 @@ export default function AppointmentHistoryClient(): JSX.Element {
   const hasMoreAppointments = visibleCount < visibleAppointments.length;
 
   const counts = useMemo(() => {
-    return {
-      all: appointments.length,
-      pending: appointments.filter((a) => a.status === "pending").length,
-      accepted: appointments.filter((a) => a.status === "accepted").length,
-      rejected: appointments.filter((a) => a.status === "rejected").length,
-      completed: appointments.filter((a) => a.status === "completed").length,
-    };
+    const byStatus = { pending: 0, accepted: 0, ongoing: 0, completed: 0, unattended: 0, cancelled: 0, rejected: 0 };
+    for (const item of appointments) {
+      byStatus[resolveDisplayStatus(item) as keyof typeof byStatus] += 1;
+    }
+    return { all: appointments.length, ...byStatus };
   }, [appointments]);
 
   return (
@@ -581,8 +587,9 @@ export default function AppointmentHistoryClient(): JSX.Element {
             {paginatedAppointments.map((a, index) => {
               const appointmentDateTime = getAppointmentDateTime(a);
               const isVideo = a.consultationType === "video";
+              const ds = resolveDisplayStatus(a);
               const isRescheduled =
-                a.status === "pending" && Boolean(a.rescheduleReason);
+                ds === "pending" && Boolean(a.rescheduleReason);
               const isLast = index === paginatedAppointments.length - 1;
               const trackerStage = getTrackerStage(a);
 
@@ -610,17 +617,19 @@ export default function AppointmentHistoryClient(): JSX.Element {
                   <div className="relative z-10 shrink-0">
                     <div
                       className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ring-4 ring-white dark:ring-background-dark ${
-                        a.status === "accepted"
+                        (ds === "accepted" || ds === "ongoing")
                           ? "bg-primary text-white"
-                          : a.status === "pending"
+                          : ds === "pending"
                             ? isRescheduled
                               ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
                               : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                            : a.status === "completed"
+                            : ds === "completed"
                               ? "bg-emerald-500 text-white"
-                              : a.status === "rejected"
+                              : ds === "rejected"
                                 ? "bg-rose-500 text-white"
-                                : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                                : ds === "unattended"
+                                  ? "bg-orange-100 text-orange-600 dark:bg-orange-900/30"
+                                  : "bg-slate-200 dark:bg-slate-800 text-slate-500"
                       }`}
                     >
                       {isVideo ? <Video size={20} /> : <MapPin size={20} />}
@@ -630,23 +639,25 @@ export default function AppointmentHistoryClient(): JSX.Element {
                   <div className="flex-1">
                     <div
                       className={`glass-panel rounded-2xl p-6 hover:shadow-xl transition-shadow relative overflow-hidden border-l-4 ${
-                        a.status === "accepted"
+                        ds === "accepted" || ds === "ongoing"
                           ? "border-l-primary"
-                          : a.status === "pending"
+                          : ds === "pending"
                             ? isRescheduled
                               ? "border-l-violet-400"
                               : "border-l-amber-400"
-                            : a.status === "completed"
+                            : ds === "completed"
                               ? "border-l-emerald-500"
-                              : a.status === "rejected"
+                              : ds === "rejected"
                                 ? "border-l-rose-500"
-                                : "border-l-slate-300 dark:border-l-slate-600"
+                                : ds === "unattended"
+                                  ? "border-l-orange-400"
+                                  : "border-l-slate-300 dark:border-l-slate-600"
                       }`}
                     >
                       <div className="flex flex-col md:flex-row gap-6 relative z-10">
                         <div
                           className={`flex gap-4 items-start ${
-                            a.status === "completed" || a.status === "cancelled"
+                            ds === "completed" || ds === "cancelled"
                               ? "opacity-90"
                               : ""
                           }`}
@@ -656,8 +667,8 @@ export default function AppointmentHistoryClient(): JSX.Element {
                               <img
                                 alt={getDoctorName(a)}
                                 className={`w-16 h-16 rounded-2xl object-cover shadow-md transition-all ${
-                                  a.status === "completed" ||
-                                  a.status === "cancelled"
+                                  ds === "completed" ||
+                                  ds === "cancelled"
                                     ? "grayscale opacity-80"
                                     : ""
                                 }`}
@@ -675,8 +686,8 @@ export default function AppointmentHistoryClient(): JSX.Element {
                               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                                 {getDoctorName(a)}
                               </h3>
-                              <span className={`status-badge ${statusBadge(a.status)}`}>
-                                {isRescheduled ? "Rescheduled" : statusLabel(a.status)}
+                              <span className={`status-badge ${statusBadge(ds)}`}>
+                                {isRescheduled ? "Rescheduled" : statusLabel(ds)}
                               </span>
                             </div>
 
@@ -715,7 +726,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
                             </p>
                           )}
 
-                          {a.status === "pending" && (
+                          {ds === "pending" && (
                             <p className="text-sm font-medium text-primary mb-1">
                               {isRescheduled
                                 ? "Waiting for new schedule confirmation"
@@ -723,20 +734,75 @@ export default function AppointmentHistoryClient(): JSX.Element {
                             </p>
                           )}
 
-                          {a.status === "pending" && a.rescheduleReason && (
+                          {ds === "pending" && a.rescheduleReason && (
                             <p className="text-sm text-violet-600 dark:text-violet-300 mb-1">
                               Reschedule reason: {a.rescheduleReason}
                             </p>
                           )}
 
-                          {a.status === "rejected" && a.rejectionReason && (
+                          {ds === "ongoing" && (
+                            <p className="text-sm font-medium text-sky-600 dark:text-sky-300 mb-1">
+                              Your consultation is happening now
+                            </p>
+                          )}
+
+                          {ds === "completed" && (
+                            <div
+                              className={`rounded-xl px-3 py-2 text-sm ${
+                                hasPrescription(a)
+                                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                                  : "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+                              }`}
+                            >
+                              <p className="font-semibold">
+                                {hasPrescription(a)
+                                  ? "Prescription ready"
+                                  : "Prescription pending"}
+                              </p>
+                              <p className="text-xs opacity-90">
+                                {hasPrescription(a)
+                                  ? "Your doctor has issued your prescription."
+                                  : "Waiting for your doctor to provide the prescription."}
+                                {a.completedAt
+                                  ? ` Consultation ended ${formatFullDate(a.completedAt)}.`
+                                  : ""}
+                              </p>
+                            </div>
+                          )}
+
+                          {ds === "unattended" && (
+                            <div className="rounded-xl bg-orange-50 px-3 py-2 text-sm text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
+                              <p className="font-semibold">Unattended</p>
+                              <p className="text-xs opacity-90">
+                                The scheduled time passed without the
+                                consultation taking place.
+                              </p>
+                            </div>
+                          )}
+
+                          {ds === "cancelled" && (
+                            <div className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              <p className="font-semibold">
+                                Cancelled by you
+                                {a.cancelledAt
+                                  ? ` on ${formatFullDate(a.cancelledAt)}`
+                                  : ""}
+                              </p>
+                              <p className="text-xs opacity-90">
+                                Reason:{" "}
+                                {a.cancellationReason || "No reason provided"}
+                              </p>
+                            </div>
+                          )}
+
+                          {ds === "rejected" && a.rejectionReason && (
                             <p className="text-sm text-rose-500 mb-1">
                               {a.rejectionReason}
                             </p>
                           )}
 
                           <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                            {a.status === "pending" && (
+                            {ds === "pending" && (
                               <>
                                 <button
                                   onClick={() => {
@@ -759,7 +825,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
                               </>
                             )}
 
-                            {a.status === "accepted" && (
+                            {(ds === "accepted" || ds === "ongoing") && (
                               <>
                                 {isVideo ? (
                                   <button
@@ -786,15 +852,17 @@ export default function AppointmentHistoryClient(): JSX.Element {
                               </>
                             )}
 
-                            {a.status === "completed" && (
+                            {ds === "completed" && (
                               <>
-                                <button
-                                  onClick={() => router.push("/medicalrecords")}
-                                  className="flex-1 md:flex-none px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/50 font-medium text-sm transition-colors flex items-center justify-center gap-2"
-                                >
-                                  <RefreshCw size={16} />
-                                  View Prescription
-                                </button>
+                                {hasPrescription(a) && (
+                                  <button
+                                    onClick={() => router.push("/medicalrecords")}
+                                    className="flex-1 md:flex-none px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary/50 font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                                  >
+                                    <RefreshCw size={16} />
+                                    View Prescription
+                                  </button>
+                                )}
 
                                 <button
                                   onClick={() => router.push("/finddoctor")}
@@ -805,13 +873,16 @@ export default function AppointmentHistoryClient(): JSX.Element {
                               </>
                             )}
 
-                            {a.status === "cancelled" && (
-                              <p className="text-xs text-slate-400 italic">
-                                Cancelled
-                              </p>
+                            {(ds === "cancelled" || ds === "unattended") && (
+                              <button
+                                onClick={() => router.push("/finddoctor")}
+                                className="flex-1 md:flex-none px-4 py-2 rounded-lg text-primary hover:bg-primary/5 font-medium text-sm transition-colors"
+                              >
+                                Book Again
+                              </button>
                             )}
 
-                            {a.status === "rejected" && (
+                            {ds === "rejected" && (
                               <p className="text-xs text-slate-400 italic">
                                 Rejected
                               </p>

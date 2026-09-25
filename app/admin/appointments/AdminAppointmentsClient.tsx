@@ -8,6 +8,7 @@ import {
   Clock,
   Loader2,
   MapPin,
+  MoreHorizontal,
   Search,
   Stethoscope,
   Video,
@@ -25,11 +26,11 @@ const COLUMN_CONFIG: {
   dotClass: string;
   borderClass: string;
 }[] = [
-  { key: "pending", label: "Pending", dotClass: "bg-amber-500", borderClass: "border-l-amber-400" },
-  { key: "confirmed", label: "Confirmed", dotClass: "bg-sky-500", borderClass: "border-l-sky-400" },
-  { key: "in_progress", label: "In-Progress", dotClass: "bg-emerald-500", borderClass: "border-l-emerald-400" },
+  { key: "pending", label: "Pending", dotClass: "bg-orange-400", borderClass: "border-l-slate-200" },
+  { key: "confirmed", label: "Confirmed", dotClass: "bg-blue-400", borderClass: "border-l-primary" },
+  { key: "in_progress", label: "In-Progress", dotClass: "bg-secondary", borderClass: "border-l-secondary" },
   { key: "completed", label: "Completed", dotClass: "bg-slate-400", borderClass: "border-l-slate-300" },
-  { key: "cancelled", label: "Cancelled / Rejected", dotClass: "bg-rose-500", borderClass: "border-l-rose-400" },
+  { key: "cancelled", label: "Cancelled / Unattended", dotClass: "bg-rose-500", borderClass: "border-l-rose-400" },
 ];
 
 function initials(name: string) {
@@ -90,50 +91,64 @@ function AppointmentCard({ card }: { card: AppointmentBoardCard }) {
 
   return (
     <div
-      className={`rounded-2xl border border-slate-100 border-l-4 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${
+      className={`rounded-xl border border-slate-200/70 border-l-[4px] p-5 shadow-sm transition-shadow hover:shadow-md ${
         COLUMN_CONFIG.find((c) => c.key === card.column)?.borderClass
-      } ${isLive ? "bg-emerald-50/40" : ""} ${isCancelled ? "opacity-75" : ""}`}
+      } ${isLive ? "bg-secondary/10" : "bg-white"} ${isCancelled ? "opacity-75" : ""}`}
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-3 flex items-center justify-between gap-2">
         {isLive ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-600" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/20 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-secondary">
+            <span className="h-1.5 w-1.5 rounded-full bg-secondary" />
             Live
           </span>
         ) : (
-          <span className="truncate rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+          <span
+            className={`max-w-[60%] truncate rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
+              card.column === "confirmed"
+                ? "border border-primary/25 bg-primary/5 text-primary"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
             {card.doctorSpecialization || card.status}
           </span>
         )}
-        <span className="shrink-0 font-mono text-[11px] text-slate-400">
+        <span className="shrink-0 text-xs font-medium text-slate-400">
           #AP-{card.shortId}
         </span>
       </div>
 
-      <p className="truncate font-bold text-slate-900">{card.patientName}</p>
+      <p className="truncate text-base font-bold text-slate-900">
+        {card.patientName}
+      </p>
 
-      <div className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
-        <Stethoscope size={13} />
+      <div className="mt-1.5 flex items-center gap-2 text-sm text-slate-500">
+        <Stethoscope size={14} className="shrink-0" />
         <span className="truncate">{card.doctorName}</span>
       </div>
 
-      <div className="mt-1 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+      <div className="mt-2.5 flex items-center gap-2 text-xs font-bold text-primary">
         {card.consultationType === "video" ? (
-          <Video size={13} />
+          <Video size={14} />
         ) : (
-          <MapPin size={13} />
+          <MapPin size={14} className="text-secondary" />
         )}
-        {card.consultationType === "video" ? "Online" : "Clinic"}
+        <span className={card.consultationType === "video" ? "" : "text-secondary"}>
+          {card.consultationType === "video" ? "Online" : "Clinic"}
+        </span>
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-          <Clock size={13} className="text-slate-400" />
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
+        <span
+          className={`flex items-center gap-2 text-sm font-bold ${
+            isLive ? "text-secondary" : "text-slate-800"
+          }`}
+        >
+          <Clock size={15} className={isLive ? "text-secondary" : "text-slate-500"} />
           {isLive
             ? `Started: ${formatTime12(card.startTime)}`
             : formatTime12(card.startTime)}
         </span>
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-600">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-700">
           {initials(card.patientName)}
         </span>
       </div>
@@ -254,27 +269,28 @@ export default function AdminAppointmentsClient() {
               <Loader2 size={22} className="animate-spin text-primary" />
             </div>
           ) : (
-            <div className="flex gap-4 overflow-x-auto rounded-3xl border border-slate-100 bg-white/40 p-4">
+            <div className="flex gap-7 overflow-x-auto pb-4">
               {COLUMN_CONFIG.map((col) => {
                 const cards = columns[col.key];
                 return (
                   <div
                     key={col.key}
-                    className="flex max-h-[65vh] w-72 shrink-0 flex-col rounded-2xl border border-slate-100 bg-white shadow-sm"
+                    className="flex max-h-[68vh] w-[340px] shrink-0 flex-col rounded-3xl border border-slate-200/60 bg-slate-50/70 shadow-sm"
                   >
-                    <div className="flex shrink-0 items-center justify-between rounded-t-2xl border-b border-slate-100 bg-white p-4">
-                      <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center justify-between px-6 pb-3 pt-6">
+                      <div className="flex items-center gap-3">
                         <span className={`h-2.5 w-2.5 rounded-full ${col.dotClass}`} />
-                        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
+                        <h2 className="text-base font-extrabold uppercase tracking-wide text-slate-800">
                           {col.label}
                         </h2>
+                        <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-slate-200/70 px-2 text-sm font-bold text-slate-600">
+                          {cards.length}
+                        </span>
                       </div>
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">
-                        {cards.length}
-                      </span>
+                      <MoreHorizontal size={18} className="text-slate-400" />
                     </div>
 
-                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-6 pt-2">
                       {cards.length === 0 ? (
                         <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
                           No appointments

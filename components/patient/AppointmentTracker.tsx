@@ -1,14 +1,15 @@
 "use client";
 
-import { CalendarCheck, CheckCircle2, Hourglass, PlayCircle } from "lucide-react";
+import { CalendarCheck, CheckCircle2, Hourglass, PlayCircle, Pill } from "lucide-react";
 
-export type TrackerStage = "pending" | "accepted" | "in_progress" | "completed";
+export type TrackerStage = "pending" | "accepted" | "in_progress" | "completed" | "prescription";
 
 const STAGES: { key: TrackerStage; label: string; icon: React.ReactNode }[] = [
   { key: "pending", label: "Pending", icon: <Hourglass size={14} /> },
   { key: "accepted", label: "Accepted", icon: <CalendarCheck size={14} /> },
-  { key: "in_progress", label: "In Progress", icon: <PlayCircle size={14} /> },
+  { key: "in_progress", label: "Ongoing", icon: <PlayCircle size={14} /> },
   { key: "completed", label: "Completed", icon: <CheckCircle2 size={14} /> },
+  { key: "prescription", label: "Prescription", icon: <Pill size={14} /> },
 ];
 
 export default function AppointmentTracker({

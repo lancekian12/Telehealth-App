@@ -52,6 +52,8 @@ function statusColor(status: string) {
       return "bg-primary/10 text-primary";
     case "pending":
       return "bg-amber-50 text-amber-700";
+    case "unattended":
+      return "bg-orange-50 text-orange-700";
     case "completed":
       return "bg-emerald-50 text-emerald-700";
     case "rejected":

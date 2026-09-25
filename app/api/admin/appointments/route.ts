@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/config/mongodb";
 import { requireAdmin } from "@/config/adminAuth";
 import { Appointment } from "@/models/appointment";
+import { markPastAppointmentsUnattended } from "@/config/appointmentSweep";
 // Populate("patient"/"doctor") below needs these schemas registered with
 // Mongoose — without the import, a fresh process throws MissingSchemaError
 // if this route happens to run before anything else registers them.
@@ -37,7 +38,7 @@ function resolveColumn(
 ): AppointmentColumn {
   if (appt.status === "pending") return "pending";
   if (appt.status === "completed") return "completed";
-  if (appt.status === "cancelled" || appt.status === "rejected") return "cancelled";
+  if (appt.status === "cancelled" || appt.status === "rejected" || appt.status === "unattended") return "cancelled";
 
   // accepted
   if (
@@ -63,6 +64,7 @@ export async function GET(req: Request) {
     }
 
     await connectDB();
+    await markPastAppointmentsUnattended();
 
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date") || getLocalDateString(new Date());

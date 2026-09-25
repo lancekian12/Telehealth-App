@@ -30,6 +30,7 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
+      data-confirm-dialog="true"
       className="fixed inset-0 z-[100010] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={onCancel}
     >

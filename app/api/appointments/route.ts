@@ -8,6 +8,7 @@ import { Appointment } from "@/models/appointment";
 import "@/models/prescription";
 import { notifyBothAppointmentSides } from "@/config/notification-service";
 import { isDoctorAccepted } from "@/config/doctorStatus";
+import { markPastAppointmentsUnattended } from "@/config/appointmentSweep";
 
 export const runtime = "nodejs";
 
@@ -109,7 +110,8 @@ function appointmentStatusAllowed(value: unknown): value is AppointmentStatus {
     value === "accepted" ||
     value === "rejected" ||
     value === "completed" ||
-    value === "cancelled"
+    value === "cancelled" ||
+    value === "unattended"
   );
 }
 
@@ -320,6 +322,7 @@ async function getCurrentDoctorId() {
 export async function GET(req: Request) {
   try {
     await connectDB();
+    await markPastAppointmentsUnattended();
 
     const url = new URL(req.url);
     const appointmentId = url.searchParams.get("appointmentId");
@@ -714,6 +717,84 @@ export async function PATCH(req: Request) {
           { status: 403 },
         );
       }
+    }
+
+    if (action === "end_consultation") {
+      if (!currentPatientId) {
+        return NextResponse.json(
+          { success: false, message: "Unauthorized" },
+          { status: 401 },
+        );
+      }
+
+      if (String(appointment.patient) !== currentPatientId) {
+        return NextResponse.json(
+          { success: false, message: "Forbidden" },
+          { status: 403 },
+        );
+      }
+
+      if (appointment.status === "completed") {
+        const already = await populateAppointment(appointment._id);
+        return NextResponse.json(
+          { success: true, message: "Consultation already ended", appointment: already },
+          { status: 200 },
+        );
+      }
+
+      // "unattended" is allowed too: a call that runs past the scheduled end
+      // gets swept to unattended while the patient is still in it.
+      if (appointment.status !== "accepted" && appointment.status !== "unattended") {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Only an accepted appointment can be completed",
+          },
+          { status: 409 },
+        );
+      }
+
+      appointment.status = "completed";
+      appointment.completedAt = new Date();
+      await appointment.save();
+
+      const populated = await populateAppointment(appointment._id);
+
+      if (populated) {
+        await notifyBothAppointmentSides({
+          appointment: populated as unknown as never,
+          type: "appointment_completed",
+          patientTitle: "Consultation completed",
+          patientMessage:
+            "Your consultation has ended. Your prescription is pending from the doctor.",
+          doctorTitle: "Consultation ended",
+          doctorMessage:
+            "The patient ended the consultation. Please provide the prescription.",
+          metadata: { status: "completed", prescriptionPending: true },
+        });
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Consultation ended",
+          appointment: populated,
+        },
+        { status: 200 },
+      );
+    }
+
+    if (
+      (action === "cancel" || action === "reschedule") &&
+      (appointment.status === "unattended" || appointment.status === "completed")
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `A ${appointment.status} appointment can no longer be changed`,
+        },
+        { status: 409 },
+      );
     }
 
     if (action === "accept" || action === "reject" || action === "complete") {
