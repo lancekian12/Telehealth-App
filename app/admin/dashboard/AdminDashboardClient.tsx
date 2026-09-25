@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   AlertCircle,
@@ -171,6 +172,7 @@ function SummaryCard({
 }
 
 export default function AdminDashboardClient() {
+  const router = useRouter();
   const [forbidden, setForbidden] = useState(false);
 
   // Quick stats
@@ -445,6 +447,10 @@ export default function AdminDashboardClient() {
     void loadVerificationStats();
   }
 
+  useEffect(() => {
+    if (forbidden) router.replace("/admin/login");
+  }, [forbidden, router]);
+
   if (forbidden) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
@@ -453,11 +459,10 @@ export default function AdminDashboardClient() {
             <ShieldCheck size={26} />
           </span>
           <h1 className="mt-4 text-xl font-bold text-slate-900">
-            Admin access required
+            Session expired
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Your account isn&apos;t authorized to view the admin dashboard. Ask
-            an existing admin to add your email to the allowlist.
+            Redirecting you to the admin login page...
           </p>
         </div>
       </div>

@@ -1,17 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import { useClerk } from "@clerk/nextjs";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   SquaresFour,
   FileText,
   Hamburger,
   ShieldCheck,
   SignOut,
+  Users,
   X,
 } from "phosphor-react";
+import { Loader2 } from "lucide-react";
 
 type NavItemProps = {
   to: string;
@@ -42,15 +43,70 @@ function NavItem({ to, icon, label, onClick }: NavItemProps) {
 }
 
 export default function AdminSidebar({ children }: { children: ReactNode }) {
-  const { signOut } = useClerk();
+  const pathname = usePathname();
+  const router = useRouter();
+  const isLoginPage = pathname === "/admin/login";
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sessionState, setSessionState] = useState<
+    "checking" | "authorized" | "unauthorized"
+  >(isLoginPage ? "authorized" : "checking");
+  const [admin, setAdmin] = useState<{ email: string; fullName: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (isLoginPage) return;
+
+    let active = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/auth/me", { cache: "no-store" });
+        const data = await res.json();
+
+        if (!active) return;
+
+        if (res.ok && data.success) {
+          setAdmin(data.admin);
+          setSessionState("authorized");
+        } else {
+          setSessionState("unauthorized");
+          router.replace("/admin/login");
+        }
+      } catch {
+        if (!active) return;
+        setSessionState("unauthorized");
+        router.replace("/admin/login");
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isLoginPage, pathname, router]);
 
   async function handleSignOut() {
     try {
-      await signOut({ redirectUrl: "/login" });
+      await fetch("/api/admin/auth/logout", { method: "POST" });
     } catch (error) {
       console.error("Sign out failed:", error);
+    } finally {
+      router.push("/admin/login");
+      router.refresh();
     }
+  }
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  if (sessionState !== "authorized") {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-slate-50">
+        <Loader2 size={22} className="animate-spin text-primary" />
+      </div>
+    );
   }
 
   const navItems = (
@@ -70,6 +126,13 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
         to="/admin/applications"
         icon={<FileText weight="fill" size={20} />}
         label="Doctor Applications"
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      <NavItem
+        to="/admin/patients"
+        icon={<Users weight="fill" size={20} />}
+        label="Patient Records"
         onClick={() => setMobileMenuOpen(false)}
       />
     </>
@@ -96,8 +159,10 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">Administrator</p>
-              <p className="truncate text-xs text-slate-500">Full access</p>
+              <p className="truncate text-sm font-bold">
+                {admin?.fullName || "Administrator"}
+              </p>
+              <p className="truncate text-xs text-slate-500">{admin?.email}</p>
             </div>
 
             <button

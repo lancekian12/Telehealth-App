@@ -162,3 +162,58 @@ export type ApplicationDetailResponse = {
   message?: string;
   application?: DoctorApplication;
 };
+
+export type PatientListRow = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  profilePicture?: string;
+  birthday?: string;
+  appointmentCount: number;
+  joinedAt: string;
+};
+
+export type PatientsListResponse = {
+  success: boolean;
+  message?: string;
+  patients?: PatientListRow[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type PatientAppointmentRow = {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  consultationType: string;
+  condition: string;
+  doctorName: string;
+  doctorSpecialization: string;
+};
+
+export type PatientDetail = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  profilePicture?: string;
+  birthday?: string;
+  weight?: string;
+  height?: string;
+  basicMedicalHistory?: string;
+  joinedAt: string;
+};
+
+export type PatientDetailResponse = {
+  success: boolean;
+  message?: string;
+  patient?: PatientDetail;
+  appointments?: PatientAppointmentRow[];
+};

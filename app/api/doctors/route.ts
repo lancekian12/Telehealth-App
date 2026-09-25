@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
+import { ACCEPTED_DOCTOR_QUERY } from "@/config/doctorStatus";
 
 export const runtime = "nodejs";
 
@@ -71,6 +72,7 @@ export async function GET() {
 
     const doctors = await Doctor.find({
       role: "doctor",
+      ...ACCEPTED_DOCTOR_QUERY,
     }).lean();
 
     return NextResponse.json(

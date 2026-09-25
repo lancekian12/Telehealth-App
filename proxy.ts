@@ -9,6 +9,10 @@ const isPublicRoute = createRouteMatcher([
   "/signup(.*)",
   "/patientsignup(.*)",
   "/doctorsignup(.*)",
+  // Admin auth is fully independent of Clerk (its own login + session
+  // cookie via requireAdmin()), so Clerk's middleware must not intercept it.
+  "/admin(.*)",
+  "/api/admin(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

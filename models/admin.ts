@@ -2,11 +2,6 @@ import { Schema, models, model } from "mongoose";
 
 const AdminSchema = new Schema(
   {
-    clerkId: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     email: {
       type: String,
       required: true,
@@ -14,14 +9,14 @@ const AdminSchema = new Schema(
       lowercase: true,
       trim: true,
     },
+    passwordHash: {
+      type: String,
+      required: true,
+    },
     fullName: {
       type: String,
       default: "",
       trim: true,
-    },
-    profilePicture: {
-      type: String,
-      default: "",
     },
     role: {
       type: String,

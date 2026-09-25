@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
 import { Appointment } from "@/models/appointment";
+import { isDoctorAccepted } from "@/config/doctorStatus";
 
 export const runtime = "nodejs";
 
@@ -156,6 +157,16 @@ export async function GET(
     }
 
     const doctor = byId ?? byClerk!;
+
+    // Only gate the ObjectId lookup path (used by patients booking a doctor
+    // by their profile id). The clerkId path is a doctor loading their own
+    // record, which must work regardless of application status.
+    if (byId && !isDoctorAccepted(doctor)) {
+      return NextResponse.json(
+        { success: false, message: "Doctor not found" },
+        { status: 404 },
+      );
+    }
 
     const doctorObjectId = Types.ObjectId.isValid(String(doctor._id))
       ? new Types.ObjectId(String(doctor._id))

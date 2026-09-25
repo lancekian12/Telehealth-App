@@ -7,6 +7,7 @@ import { Patient } from "@/models/patient";
 import { Appointment } from "@/models/appointment";
 import "@/models/prescription";
 import { notifyBothAppointmentSides } from "@/config/notification-service";
+import { isDoctorAccepted } from "@/config/doctorStatus";
 
 export const runtime = "nodejs";
 
@@ -486,6 +487,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { success: false, message: "Doctor not found" },
         { status: 404 },
+      );
+    }
+
+    if (!isDoctorAccepted(doctor)) {
+      return NextResponse.json(
+        { success: false, message: "This doctor is not accepting bookings" },
+        { status: 403 },
       );
     }
 

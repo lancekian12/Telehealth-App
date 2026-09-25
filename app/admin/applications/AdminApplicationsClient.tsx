@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
@@ -71,6 +71,7 @@ function StatusPill({ status }: { status: DoctorApplication["status"] }) {
 }
 
 export default function AdminApplicationsClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialStatus = (searchParams.get("status") as StatusFilter) || "all";
   const highlightId = searchParams.get("highlight") || "";
@@ -207,6 +208,10 @@ export default function AdminApplicationsClient() {
     }
   }
 
+  useEffect(() => {
+    if (forbidden) router.replace("/admin/login");
+  }, [forbidden, router]);
+
   if (forbidden) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
@@ -215,10 +220,10 @@ export default function AdminApplicationsClient() {
             <ShieldCheck size={26} />
           </span>
           <h1 className="mt-4 text-xl font-bold text-slate-900">
-            Admin access required
+            Session expired
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Your account isn&apos;t authorized to review applications.
+            Redirecting you to the admin login page...
           </p>
         </div>
       </div>
