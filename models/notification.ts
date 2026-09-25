@@ -8,12 +8,12 @@ const NotificationSchema = new Schema(
     },
     recipientModel: {
       type: String,
-      enum: ["Patient", "Doctor"],
+      enum: ["Patient", "Doctor", "Admin"],
       required: true,
     },
     recipientRole: {
       type: String,
-      enum: ["patient", "doctor"],
+      enum: ["patient", "doctor", "admin"],
       required: true,
     },
     appointmentId: {
@@ -32,6 +32,9 @@ const NotificationSchema = new Schema(
         "appointment_completed",
         "appointment_upcoming",
         "schedule_updated",
+        "doctor_application_submitted",
+        "doctor_application_approved",
+        "doctor_application_rejected",
       ],
       required: true,
     },

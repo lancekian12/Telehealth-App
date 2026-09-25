@@ -495,7 +495,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
   }, [appointments]);
 
   return (
-    <div className="min-h-screen mt-20 flex flex-col font-sans bg-organic-pattern bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100 selection:bg-primary/20">
+    <div className="min-h-screen mt-20 flex flex-col font-sans bg-white dark:bg-background-dark text-slate-900 dark:text-slate-100 selection:bg-primary/20">
       <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="fixed top-20 left-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -z-10" />
         <div className="fixed bottom-0 right-0 w-96 h-96 bg-slate-900/5 dark:bg-white/5 rounded-full blur-3xl -z-10" />
@@ -551,18 +551,19 @@ export default function AppointmentHistoryClient(): JSX.Element {
 
         {!loading && !error && visibleAppointments.length > 0 && (
           <div className="relative space-y-0 pl-2">
-            {paginatedAppointments.map((a) => {
+            {paginatedAppointments.map((a, index) => {
               const appointmentDateTime = getAppointmentDateTime(a);
               const isVideo = a.consultationType === "video";
               const isRescheduled =
                 a.status === "pending" && Boolean(a.rescheduleReason);
+              const isLast = index === paginatedAppointments.length - 1;
 
               return (
                 <div
                   key={a._id}
                   className="timeline-item relative flex gap-6 pb-10"
                 >
-                  <div className="timeline-connector" />
+                  {!isLast && <div className="timeline-connector" />}
 
                   <div className="hidden sm:flex flex-col items-end w-32 pt-1 shrink-0">
                     <span className="text-lg font-bold text-slate-900 dark:text-white">

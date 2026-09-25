@@ -191,6 +191,28 @@ const DoctorSchema = new Schema(
       default: false,
     },
 
+    applicationStatus: {
+      type: String,
+      enum: ["pending", "accepted", "rejected"],
+      default: "pending",
+    },
+
+    rejectionReason: {
+      type: String,
+      default: "",
+    },
+
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
+
     acceptsNewPatients: {
       type: Boolean,
       default: true,

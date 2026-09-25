@@ -10,12 +10,15 @@ import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import WorkingHoursModal from "@/components/doctor/working-hours-modal";
 import {
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Plus,
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Hourglass,
+  Sparkles,
 } from "lucide-react";
 import {
   AppointmentEventProps,
@@ -411,6 +414,19 @@ export default function DoctorAppointmentClient() {
     return unavailableSlots.filter((slot) => slot.date === selectedDate);
   }, [selectedDate, unavailableSlots]);
 
+  const appointmentStats = useMemo(() => {
+    const todayDateString = getLocalDateString(new Date());
+
+    return {
+      today: appointments.filter((appt) => appt.date === todayDateString)
+        .length,
+      pending: appointments.filter((appt) => appt.status === "pending")
+        .length,
+      upcoming: appointments.filter((appt) => appt.date >= todayDateString)
+        .length,
+    };
+  }, [appointments]);
+
   const refreshLabel =
     refreshState === "loading"
       ? "Refreshing..."
@@ -553,17 +569,28 @@ export default function DoctorAppointmentClient() {
       `}</style>
 
       <div className="flex min-h-dvh flex-1 flex-col md:h-screen md:overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-white">
-          <div className="mx-auto w-full max-w-[1600px] px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
+        <main className="relative flex-1 overflow-y-auto bg-gradient-to-b from-slate-50 to-white">
+          <div className="pointer-events-none fixed left-0 top-16 -z-10 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+          <div className="pointer-events-none fixed bottom-0 right-0 -z-10 h-96 w-96 rounded-full bg-secondary/10 blur-3xl" />
+
+          <div className="relative mx-auto w-full max-w-[1600px] px-4 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8">
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h1 className="text-2xl font-bold text-slate-800 md:text-3xl">
-                    Appointment Management
-                  </h1>
-                  <p className="mt-1 text-slate-500">
-                    View booked patients, working hours, and blocked slots.
-                  </p>
+              <div className="flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white/80 p-5 shadow-sm backdrop-blur-sm lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <CalendarClock size={22} />
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.25em] text-primary">
+                      Doctor Dashboard
+                    </p>
+                    <h1 className="mt-1 text-2xl font-bold text-slate-800 md:text-3xl">
+                      Appointment Management
+                    </h1>
+                    <p className="mt-1 text-slate-500">
+                      View booked patients, working hours, and blocked slots.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -585,11 +612,55 @@ export default function DoctorAppointmentClient() {
                   <button
                     type="button"
                     onClick={handleOpenNewSlot}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all hover:opacity-90 sm:w-auto"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 sm:w-auto"
                   >
                     <Plus size={14} />
                     New Slot
                   </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Sparkles size={18} />
+                  </span>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {appointmentStats.today}
+                    </p>
+                    <p className="text-xs font-medium text-slate-500">
+                      Appointments today
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                    <Hourglass size={18} />
+                  </span>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {appointmentStats.pending}
+                    </p>
+                    <p className="text-xs font-medium text-slate-500">
+                      Awaiting confirmation
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
+                    <CalendarClock size={18} />
+                  </span>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-900">
+                      {appointmentStats.upcoming}
+                    </p>
+                    <p className="text-xs font-medium text-slate-500">
+                      Upcoming this period
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -631,7 +702,7 @@ export default function DoctorAppointmentClient() {
                 </div>
 
                 <div className="flex flex-col gap-6">
-                  <div className="h-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+                  <div className="h-full rounded-3xl border border-slate-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md md:p-6">
                     <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <h2 className="text-xl font-bold text-slate-800">
@@ -662,7 +733,22 @@ export default function DoctorAppointmentClient() {
                       </div>
                     </div>
 
-                    <div className="mt-2 overflow-hidden rounded-[1.25rem] border border-slate-200">
+                    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-500">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-primary" />
+                        Online visit
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-secondary" />
+                        Clinic visit
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-red-500" />
+                        Blocked
+                      </span>
+                    </div>
+
+                    <div className="overflow-hidden rounded-[1.25rem] border border-slate-200">
                       <FullCalendar
                         ref={calendarRef}
                         plugins={[

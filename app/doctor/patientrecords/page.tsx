@@ -768,7 +768,7 @@ export default function DoctorPatientRecord() {
   }
 
   return (
-    <div className="min-h-dvh overflow-x-hidden bg-white text-slate-900">
+    <div className="relative min-h-dvh overflow-x-hidden bg-gradient-to-b from-slate-50 to-white text-slate-900">
       <style>{`
         @media (max-width: 767px) {
           .mobile-scroll {
@@ -778,19 +778,27 @@ export default function DoctorPatientRecord() {
         }
       `}</style>
 
+      <div className="pointer-events-none fixed left-0 top-16 -z-10 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none fixed bottom-0 right-0 -z-10 h-96 w-96 rounded-full bg-secondary/10 blur-3xl" />
+
       {/* Mobile layout */}
       <div className="md:hidden">
         <div className="mx-auto flex min-h-dvh w-full flex-col px-3 py-3">
-          <header className="mb-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">
-              Patient Records
-            </p>
-            <h1 className="mt-2 text-2xl font-extrabold tracking-tight">
-              Appointments and prescriptions
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Every appointment is shown separately, even for the same patient.
-            </p>
+          <header className="mb-3 flex items-start gap-3 rounded-3xl border border-slate-100 bg-white/90 p-4 shadow-sm backdrop-blur-sm">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <FileText size={20} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">
+                Patient Records
+              </p>
+              <h1 className="mt-2 text-2xl font-extrabold tracking-tight">
+                Appointments and prescriptions
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Every appointment is shown separately, even for the same patient.
+              </p>
+            </div>
           </header>
 
           <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -933,17 +941,22 @@ export default function DoctorPatientRecord() {
       {/* Desktop layout unchanged */}
       <div className="hidden md:block">
         <div className="mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
-          <header className="mb-4 flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">
-                Patient Records
-              </p>
-              <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
-                Appointments and prescriptions
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-500">
-                Every appointment is shown separately, even for the same patient.
-              </p>
+          <header className="mb-4 flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white/90 p-4 shadow-sm backdrop-blur-sm sm:p-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <FileText size={22} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-primary">
+                  Patient Records
+                </p>
+                <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                  Appointments and prescriptions
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                  Every appointment is shown separately, even for the same patient.
+                </p>
+              </div>
             </div>
           </header>
 

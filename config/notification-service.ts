@@ -6,7 +6,7 @@ import {
   notificationEvent,
 } from "@/config/notification";
 
-type Role = "patient" | "doctor";
+type Role = "patient" | "doctor" | "admin";
 
 type AppointmentLike = {
   _id: string | Types.ObjectId;
@@ -21,7 +21,7 @@ type AppointmentLike = {
 
 type NotifyParams = {
   recipientRole: Role;
-  recipientModel: "Patient" | "Doctor";
+  recipientModel: "Patient" | "Doctor" | "Admin";
   recipientId: string | Types.ObjectId;
   appointmentId?: string | Types.ObjectId | null;
   type:
@@ -32,7 +32,10 @@ type NotifyParams = {
     | "appointment_rescheduled"
     | "appointment_upcoming"
     | "schedule_updated"
-    | "appointment_completed"; // add this
+    | "appointment_completed"
+    | "doctor_application_submitted"
+    | "doctor_application_approved"
+    | "doctor_application_rejected";
   title: string;
   message: string;
   metadata?: Record<string, unknown>;

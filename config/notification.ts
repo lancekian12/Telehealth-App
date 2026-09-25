@@ -21,7 +21,9 @@ export const pusher = new Pusher({
   useTLS: true,
 });
 
-export const getUserChannel = (role: "patient" | "doctor", id: string) =>
-  `private-${role}-${id}`;
+export const getUserChannel = (
+  role: "patient" | "doctor" | "admin",
+  id: string,
+) => `private-${role}-${id}`;
 
 export const notificationEvent = "notification:new";
