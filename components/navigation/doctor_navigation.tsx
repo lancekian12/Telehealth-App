@@ -10,6 +10,7 @@ import {
   Bell,
   SignOut,
   FileText,
+  GearSix,
 } from "phosphor-react";
 
 import {
@@ -235,6 +236,13 @@ export default function DoctorNavigation({
         label="Notifications"
         badge={unreadCount}
         alert={unreadCount > 0}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      <NavItem
+        to="/doctor/settings"
+        icon={<GearSix weight="fill" size={20} />}
+        label="Settings"
         onClick={() => setMobileMenuOpen(false)}
       />
     </>

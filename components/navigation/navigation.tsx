@@ -475,6 +475,7 @@ export default function Navigation() {
           open={profileModalOpen}
           onClose={() => setProfileModalOpen(false)}
           patient={patient}
+          onUpdated={setPatient}
         />
       </header>
     </>

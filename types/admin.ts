@@ -217,3 +217,34 @@ export type PatientDetailResponse = {
   patient?: PatientDetail;
   appointments?: PatientAppointmentRow[];
 };
+
+export type AppointmentColumnKey =
+  | "pending"
+  | "confirmed"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+export type AppointmentBoardCard = {
+  id: string;
+  shortId: string;
+  patientName: string;
+  patientAvatar?: string;
+  doctorName: string;
+  doctorSpecialization: string;
+  consultationType: "video" | "in_person";
+  status: string;
+  column: AppointmentColumnKey;
+  startTime: string;
+  endTime: string;
+  appointmentDate: string;
+  reasonForVisit: string;
+};
+
+export type AppointmentBoardResponse = {
+  success: boolean;
+  message?: string;
+  date?: string;
+  columns?: Record<AppointmentColumnKey, AppointmentBoardCard[]>;
+  total?: number;
+};

@@ -5,7 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   SquaresFour,
+  CalendarBlank,
   FileText,
+  GearSix,
   Hamburger,
   ShieldCheck,
   SignOut,
@@ -123,6 +125,13 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
       />
 
       <NavItem
+        to="/admin/appointments"
+        icon={<CalendarBlank weight="fill" size={20} />}
+        label="Appointments"
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      <NavItem
         to="/admin/applications"
         icon={<FileText weight="fill" size={20} />}
         label="Doctor Applications"
@@ -133,6 +142,13 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
         to="/admin/patients"
         icon={<Users weight="fill" size={20} />}
         label="Patient Records"
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      <NavItem
+        to="/admin/settings"
+        icon={<GearSix weight="fill" size={20} />}
+        label="Settings"
         onClick={() => setMobileMenuOpen(false)}
       />
     </>

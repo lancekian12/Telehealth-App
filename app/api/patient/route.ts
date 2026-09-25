@@ -161,3 +161,100 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    await connectDB();
+
+    const formData = await req.formData();
+    const update: Record<string, string> = {};
+
+    for (const field of [
+      "fullName",
+      "phone",
+      "birthday",
+      "weight",
+      "height",
+      "basicMedicalHistory",
+    ] as const) {
+      const value = formData.get(field);
+      if (typeof value === "string" && value.trim()) {
+        update[field] = value.trim();
+      }
+    }
+
+    const file = formData.get("profilePicture");
+
+    if (file instanceof File && file.size > 0) {
+      if (!file.type.startsWith("image/")) {
+        return NextResponse.json(
+          { success: false, message: "Invalid image file" },
+          { status: 400 },
+        );
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+
+      const uploadedImage = await new Promise<UploadApiResponse>(
+        (resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: "appointcare", resource_type: "image" },
+            (error, result) => {
+              if (error) return reject(error);
+              if (!result) return reject(new Error("Cloudinary upload failed"));
+              resolve(result);
+            },
+          );
+          stream.end(buffer);
+        },
+      );
+
+      update.profilePicture = uploadedImage.secure_url;
+    }
+
+    const patient = await Patient.findOneAndUpdate(
+      { clerkId: userId },
+      { $set: update },
+      { new: true },
+    );
+
+    if (!patient) {
+      return NextResponse.json(
+        { success: false, message: "Patient not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      patient: {
+        id: String(patient._id),
+        clerkId: patient.clerkId,
+        role: patient.role,
+        fullName: patient.fullName,
+        profilePicture: patient.profilePicture || "",
+        email: patient.email || "",
+        phone: patient.phone || "",
+        birthday: patient.birthday || "",
+        weight: patient.weight || "",
+        height: patient.height || "",
+        basicMedicalHistory: patient.basicMedicalHistory || "",
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json(
+      { success: false, message: "Server Error" },
+      { status: 500 },
+    );
+  }
+}

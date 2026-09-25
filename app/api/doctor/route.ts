@@ -440,3 +440,107 @@ export async function POST(req: Request) {
     );
   }
 }
+
+// Lightweight profile-settings update — deliberately narrower than POST
+// (registration): it never touches applicationStatus/verified/clerkId/email,
+// and it doesn't re-geocode the clinic address on every save.
+export async function PATCH(req: Request) {
+  try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    await connectDB();
+
+    const formData = await req.formData();
+    const update: Record<string, unknown> = {};
+
+    for (const field of [
+      "fullName",
+      "phone",
+      "bio",
+      "specialization",
+      "clinicName",
+      "clinicAddress",
+    ] as const) {
+      const value = formData.get(field);
+      if (typeof value === "string" && value.trim()) {
+        update[field] = value.trim();
+      }
+    }
+
+    if (formData.has("consultationFee")) {
+      update.consultationFee = parseNumber(formData.get("consultationFee"), 0);
+    }
+
+    if (formData.has("languages")) {
+      update.languages = parseStringArray(formData.get("languages"));
+    }
+
+    const profilePicture = formData.get("profilePicture");
+
+    if (profilePicture instanceof File && profilePicture.size > 0) {
+      if (!profilePicture.type.startsWith("image/")) {
+        return NextResponse.json(
+          { success: false, message: "Invalid image file" },
+          { status: 400 },
+        );
+      }
+
+      const buffer = Buffer.from(await profilePicture.arrayBuffer());
+      const base64 = buffer.toString("base64");
+      const dataUri = `data:${profilePicture.type};base64,${base64}`;
+
+      const uploadResult = await cloudinary.uploader.upload(dataUri, {
+        folder: "appointcare/doctors",
+      });
+
+      update.profilePicture = uploadResult.secure_url;
+    }
+
+    const doctor = await Doctor.findOneAndUpdate(
+      { clerkId: userId },
+      { $set: update },
+      { new: true },
+    );
+
+    if (!doctor) {
+      return NextResponse.json(
+        { success: false, message: "Doctor not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      doctor: {
+        id: String(doctor._id),
+        fullName: doctor.fullName,
+        specialization: doctor.specialization,
+        bio: doctor.bio,
+        phone: doctor.phone,
+        consultationFee: doctor.consultationFee,
+        languages: doctor.languages,
+        clinicName: doctor.clinicName,
+        clinicAddress: doctor.clinicAddress,
+        profilePicture: doctor.profilePicture || "",
+      },
+    });
+  } catch (error: unknown) {
+    console.error("PATCH /api/doctor error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 },
+    );
+  }
+}

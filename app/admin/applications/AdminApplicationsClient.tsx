@@ -499,63 +499,79 @@ export default function AdminApplicationsClient() {
                     </div>
                   )}
 
-                  {detail.status === "pending" && (
-                    <>
-                      {rejectOpen ? (
-                        <div className="rounded-2xl border border-slate-200 p-4">
-                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            Reason for rejection
-                          </label>
-                          <textarea
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            rows={3}
-                            placeholder="Explain why this application is being rejected..."
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
-                          />
-                          <div className="mt-3 flex gap-2">
-                            <button
-                              onClick={() => {
-                                setRejectOpen(false);
-                                setRejectReason("");
-                              }}
-                              className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={handleReject}
-                              disabled={actionLoading || !rejectReason.trim()}
-                              className="flex-1 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {actionLoading ? "Rejecting..." : "Confirm reject"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setRejectOpen(true)}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                          >
-                            <XCircle size={16} />
-                            Reject
-                          </button>
-                          <button
-                            onClick={handleApprove}
-                            disabled={actionLoading}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-60"
-                          >
-                            {actionLoading ? (
-                              <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                              <CheckCircle2 size={16} />
-                            )}
-                            Approve
-                          </button>
-                        </div>
+                  {rejectOpen ? (
+                    <div className="rounded-2xl border border-slate-200 p-4">
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Reason for {detail.status === "accepted" ? "revoking approval" : "rejection"}
+                      </label>
+                      <textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        rows={3}
+                        placeholder={
+                          detail.status === "accepted"
+                            ? "Explain why this doctor's approval is being revoked..."
+                            : "Explain why this application is being rejected..."
+                        }
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
+                      />
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => {
+                            setRejectOpen(false);
+                            setRejectReason("");
+                          }}
+                          className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleReject}
+                          disabled={actionLoading || !rejectReason.trim()}
+                          className="flex-1 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {actionLoading
+                            ? "Saving..."
+                            : detail.status === "accepted"
+                              ? "Confirm revoke"
+                              : "Confirm reject"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : detail.status === "accepted" ? (
+                    <button
+                      onClick={() => setRejectOpen(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+                    >
+                      <XCircle size={16} />
+                      Revoke approval
+                    </button>
+                  ) : (
+                    <div className="flex gap-3">
+                      {detail.status === "pending" && (
+                        <button
+                          onClick={() => setRejectOpen(true)}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                        >
+                          <XCircle size={16} />
+                          Reject
+                        </button>
                       )}
-                    </>
+                      <button
+                        onClick={handleApprove}
+                        disabled={actionLoading}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-60"
+                      >
+                        {actionLoading ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={16} />
+                        )}
+                        {detail.status === "rejected"
+                          ? "Reconsider & Approve"
+                          : "Approve"}
+                      </button>
+                    </div>
                   )}
                 </div>
               </>
