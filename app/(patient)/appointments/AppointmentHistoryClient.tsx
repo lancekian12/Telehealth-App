@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import CancelAppointmentModal from "@/components/patient/CancelAppointmentModal";
 import RescheduleAppointmentModal from "@/components/patient/RescheduleAppointmentModal";
 import AppointmentFilterModal from "@/components/patient/AppointmentFilterModal";
+import AppointmentTracker, {
+  type TrackerStage,
+} from "@/components/patient/AppointmentTracker";
 import {
   Video,
   MapPin,
@@ -65,6 +68,30 @@ function getAppointmentDateTime(appointment: AppointmentItem) {
   const parsed = new Date(iso);
 
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getTrackerStage(appointment: AppointmentItem): TrackerStage | null {
+  if (appointment.status === "pending") return "pending";
+  if (appointment.status === "completed") return "completed";
+
+  if (appointment.status === "accepted") {
+    const dateKey = getDateOnly(String(appointment.appointmentDate || ""));
+    const todayKey = getDateOnly(new Date().toISOString());
+
+    if (dateKey === todayKey && appointment.startTime && appointment.endTime) {
+      const now = new Date();
+      const start = new Date(`${dateKey}T${appointment.startTime}:00`);
+      const end = new Date(`${dateKey}T${appointment.endTime}:00`);
+
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+        if (now >= start && now < end) return "in_progress";
+      }
+    }
+
+    return "accepted";
+  }
+
+  return null;
 }
 
 function formatTime(date: Date | null) {
@@ -557,6 +584,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
               const isRescheduled =
                 a.status === "pending" && Boolean(a.rescheduleReason);
               const isLast = index === paginatedAppointments.length - 1;
+              const trackerStage = getTrackerStage(a);
 
               return (
                 <div
@@ -791,6 +819,12 @@ export default function AppointmentHistoryClient(): JSX.Element {
                           </div>
                         </div>
                       </div>
+
+                      {trackerStage && (
+                        <div className="relative z-10 mt-5 border-t border-slate-100 pt-5 dark:border-slate-700">
+                          <AppointmentTracker stage={trackerStage} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

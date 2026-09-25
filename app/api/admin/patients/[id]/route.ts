@@ -3,6 +3,8 @@ import { connectDB } from "@/config/mongodb";
 import { requireAdmin } from "@/config/adminAuth";
 import { Patient } from "@/models/patient";
 import { Appointment } from "@/models/appointment";
+// populate("doctor") below needs this schema registered with Mongoose.
+import "@/models/doctor";
 
 export const runtime = "nodejs";
 

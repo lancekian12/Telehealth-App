@@ -15,6 +15,7 @@ import {
   X,
 } from "phosphor-react";
 import { Loader2 } from "lucide-react";
+import ConfirmDialog from "@/components/modal/ConfirmDialog";
 
 type NavItemProps = {
   to: string;
@@ -88,7 +89,11 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
     };
   }, [isLoginPage, pathname, router]);
 
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
   async function handleSignOut() {
+    setSigningOut(true);
     try {
       await fetch("/api/admin/auth/logout", { method: "POST" });
     } catch (error) {
@@ -184,7 +189,7 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
             <button
               type="button"
               aria-label="Sign out"
-              onClick={handleSignOut}
+              onClick={() => setSignOutConfirmOpen(true)}
               className="rounded-lg p-2 transition-colors hover:bg-white"
             >
               <SignOut
@@ -248,7 +253,7 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
               <div className="border-t border-slate-100 p-4">
                 <button
                   type="button"
-                  onClick={handleSignOut}
+                  onClick={() => setSignOutConfirmOpen(true)}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                 >
                   <SignOut weight="fill" size={18} className="text-slate-500" />
@@ -261,6 +266,16 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
 
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+
+      <ConfirmDialog
+        open={signOutConfirmOpen}
+        title="Sign out of the admin dashboard?"
+        description="You'll need to sign in again to manage AppointCare."
+        confirmLabel="Sign out"
+        loading={signingOut}
+        onCancel={() => setSignOutConfirmOpen(false)}
+        onConfirm={handleSignOut}
+      />
     </div>
   );
 }

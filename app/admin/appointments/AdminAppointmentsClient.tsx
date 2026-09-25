@@ -254,15 +254,15 @@ export default function AdminAppointmentsClient() {
               <Loader2 size={22} className="animate-spin text-primary" />
             </div>
           ) : (
-            <div className="grid gap-4 overflow-x-auto pb-4 lg:grid-cols-5">
+            <div className="flex gap-4 overflow-x-auto rounded-3xl border border-slate-100 bg-white/40 p-4">
               {COLUMN_CONFIG.map((col) => {
                 const cards = columns[col.key];
                 return (
                   <div
                     key={col.key}
-                    className="min-w-[260px] rounded-3xl border border-slate-100 bg-white/60 p-4"
+                    className="flex max-h-[65vh] w-72 shrink-0 flex-col rounded-2xl border border-slate-100 bg-white shadow-sm"
                   >
-                    <div className="mb-4 flex items-center justify-between">
+                    <div className="flex shrink-0 items-center justify-between rounded-t-2xl border-b border-slate-100 bg-white p-4">
                       <div className="flex items-center gap-2">
                         <span className={`h-2.5 w-2.5 rounded-full ${col.dotClass}`} />
                         <h2 className="text-sm font-bold uppercase tracking-wide text-slate-700">
@@ -274,7 +274,7 @@ export default function AdminAppointmentsClient() {
                       </span>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
                       {cards.length === 0 ? (
                         <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
                           No appointments

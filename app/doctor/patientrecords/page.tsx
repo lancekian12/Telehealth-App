@@ -610,6 +610,7 @@ export default function DoctorPatientRecord() {
 
   const patientRows = useMemo(() => {
     return appointments
+      .filter((appointment) => appointment.status !== "cancelled")
       .map((appointment) => {
         const patient =
           appointment.patient && typeof appointment.patient !== "string"

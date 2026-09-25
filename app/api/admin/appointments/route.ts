@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/config/mongodb";
 import { requireAdmin } from "@/config/adminAuth";
 import { Appointment } from "@/models/appointment";
+// Populate("patient"/"doctor") below needs these schemas registered with
+// Mongoose — without the import, a fresh process throws MissingSchemaError
+// if this route happens to run before anything else registers them.
+import "@/models/patient";
+import "@/models/doctor";
 
 export const runtime = "nodejs";
 

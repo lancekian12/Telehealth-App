@@ -367,10 +367,19 @@ export default function DoctorAppointmentClient() {
   }, [workingHours]);
 
   const upcomingWorkingHours = useMemo(() => {
-    const todayDateString = getLocalDateString(new Date());
+    const now = new Date();
+    const todayDateString = getLocalDateString(now);
+    const currentTimeString = `${String(now.getHours()).padStart(2, "0")}:${String(
+      now.getMinutes(),
+    ).padStart(2, "0")}`;
 
     return [...workingHours]
-      .filter((item) => item.date >= todayDateString)
+      .filter((item) => {
+        if (item.date > todayDateString) return true;
+        if (item.date < todayDateString) return false;
+        // Same-day slot — only keep it if it hasn't ended yet.
+        return item.endTime > currentTimeString;
+      })
       .sort((a, b) => {
         const dateCompare = a.date.localeCompare(b.date);
         if (dateCompare !== 0) return dateCompare;
