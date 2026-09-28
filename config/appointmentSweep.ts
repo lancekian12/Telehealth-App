@@ -1,5 +1,5 @@
 import { Appointment } from "@/models/appointment";
-import { isPastUnattended } from "@/config/appointmentStatus";
+import { isPastUnattended, UNATTENDED_REASONS } from "@/config/appointmentStatus";
 
 /**
  * Lazily flips pending/accepted appointments whose end time has already
@@ -24,14 +24,22 @@ export async function markPastAppointmentsUnattended() {
     >();
 
   const now = new Date();
-  const ids = candidates
-    .filter((appt) => isPastUnattended(appt, now))
-    .map((appt) => appt._id);
+  const expired = candidates.filter((appt) => isPastUnattended(appt, now));
 
-  if (ids.length > 0) {
+  for (const from of ["pending", "accepted"] as const) {
+    const ids = expired.filter((a) => a.status === from).map((a) => a._id);
+    if (ids.length === 0) continue;
+
     await Appointment.updateMany(
       { _id: { $in: ids } },
-      { $set: { status: "unattended" } },
+      {
+        $set: {
+          status: "unattended",
+          unattendedAt: now,
+          unattendedFrom: from,
+          unattendedReason: UNATTENDED_REASONS[from],
+        },
+      },
     );
   }
 }

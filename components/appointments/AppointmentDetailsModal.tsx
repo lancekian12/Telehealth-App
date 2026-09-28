@@ -22,7 +22,8 @@ type AppointmentStatus =
   | "accepted"
   | "rejected"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "unattended";
 
 type ConsultationType = "video" | "in_person";
 
@@ -136,6 +137,8 @@ function getStatusLabel(status: AppointmentStatus) {
       return "Completed";
     case "cancelled":
       return "Cancelled";
+    case "unattended":
+      return "Unattended";
     default:
       return status;
   }
@@ -160,7 +163,7 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
     );
   }
 
-  if (status === "rejected" || status === "cancelled") {
+  if (status === "rejected" || status === "cancelled" || status === "unattended") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
         <XCircle className="h-3.5 w-3.5" />

@@ -11,6 +11,11 @@ export type AppointmentItem = {
   cancellationReason?: string;
   cancelledAt?: string | null;
   completedAt?: string | null;
+  createdAt?: string;
+  acceptedAt?: string | null;
+  unattendedAt?: string | null;
+  unattendedFrom?: "pending" | "accepted" | null;
+  unattendedReason?: string;
   prescription?: unknown;
   reasonForVisit?: string;
   rejectionReason?: string;

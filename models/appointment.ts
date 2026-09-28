@@ -105,6 +105,24 @@ const AppointmentSchema = new Schema(
       default: null,
     },
 
+    // Set by the unattended sweep: when it happened, which status the
+    // appointment was still in, and a human-readable reason.
+    unattendedAt: {
+      type: Date,
+      default: null,
+    },
+
+    unattendedFrom: {
+      type: String,
+      enum: ["pending", "accepted", null],
+      default: null,
+    },
+
+    unattendedReason: {
+      type: String,
+      default: "",
+    },
+
     isSlotLocked: {
       type: Boolean,
       default: true,

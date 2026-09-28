@@ -63,6 +63,28 @@ export function hasPrescription(appt: { prescription?: unknown }) {
   return !!appt.prescription;
 }
 
+export const UNATTENDED_REASONS = {
+  pending:
+    "The doctor did not respond to this request before the scheduled time ended, so it expired.",
+  accepted:
+    "The appointment was accepted, but the consultation did not take place before the scheduled time ended.",
+} as const;
+
+/** Which status the appointment was stuck in, plus why it was marked unattended. */
+export function getUnattendedInfo(appt: {
+  unattendedFrom?: string | null;
+  unattendedReason?: string;
+  acceptedAt?: string | Date | null;
+}) {
+  const from: "pending" | "accepted" =
+    appt.unattendedFrom === "pending" || appt.unattendedFrom === "accepted"
+      ? appt.unattendedFrom
+      : appt.acceptedAt
+        ? "accepted"
+        : "pending";
+  return { from, reason: appt.unattendedReason || UNATTENDED_REASONS[from] };
+}
+
 export const STATUS_LABELS: Record<DisplayStatus, string> = {
   pending: "Pending",
   accepted: "Accepted",

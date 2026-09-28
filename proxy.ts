@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   "/signup(.*)",
   "/patientsignup(.*)",
   "/doctorsignup(.*)",
+  "/account-status(.*)",
   // Admin auth is fully independent of Clerk (its own login + session
   // cookie via requireAdmin()), so Clerk's middleware must not intercept it.
   // The admin_session cookie is instead verified explicitly below.

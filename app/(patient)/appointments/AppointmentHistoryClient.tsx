@@ -11,6 +11,8 @@ import {
   STATUS_LABELS,
   type DisplayStatus,
 } from "@/config/appointmentStatus";
+import { statusBadgeClass } from "@/components/appointments/statusStyles";
+import UnattendedJourney from "@/components/appointments/UnattendedJourney";
 import AppointmentTracker, {
   type TrackerStage,
 } from "@/components/patient/AppointmentTracker";
@@ -125,24 +127,7 @@ function formatSmallDate(date: Date | null) {
 }
 
 function statusBadge(status: DisplayStatus) {
-  switch (status) {
-    case "accepted":
-      return "bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary";
-    case "ongoing":
-      return "bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300";
-    case "pending":
-      return "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300";
-    case "completed":
-      return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300";
-    case "rejected":
-      return "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300";
-    case "unattended":
-      return "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300";
-    case "cancelled":
-      return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
-    default:
-      return "bg-slate-100 text-slate-600";
-  }
+  return statusBadgeClass(status);
 }
 
 function statusLabel(status: DisplayStatus) {
@@ -771,13 +756,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
                           )}
 
                           {ds === "unattended" && (
-                            <div className="rounded-xl bg-orange-50 px-3 py-2 text-sm text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
-                              <p className="font-semibold">Unattended</p>
-                              <p className="text-xs opacity-90">
-                                The scheduled time passed without the
-                                consultation taking place.
-                              </p>
-                            </div>
+                            <UnattendedJourney appointment={a} role="patient" />
                           )}
 
                           {ds === "cancelled" && (

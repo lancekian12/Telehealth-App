@@ -16,6 +16,17 @@ import {
 
 import { useRouter, useSearchParams } from "next/navigation";
 import AppointmentDetailsModal from "@/components/appointments/AppointmentDetailsModal";
+import {
+  resolveDisplayStatus,
+  hasPrescription,
+  STATUS_LABELS,
+  type DisplayStatus,
+} from "@/config/appointmentStatus";
+import { statusBadgeClass } from "@/components/appointments/statusStyles";
+import UnattendedJourney from "@/components/appointments/UnattendedJourney";
+import AppointmentTracker, {
+  type TrackerStage,
+} from "@/components/patient/AppointmentTracker";
 import RejectAppointmentModal from "@/components/appointments/RejectAppointmentModal";
 
 type AppointmentStatus =
@@ -23,14 +34,12 @@ type AppointmentStatus =
   | "accepted"
   | "rejected"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "unattended";
 
 type ConsultationType = "video" | "in_person";
 
-type StatusFilter =
-  | "all"
-  | AppointmentStatus
-  | "reschedule";
+type StatusFilter = "all" | DisplayStatus | "reschedule";
 
 type PopulatedPerson = {
   _id?: string;
@@ -61,6 +70,14 @@ type Appointment = {
   rejectionReason?: string;
   rescheduleReason?: string;
   cancellationReason?: string;
+  cancelledAt?: string | null;
+  createdAt?: string;
+  acceptedAt?: string | null;
+  unattendedAt?: string | null;
+  unattendedFrom?: "pending" | "accepted" | null;
+  unattendedReason?: string;
+  completedAt?: string | null;
+  prescription?: unknown;
   notes?: string;
   doctor?: PopulatedDoctor | string;
   patient?: PopulatedPerson | string;
@@ -70,14 +87,40 @@ type ApiResponse =
   | { success: true; appointments: Appointment[] }
   | { success: false; message?: string };
 
-const statusPriority: Record<AppointmentStatus | "reschedule", number> = {
-  accepted: 0,
-  pending: 1,
-  reschedule: 2,
-  completed: 3,
-  rejected: 4,
-  cancelled: 5,
+const statusPriority: Record<DisplayStatus | "reschedule", number> = {
+  ongoing: 0,
+  accepted: 1,
+  pending: 2,
+  reschedule: 3,
+  completed: 4,
+  unattended: 5,
+  rejected: 6,
+  cancelled: 7,
 };
+
+function getTrackerStage(appointment: Appointment): TrackerStage | null {
+  const ds = resolveDisplayStatus(appointment);
+  if (ds === "pending") return "pending";
+  if (ds === "accepted") return "accepted";
+  if (ds === "ongoing") return "in_progress";
+  if (ds === "completed") {
+    return hasPrescription(appointment) ? "prescription" : "completed";
+  }
+  return null;
+}
+
+function formatFullDate(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 function isRescheduleRequest(appointment: Appointment) {
   return appointment.status === "pending" && !!appointment.rescheduleReason;
@@ -122,44 +165,21 @@ function getDoctorSubtitle(doctor: Appointment["doctor"]) {
   return doctor.specialization || doctor.clinicAddress || "";
 }
 
-function StatusBadge({ status }: { status: AppointmentStatus }) {
-  const styles = {
-    pending: {
-      className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-      icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
-      label: "Pending",
-    },
-    accepted: {
-      className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-      icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-      label: "Accepted",
-    },
-    rejected: {
-      className: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-      icon: <XCircle className="h-3.5 w-3.5" />,
-      label: "Rejected",
-    },
-    cancelled: {
-      className: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
-      icon: <XCircle className="h-3.5 w-3.5" />,
-      label: "Cancelled",
-    },
-    completed: {
-      className:
-        "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
-      icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-      label: "Completed",
-    },
-  };
-
-  const current = styles[status];
-
+function StatusBadge({
+  status,
+  rescheduled,
+}: {
+  status: DisplayStatus;
+  rescheduled?: boolean;
+}) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${current.className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(status)}`}
     >
-      {current.icon}
-      {current.label}
+      {status === "ongoing" && (
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
+      )}
+      {rescheduled ? "Rescheduled" : STATUS_LABELS[status]}
     </span>
   );
 }
@@ -180,6 +200,7 @@ function AppointmentCard({
   onComplete,
   onShowDetails,
   loadingId,
+  router,
 }: {
   appointment: Appointment;
   onAccept: (appointment: Appointment) => void;
@@ -188,11 +209,14 @@ function AppointmentCard({
   onComplete: (appointment: Appointment) => void;
   onShowDetails: (appointment: Appointment) => void;
   loadingId: string | null;
+  router: ReturnType<typeof useRouter>;
 }) {
   const patientName = getPersonName(appointment.patient, "Unknown Patient");
   const doctorSubtitle = getDoctorSubtitle(appointment.doctor);
-  const isPending = appointment.status === "pending";
-  const isAccepted = appointment.status === "accepted";
+  const ds = resolveDisplayStatus(appointment);
+  const trackerStage = getTrackerStage(appointment);
+  const isPending = ds === "pending";
+  const isAccepted = ds === "accepted" || ds === "ongoing";
   const isVideo = appointment.consultationType === "video";
   const isInPerson = appointment.consultationType === "in_person";
   const isLoading = loadingId === appointment._id;
@@ -207,7 +231,7 @@ function AppointmentCard({
     <article
       className={[
         "group relative overflow-hidden rounded-2xl border bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-slate-800",
-        appointment.status === "completed"
+        ds === "completed"
           ? "border-slate-100 opacity-85 dark:border-slate-700"
           : "border-slate-100 hover:border-primary/20 dark:border-slate-700",
       ].join(" ")}
@@ -215,12 +239,14 @@ function AppointmentCard({
       <div
         className={[
           "absolute left-0 top-0 bottom-0 w-1 rounded-r-full transition-all duration-500",
-          appointment.status === "pending" && "bg-amber-400",
-          appointment.status === "accepted" && "bg-emerald-500",
-          isReschedule && "bg-orange-400",
-          appointment.status === "rejected" && "bg-rose-500",
-          appointment.status === "cancelled" && "bg-slate-500",
-          appointment.status === "completed" && "bg-slate-300",
+          ds === "pending" && "bg-amber-400",
+          ds === "accepted" && "bg-primary",
+          ds === "ongoing" && "bg-sky-500",
+          isReschedule && "bg-violet-400",
+          ds === "rejected" && "bg-rose-500",
+          ds === "cancelled" && "bg-slate-400",
+          ds === "unattended" && "bg-orange-400",
+          ds === "completed" && "bg-emerald-500",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -237,7 +263,7 @@ function AppointmentCard({
             </p>
           </div>
 
-          <StatusBadge status={appointment.status} />
+          <StatusBadge status={ds} rescheduled={isReschedule} />
         </div>
 
         <div className="flex flex-1 flex-col gap-6 sm:flex-row sm:items-start">
@@ -246,7 +272,7 @@ function AppointmentCard({
             alt={patientName}
             className={[
               "h-16 w-16 rounded-full object-cover shadow-sm ring-4",
-              appointment.status === "completed"
+              ds === "completed"
                 ? "grayscale ring-slate-100 dark:ring-slate-700"
                 : "ring-white dark:ring-slate-700",
             ].join(" ")}
@@ -294,7 +320,7 @@ function AppointmentCard({
             )}
 
             {appointment.rejectionReason &&
-              appointment.status === "rejected" && (
+              ds === "rejected" && (
                 <div className="mt-4 rounded-2xl bg-rose-50 p-4 dark:bg-rose-950/20">
                   <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose-600 dark:text-rose-300">
                     <XCircle className="h-4 w-4" />
@@ -306,18 +332,56 @@ function AppointmentCard({
                 </div>
               )}
 
-            {appointment.cancellationReason &&
-              appointment.status === "cancelled" && (
-                <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900/50">
-                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    <XCircle className="h-4 w-4" />
-                    Cancellation reason
-                  </div>
-                  <p className="text-sm leading-7 text-slate-700 dark:text-slate-300">
-                    {appointment.cancellationReason}
-                  </p>
+            {ds === "cancelled" && (
+              <div className="mt-4 rounded-2xl bg-slate-100 p-4 dark:bg-slate-900/50">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  <XCircle className="h-4 w-4" />
+                  Cancelled by patient
+                  {appointment.cancelledAt
+                    ? ` · ${formatFullDate(appointment.cancelledAt)}`
+                    : ""}
                 </div>
-              )}
+                <p className="text-sm leading-7 text-slate-700 dark:text-slate-300">
+                  Reason: {appointment.cancellationReason || "No reason provided"}
+                </p>
+              </div>
+            )}
+
+            {ds === "unattended" && (
+              <div className="mt-4">
+                <UnattendedJourney appointment={appointment} role="doctor" />
+              </div>
+            )}
+
+            {ds === "ongoing" && (
+              <p className="mt-4 text-sm font-medium text-sky-600 dark:text-sky-300">
+                This consultation is happening now.
+              </p>
+            )}
+
+            {ds === "completed" && (
+              <div
+                className={[
+                  "mt-4 rounded-2xl p-4 text-sm leading-7",
+                  hasPrescription(appointment)
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300"
+                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-300",
+                ].join(" ")}
+              >
+                <span className="font-semibold">
+                  {hasPrescription(appointment)
+                    ? "Prescription ready"
+                    : "Prescription pending"}
+                </span>
+                {" — "}
+                {hasPrescription(appointment)
+                  ? "the prescription has been issued to the patient."
+                  : "the consultation ended; please provide the prescription."}
+                {appointment.completedAt
+                  ? ` Ended ${formatFullDate(appointment.completedAt)}.`
+                  : ""}
+              </div>
+            )}
 
             {appointment.notes && (
               <div className="mt-4 rounded-2xl bg-slate-50 p-4 dark:bg-slate-900/50">
@@ -358,7 +422,7 @@ function AppointmentCard({
                 </>
               )}
 
-              {isAccepted && isVideo && appointment.consultationSessionLink && (
+              {isAccepted && isVideo && (
                 <button
                   onClick={() => onJoin(appointment)}
                   className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:brightness-110 hover:shadow-xl"
@@ -383,6 +447,20 @@ function AppointmentCard({
                 </button>
               )}
 
+              {ds === "completed" && !hasPrescription(appointment) && (
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/doctor/prescription?appointmentId=${appointment._id}`,
+                    )
+                  }
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg transition hover:brightness-110 hover:shadow-xl"
+                >
+                  <FileText className="h-4 w-4" />
+                  Provide prescription
+                </button>
+              )}
+
               <button
                 onClick={() => onShowDetails(appointment)}
                 className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-5 py-2.5 text-sm font-bold text-primary transition hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
@@ -394,6 +472,12 @@ function AppointmentCard({
           </div>
         </div>
       </div>
+
+      {trackerStage && (
+        <div className="mt-6 border-t border-slate-100 pl-3 pt-5 dark:border-slate-700">
+          <AppointmentTracker stage={trackerStage} />
+        </div>
+      )}
     </article>
   );
 }
@@ -473,11 +557,15 @@ export default function ScheduleClient() {
           return isRescheduleRequest(appointment);
         }
 
-        return appointment.status === statusFilter;
+        return resolveDisplayStatus(appointment) === statusFilter;
       })
       .sort((a, b) => {
-        const aStatus = isRescheduleRequest(a) ? "reschedule" : a.status;
-        const bStatus = isRescheduleRequest(b) ? "reschedule" : b.status;
+        const aStatus = isRescheduleRequest(a)
+          ? "reschedule"
+          : resolveDisplayStatus(a);
+        const bStatus = isRescheduleRequest(b)
+          ? "reschedule"
+          : resolveDisplayStatus(b);
 
         if (statusPriority[aStatus] !== statusPriority[bStatus]) {
           return statusPriority[aStatus] - statusPriority[bStatus];
@@ -708,19 +796,21 @@ export default function ScheduleClient() {
               Clinical Appointments
             </h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Accepted appointments come first, then pending, reschedule, and completed.
+              Ongoing and accepted appointments come first, then pending, reschedule, completed, and unattended.
             </p>
           </div>
 
           <button
             onClick={() => {
-              void fetchAppointments().catch((err) => {
-                setError(
-                  err instanceof Error
-                    ? err.message
-                    : "Failed to load appointments",
-                );
-              });
+              void fetchAppointments()
+                .catch((err) => {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Failed to load appointments",
+                  );
+                })
+                .finally(() => setLoading(false));
             }}
             className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-8 py-3 font-bold text-primary shadow-sm transition hover:bg-slate-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
@@ -732,10 +822,14 @@ export default function ScheduleClient() {
         <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-2 dark:bg-slate-800/70">
           {[
             { key: "all", label: "All" },
-            { key: "accepted", label: "Accepted" },
             { key: "pending", label: "Pending" },
+            { key: "accepted", label: "Accepted" },
+            { key: "ongoing", label: "Ongoing" },
             { key: "reschedule", label: "Reschedule" },
             { key: "completed", label: "Completed" },
+            { key: "unattended", label: "Unattended" },
+            { key: "cancelled", label: "Cancelled" },
+            { key: "rejected", label: "Rejected" },
           ].map((item) => (
             <button
               key={item.key}
@@ -784,6 +878,7 @@ export default function ScheduleClient() {
                 onComplete={handleComplete}
                 onShowDetails={setSelectedAppointment}
                 loadingId={actionLoadingId}
+                router={router}
               />
             ))}
           </div>

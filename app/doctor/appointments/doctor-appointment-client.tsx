@@ -163,7 +163,8 @@ function normalizeAppointments(input: unknown): AppointmentRecord[] {
         asString(item.description) ||
         "";
 
-      const statusRaw = asString(item.status, "confirmed");
+      const rawStatus = asString(item.status, "confirmed");
+      const statusRaw = rawStatus === "unattended" ? "cancelled" : rawStatus;
       const status =
         statusRaw === "pending" ||
         statusRaw === "confirmed" ||

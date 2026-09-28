@@ -24,7 +24,8 @@ type AppointmentStatus =
   | "accepted"
   | "rejected"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "unattended";
 
 type ConsultationType = "video" | "in_person";
 

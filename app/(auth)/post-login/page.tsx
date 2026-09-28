@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { connectDB } from "@/config/mongodb";
 import { Doctor } from "@/models/doctor";
+import { resolveDoctorApplicationStatus } from "@/config/doctorStatus";
 import { Patient } from "@/models/patient";
 
 export default async function PostLoginPage() {
@@ -36,8 +37,16 @@ export default async function PostLoginPage() {
       !doctor.profilePicture ||
       !doctor.clinicAddress;
 
-    if (needsDoctorDetails) {
+    const applicationStatus = resolveDoctorApplicationStatus(doctor);
+
+    // A pending doctor who hasn't finished registering may still complete
+    // the details form; everything else must wait for approval.
+    if (needsDoctorDetails && applicationStatus !== "rejected") {
       redirect("/doctorsignup/doctorsignupdetails");
+    }
+
+    if (applicationStatus !== "accepted") {
+      redirect(`/account-status?status=${applicationStatus}`);
     }
 
     redirect("/doctor/home");

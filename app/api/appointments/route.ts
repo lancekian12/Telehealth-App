@@ -755,6 +755,9 @@ export async function PATCH(req: Request) {
       }
 
       appointment.status = "completed";
+      appointment.unattendedFrom = null;
+      appointment.unattendedAt = null;
+      appointment.unattendedReason = "";
       appointment.completedAt = new Date();
       await appointment.save();
 
