@@ -182,7 +182,7 @@ export default function AdminPatientsClient() {
                     <th className="pb-3">Joined</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="stagger">
                   {listState === "loading" ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} className="border-b border-slate-50">

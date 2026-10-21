@@ -5,7 +5,9 @@ import BackButton from "@/components/buttons/backbutton";
 
 export default function SignupPage(): JSX.Element {
   return (
-    <div className="bg-background-light text-slate-900 flex flex-col min-h-screen">
+    <div className="relative isolate flex min-h-screen flex-col overflow-hidden bg-background-light text-slate-900">
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 top-24 -z-10 h-72 w-72 rounded-full bg-[#008081]/10 blur-3xl animate-float-slow" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 bottom-10 -z-10 h-80 w-80 rounded-full bg-[#81B641]/15 blur-3xl animate-float" />
       <BackButton fallback="/" />
 
       <main className="flex flex-col items-center justify-start sm:justify-center max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -25,7 +27,7 @@ export default function SignupPage(): JSX.Element {
           </div>
 
           <div className="mt-5 sm:mt-6 md:mt-8">
-            <h2 className="text-lg sm:text-2xl font-bold text-[#008081] mb-2">
+            <h2 className="mb-2 text-2xl font-extrabold text-slate-900 sm:text-3xl">
               Create an Account
             </h2>
             <p className="text-slate-500 text-sm sm:text-base px-2 sm:px-0">
@@ -34,10 +36,10 @@ export default function SignupPage(): JSX.Element {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8 w-full max-w-4xl">
-          <div className="flex flex-col items-center p-5 sm:p-6 md:p-8 bg-white border border-slate-100 rounded-2xl transition-all duration-300 hover:shadow-xl hover:border-[#008081]/20 hover:-translate-y-1">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center rounded-full mb-4 sm:mb-6 bg-cyan-50 text-cyan-500">
-              <User size={32} className="text-cyan-500" />
+        <div className="stagger grid w-full max-w-4xl grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 md:gap-8">
+          <div className="card-lift group flex flex-col items-center rounded-3xl border border-slate-100 bg-white p-6 shadow-[var(--shadow-soft)] hover:border-[#008081]/20 sm:p-8">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#008081]/10 text-[#008081] transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110 sm:mb-6 md:h-20 md:w-20">
+              <User size={32} />
             </div>
 
             <h3 className="text-base sm:text-xl font-bold text-slate-800 mb-2 sm:mb-3 text-center">
@@ -51,15 +53,15 @@ export default function SignupPage(): JSX.Element {
 
             <Link
               href="/patientsignup"
-              className="text-center w-full bg-[#008081] text-white py-3 rounded-lg sm:py-3.5 font-bold text-base hover:brightness-110 transition-all shadow-sm"
+              className="btn-shine flex min-h-12 w-full items-center justify-center rounded-full bg-gradient-to-r from-[#008081] to-[#0a9a8f] py-3 text-center text-base font-bold text-white shadow-[var(--shadow-glow)] transition-all duration-300 hover:-translate-y-0.5 sm:py-3.5"
             >
               Select
             </Link>
           </div>
 
-          <div className="flex flex-col items-center p-5 sm:p-6 md:p-8 bg-white border border-slate-100 rounded-2xl transition-all duration-300 hover:shadow-xl hover:border-[#008081]/20 hover:-translate-y-1">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center rounded-full mb-4 sm:mb-6 bg-emerald-50 text-emerald-500">
-              <Stethoscope size={32} className="text-emerald-500" />
+          <div className="card-lift group flex flex-col items-center rounded-3xl border border-slate-100 bg-white p-6 shadow-[var(--shadow-soft)] hover:border-[#008081]/20 sm:p-8">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#81B641]/15 text-[#5f8f2d] transition-transform duration-500 group-hover:rotate-6 group-hover:scale-110 sm:mb-6 md:h-20 md:w-20">
+              <Stethoscope size={32} />
             </div>
 
             <h3 className="text-base sm:text-xl font-bold text-slate-800 mb-2 sm:mb-3 text-center">
@@ -73,7 +75,7 @@ export default function SignupPage(): JSX.Element {
 
             <Link
               href="/doctorsignup"
-              className="text-center w-full bg-[#008081] text-white py-3 rounded-lg sm:py-3.5 font-bold text-base hover:brightness-110 transition-all shadow-sm"
+              className="btn-shine flex min-h-12 w-full items-center justify-center rounded-full bg-gradient-to-r from-[#008081] to-[#0a9a8f] py-3 text-center text-base font-bold text-white shadow-[var(--shadow-glow)] transition-all duration-300 hover:-translate-y-0.5 sm:py-3.5"
             >
               Select
             </Link>

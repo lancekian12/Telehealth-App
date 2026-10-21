@@ -26,11 +26,6 @@ const nextSteps = [
 export default function MedicalRecordPrescriptionPage() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100">
-      <style>{` 
-        body { font-family: Inter, sans-serif; }
-        h1, h2, h3, h4, h5, h6 { font-family: Manrope, sans-serif; }
-      `}</style>
-
       <div className="mx-auto max-w-7xl px-4 pb-12 pt-24 sm:px-6 sm:pt-28 lg:px-8 lg:pt-32">
         <section className="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
@@ -183,7 +178,7 @@ export default function MedicalRecordPrescriptionPage() {
                 <CalendarDays className="h-5 w-5 text-primary" />
               </div>
 
-              <ul className="space-y-6">
+              <ul className="stagger space-y-6">
                 {nextSteps.map((step, index) => (
                   <li key={step.title} className="flex gap-4">
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-200">

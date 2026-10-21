@@ -281,7 +281,7 @@ export default function DoctorNotificationClient() {
 
             <div className="space-y-4">
               {loading ? (
-                <div className="space-y-4">
+                <div className="stagger space-y-4">
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div
                       key={i}

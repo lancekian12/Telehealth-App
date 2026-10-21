@@ -109,7 +109,7 @@ function StatCard({
   const change = formatChange(stat);
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <div className="card-lift rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between">
         <span
           className={`flex h-11 w-11 items-center justify-center rounded-xl ${accent}`}
@@ -778,7 +778,7 @@ export default function AdminDashboardClient() {
         </div>
 
         {/* Quick stats */}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="stagger mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             icon={<Users size={20} className="text-primary" />}
             label="Total Users"
@@ -867,7 +867,7 @@ export default function AdminDashboardClient() {
             </div>
           ) : (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <SummaryCard
                   icon={<Hourglass size={18} className="text-amber-600" />}
                   label="Pending"
@@ -919,7 +919,7 @@ export default function AdminDashboardClient() {
                   </p>
 
                   {specialtiesState === "loading" ? (
-                    <div className="space-y-3">
+                    <div className="stagger space-y-3">
                       {[0, 1, 2, 3].map((i) => (
                         <div key={i} className="h-10 animate-pulse rounded-xl bg-slate-100" />
                       ))}
@@ -933,7 +933,7 @@ export default function AdminDashboardClient() {
                       No appointment data yet.
                     </p>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="stagger space-y-4">
                       {specialties.map((item) => (
                         <div key={item.specialty}>
                           <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-600">
@@ -1026,7 +1026,7 @@ export default function AdminDashboardClient() {
                       <th className="pb-3">Condition</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="stagger">
                     {patientsState === "loading" ? (
                       Array.from({ length: 4 }).map((_, i) => (
                         <tr key={i} className="border-b border-slate-50">

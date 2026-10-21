@@ -237,7 +237,7 @@ function StatCard({
   icon: ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+    <div className="card-lift rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -475,11 +475,6 @@ export default function DoctorHomeClient() {
 
   return (
     <div className="min-h-screen bg-background-light text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
-      <style>{`
-        body { font-family: Inter, sans-serif; }
-        h1, h2, h3, h4, h5, h6 { font-family: Manrope, sans-serif; }
-      `}</style>
-
       <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <section className="relative rounded-3xl bg-primary p-5 text-white shadow-lg sm:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
@@ -594,7 +589,7 @@ export default function DoctorHomeClient() {
           </div>
         ) : (
           <>
-            <section className="mt-6 grid gap-4 md:grid-cols-3">
+            <section className="stagger mt-6 grid gap-4 md:grid-cols-3">
               {stats.map((item) => (
                 <StatCard
                   key={item.label}
@@ -631,7 +626,7 @@ export default function DoctorHomeClient() {
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-3">
+                      <div className="stagger space-y-3">
                         {todayPageItems.map((appointment) => {
                           const patientName = getPatientName(appointment.patient);
                           const isAccepted = appointment.status === "accepted";
@@ -756,7 +751,7 @@ export default function DoctorHomeClient() {
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-3">
+                      <div className="stagger space-y-3">
                         {completedPageItems.map((appointment) => {
                           const patientName = getPatientName(appointment.patient);
 

@@ -13,7 +13,7 @@ const clerkAppearance = {
     colorInputText: "#0f172a",
     colorTextSecondary: "#64748b",
     borderRadius: "14px",
-    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+    fontFamily: "var(--font-sans)",
   },
   elements: {
     rootBox: "w-full",

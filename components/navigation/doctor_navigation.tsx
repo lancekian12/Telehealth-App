@@ -59,16 +59,18 @@ function NavItem({
       href={to}
       onClick={onClick}
       className={[
-        "group flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all duration-200",
-        active || alert
-          ? "bg-[#008081]/10 text-[#008081]"
-          : "text-slate-600 hover:bg-slate-50 hover:text-[#008081]",
+        "group relative flex min-h-12 items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition-all duration-300",
+        active
+          ? "bg-gradient-to-r from-[#008081] to-[#0a9a8f] text-white shadow-[0_10px_24px_-12px_rgba(0,128,129,0.9)]"
+          : alert
+            ? "bg-[#008081]/10 text-[#008081]"
+            : "text-slate-600 hover:translate-x-1 hover:bg-slate-100/80 hover:text-[#008081]",
       ].join(" ")}
     >
       <span
         className={[
-          "relative h-5 w-5 flex-shrink-0",
-          active || alert ? "text-[#008081]" : "",
+          "relative h-5 w-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110",
+          active ? "text-white" : alert ? "text-[#008081]" : "",
         ].join(" ")}
       >
         {icon}
@@ -80,7 +82,12 @@ function NavItem({
       <span className="truncate flex-1">{label}</span>
 
       {showBadge && (
-        <span className="ml-auto flex min-w-6 items-center justify-center rounded-full bg-[#008081] px-2 py-0.5 text-[11px] font-bold leading-none text-white">
+        <span
+          className={[
+            "ml-auto flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold leading-none",
+            active ? "bg-white text-[#008081]" : "bg-[#008081] text-white",
+          ].join(" ")}
+        >
           {badge > 99 ? "99+" : badge}
         </span>
       )}
@@ -260,7 +267,7 @@ export default function DoctorNavigation({
 
   return (
     <div className="flex min-h-screen bg-background-light font-sans text-slate-900">
-      <aside className="sticky top-0 z-20 hidden h-screen w-72 flex-col border-r border-slate-200 bg-white/90 backdrop-blur-lg md:flex">
+      <aside className="sticky top-0 z-20 hidden h-screen w-72 flex-col border-r border-slate-200/70 bg-white/80 shadow-[4px_0_24px_-16px_rgba(15,23,42,0.25)] backdrop-blur-xl md:flex">
         <div className="flex items-center p-8">
           <span
             className="material-icons text-[#008081]"
@@ -274,10 +281,13 @@ export default function DoctorNavigation({
           </span>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-auto px-4">{navItems}</nav>
+        <p className="px-8 pb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+          Menu
+        </p>
+        <nav className="stagger flex-1 space-y-1.5 overflow-auto px-4">{navItems}</nav>
 
         <div className="border-t border-slate-100 p-6">
-          <div className="flex items-center gap-3 rounded-2xl bg-slate-50/80 p-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-bold text-white">
               {profilePicture ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -317,7 +327,7 @@ export default function DoctorNavigation({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 backdrop-blur-xl backdrop-saturate-150 md:hidden">
           <div className="flex items-center gap-2">
             <span className="text-lg font-extrabold tracking-tight text-slate-800">
               Appoint<span className="text-secondary">Care</span>
@@ -327,7 +337,7 @@ export default function DoctorNavigation({
           <div className="flex items-center gap-2">
             <Link
               href="/doctor/notifications"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-50 hover:text-primary"
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:text-primary"
               aria-label="Open notifications"
               title="Notifications"
             >
@@ -343,7 +353,7 @@ export default function DoctorNavigation({
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-slate-50 hover:text-primary"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:text-primary"
               aria-label="Open menu"
             >
               <Menu size={22} />
@@ -356,11 +366,11 @@ export default function DoctorNavigation({
             <button
               type="button"
               aria-label="Close menu"
-              className="absolute inset-0 bg-slate-950/40"
+              className="absolute inset-0 animate-fade-in bg-slate-950/40 backdrop-blur-sm"
               onClick={() => setMobileMenuOpen(false)}
             />
 
-            <div className="absolute right-0 top-0 h-full w-[88%] max-w-sm bg-white shadow-2xl">
+            <div className="absolute right-0 top-0 h-full w-[88%] max-w-sm animate-drawer-in rounded-l-3xl bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
                 <div className="flex items-center gap-2">
                   <span
@@ -410,7 +420,7 @@ export default function DoctorNavigation({
                 </div>
               </div>
 
-              <nav className="flex h-[calc(100%-14rem)] flex-col overflow-y-auto px-4 py-4">
+              <nav className="stagger flex h-[calc(100%-14rem)] flex-col gap-1.5 overflow-y-auto px-4 py-4">
                 {navItems}
               </nav>
 

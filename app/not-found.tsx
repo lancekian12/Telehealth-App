@@ -3,8 +3,10 @@ import Link from "next/link";
 
 export default function NotFoundPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-white dark:bg-[#0f172a] text-slate-900 dark:text-slate-100">
-      <div className="text-center max-w-xl space-y-6">
+    <div className="relative isolate min-h-screen flex items-center justify-center overflow-hidden px-4 bg-white dark:bg-[#0f172a] text-slate-900 dark:text-slate-100">
+      <div aria-hidden="true" className="bg-dot-grid pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_70%)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/3 -z-10 h-80 w-80 -translate-x-1/2 rounded-full bg-[#008081]/15 blur-3xl animate-float-slow" />
+      <div className="stagger text-center max-w-xl space-y-6">
         <style>{`
           .blob-shape { border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%; }
         `}</style>
@@ -14,7 +16,7 @@ export default function NotFoundPage() {
           PAGE NOT FOUND
         </div>
 
-        <h1 className="text-[#008081] text-6xl sm:text-7xl lg:text-8xl font-extrabold leading-none">
+        <h1 className="text-gradient-brand text-7xl sm:text-8xl lg:text-9xl font-extrabold leading-none">
           404
         </h1>
 
@@ -29,7 +31,7 @@ export default function NotFoundPage() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             href="/"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-full font-bold text-lg bg-[#008081] text-white hover:shadow-xl hover:brightness-110 transition-all"
+            className="btn-shine flex min-h-13 items-center justify-center gap-2 px-7 py-3 rounded-full font-bold text-lg bg-gradient-to-r from-[#008081] to-[#0a9a8f] text-white shadow-[var(--shadow-glow)] transition-all duration-300 hover:-translate-y-0.5"
           >
             <Home className="w-5 h-5" />
             Back to Home

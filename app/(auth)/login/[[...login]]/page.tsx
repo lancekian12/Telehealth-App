@@ -15,8 +15,8 @@ export default function LoginPage() {
     sm:top-6 sm:left-6
     mx-4 mt-4 sm:mt-0
     z-50
-    rounded-lg border border-slate-200
-    bg-white px-4 py-2
+    inline-flex rounded-full border border-slate-200
+    bg-white/90 px-5 py-2.5 backdrop-blur
     text-sm font-semibold text-slate-600
     shadow-sm
     hover:border-[#008081]/40 hover:text-[#008081]
@@ -47,10 +47,10 @@ export default function LoginPage() {
         </div>
 
         {/* Feature icons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 mb-10 sm:mb-12">
-          <div className="flex flex-col items-center text-center p-4">
-            <div className="bg-indigo-50 p-4 rounded-2xl mb-3">
-              <Calendar className="text-indigo-500" size={32} />
+        <div className="stagger mb-10 grid grid-cols-3 gap-3 sm:mb-12 sm:gap-8">
+          <div className="flex flex-col items-center p-2 text-center sm:p-4">
+            <div className="mb-3 rounded-2xl bg-[#008081]/10 p-3.5 sm:p-4">
+              <Calendar className="text-[#008081]" size={28} />
             </div>
             <h3 className="font-bold text-slate-800 mb-1">Book</h3>
             <p className="text-xs text-slate-500">
@@ -58,12 +58,11 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="flex flex-col items-center text-center p-4">
-            <div className="bg-red-50 p-4 rounded-2xl mb-3">
+          <div className="flex flex-col items-center p-2 text-center sm:p-4">
+            <div className="mb-3 rounded-2xl bg-[#81B641]/15 p-3.5 sm:p-4">
               <MessageSquare
-                className="text-red-400"
-                fill="currentColor"
-                size={32}
+                className="text-[#5f8f2d]"
+                size={28}
               />
             </div>
             <h3 className="font-bold text-slate-800 mb-1">Consult</h3>
@@ -72,9 +71,9 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="flex flex-col items-center text-center p-4">
-            <div className="bg-cyan-50 p-4 rounded-2xl mb-3">
-              <Pill className="text-cyan-400" size={32} />
+          <div className="flex flex-col items-center p-2 text-center sm:p-4">
+            <div className="mb-3 rounded-2xl bg-[#008081]/10 p-3.5 sm:p-4">
+              <Pill className="text-[#008081]" size={28} />
             </div>
             <h3 className="font-bold text-slate-800 mb-1">Prescription</h3>
             <p className="text-xs text-slate-500">

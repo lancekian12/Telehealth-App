@@ -33,13 +33,15 @@ function NavItem({ to, icon, label, onClick }: NavItemProps) {
       href={to}
       onClick={onClick}
       className={[
-        "flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-all duration-200",
+        "group flex min-h-12 items-center gap-3 rounded-2xl px-4 py-3 font-semibold transition-all duration-300",
         active
-          ? "bg-primary/10 text-primary"
-          : "text-slate-600 hover:bg-slate-50 hover:text-primary",
+          ? "bg-gradient-to-r from-primary to-[#0a9a8f] text-white shadow-[0_10px_24px_-12px_rgba(0,128,129,0.9)]"
+          : "text-slate-600 hover:translate-x-1 hover:bg-slate-100/80 hover:text-primary",
       ].join(" ")}
     >
-      <span className="h-5 w-5 shrink-0">{icon}</span>
+      <span className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110">
+        {icon}
+      </span>
       <span className="truncate">{label}</span>
     </Link>
   );
@@ -161,7 +163,7 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh bg-background-light font-sans text-slate-900">
-      <aside className="sticky top-0 z-20 hidden h-dvh w-72 flex-col border-r border-slate-200 bg-white/90 backdrop-blur-lg md:flex">
+      <aside className="sticky top-0 z-20 hidden h-dvh w-72 flex-col border-r border-slate-200/70 bg-white/80 shadow-[4px_0_24px_-16px_rgba(15,23,42,0.25)] backdrop-blur-xl md:flex">
         <div className="flex items-center gap-2 p-8">
           <span className="material-icons text-primary" style={{ fontSize: "35px" }}>
             eco
@@ -171,10 +173,10 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
           </span>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-auto px-4">{navItems}</nav>
+        <nav className="stagger flex-1 space-y-1.5 overflow-auto px-4">{navItems}</nav>
 
         <div className="border-t border-slate-100 p-6">
-          <div className="flex items-center gap-3 rounded-2xl bg-slate-50/80 p-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-white">
               <ShieldCheck weight="fill" size={20} />
             </div>
@@ -203,7 +205,7 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 backdrop-blur-xl backdrop-saturate-150 md:hidden">
           <div className="flex items-center gap-2">
             <span className="material-icons text-primary" style={{ fontSize: "28px" }}>
               eco
@@ -216,7 +218,7 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-slate-50 hover:text-primary"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:text-primary"
             aria-label="Open menu"
           >
             <Hamburger size={22} />
@@ -228,11 +230,11 @@ export default function AdminSidebar({ children }: { children: ReactNode }) {
             <button
               type="button"
               aria-label="Close menu"
-              className="absolute inset-0 bg-slate-950/40"
+              className="absolute inset-0 animate-fade-in bg-slate-950/40 backdrop-blur-sm"
               onClick={() => setMobileMenuOpen(false)}
             />
 
-            <div className="absolute right-0 top-0 h-full w-[80%] max-w-xs bg-white shadow-2xl">
+            <div className="absolute right-0 top-0 h-full w-[80%] max-w-xs animate-drawer-in rounded-l-3xl bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
                 <span className="text-lg font-extrabold tracking-tight text-slate-800">
                   Appoint<span className="text-secondary">Care</span>

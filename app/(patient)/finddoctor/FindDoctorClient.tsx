@@ -921,7 +921,7 @@ export default function FindDoctorClient(): JSX.Element {
               </div>
             ) : null}
 
-            <div className="space-y-4 sm:space-y-5">
+            <div className="stagger space-y-4 sm:space-y-5">
               {loadingDoctors
                 ? Array.from({ length: 3 }).map((_, index) => (
                     <div

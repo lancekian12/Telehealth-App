@@ -568,7 +568,7 @@ export default function AppointmentHistoryClient(): JSX.Element {
         )}
 
         {!loading && !error && visibleAppointments.length > 0 && (
-          <div className="relative space-y-0 pl-2">
+          <div className="stagger relative space-y-0 pl-2">
             {paginatedAppointments.map((a, index) => {
               const appointmentDateTime = getAppointmentDateTime(a);
               const isVideo = a.consultationType === "video";

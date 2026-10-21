@@ -781,11 +781,6 @@ export default function ScheduleClient() {
 
   return (
     <main className="min-h-screen bg-background-light text-slate-900 transition-colors duration-300 dark:bg-background-dark dark:text-slate-100">
-      <style>{`
-        body { font-family: Inter, sans-serif; }
-        h1, h2, h3, h4, h5, h6 { font-family: Manrope, sans-serif; }
-      `}</style>
-
       <div className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-10 pt-12 sm:px-6 sm:pt-16 lg:px-8 lg:pt-24">
         <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>

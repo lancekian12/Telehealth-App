@@ -229,15 +229,18 @@ export default function Navigation() {
   return (
     <>
       <header
-        className={`fixed left-0 right-0 top-0 z-[9999] w-full border-b border-slate-100 backdrop-blur-md transition-colors duration-300 dark:border-slate-800 ${
+        className={`fixed left-0 right-0 top-0 z-[9999] w-full border-b backdrop-blur-xl backdrop-saturate-150 transition-[background-color,box-shadow,border-color] duration-500 ${
           scrolled
-            ? "bg-background-surface shadow-sm dark:bg-slate-900/90"
-            : "bg-white/80 dark:bg-slate-900/80"
+            ? "border-slate-200/70 bg-white/80 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-900/80"
+            : "border-transparent bg-white/60 dark:bg-slate-900/60"
         }`}
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-20 items-center justify-between gap-4">
-            <Link href="/" className="flex items-center justify-center">
+            <Link
+              href="/"
+              className="flex items-center justify-center transition-opacity hover:opacity-90"
+            >
               <span
                 className="material-icons text-[#008081]"
                 style={{ fontSize: "35px" }}
@@ -249,7 +252,7 @@ export default function Navigation() {
               </span>
             </Link>
 
-            <nav className="hidden items-center gap-10 md:flex">
+            <nav className="hidden items-center gap-1 rounded-full border border-slate-200/70 bg-white/70 p-1 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/60 md:flex">
               {[
                 { href: "/", label: "Home" },
                 { href: "/finddoctor", label: "Find Doctor" },
@@ -259,20 +262,14 @@ export default function Navigation() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`group relative pb-2 text-sm font-medium transition-all duration-300 ${
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={`relative rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 lg:px-5 ${
                     isActive(item.href)
-                      ? "text-[#008081]"
-                      : "text-slate-600 hover:text-[#008081]"
+                      ? "bg-[#008081] text-white shadow-[0_6px_16px_-6px_rgba(0,128,129,0.7)]"
+                      : "text-slate-600 hover:bg-[#008081]/8 hover:text-[#008081] dark:text-slate-300"
                   }`}
                 >
                   {item.label}
-                  <span
-                    className={`absolute bottom-0 left-1/2 h-[3px] -translate-x-1/2 rounded-full bg-[#008081] transition-all duration-300 ${
-                      isActive(item.href)
-                        ? "w-10 opacity-100"
-                        : "w-0 opacity-0 group-hover:w-8"
-                    }`}
-                  />
                 </Link>
               ))}
             </nav>
@@ -311,7 +308,7 @@ export default function Navigation() {
                       </button>
 
                       {profileOpen && (
-                        <div className="absolute right-0 mt-3 w-56 overflow-hidden rounded-2xl border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95">
+                        <div className="absolute right-0 mt-3 w-56 origin-top-right animate-scale-in overflow-hidden rounded-2xl border border-slate-100 bg-white/95 shadow-2xl backdrop-blur-md dark:border-slate-700 dark:bg-slate-900/95">
                           <div className="p-2">
                             <button
                               type="button"
@@ -342,13 +339,13 @@ export default function Navigation() {
                 <>
                   <Link
                     href="/signup"
-                    className="font-semibold text-slate-600 transition-opacity hover:opacity-80"
+                    className="rounded-full px-4 py-2 font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Sign Up
                   </Link>
                   <Link
                     href="/login"
-                    className="rounded-full bg-primary px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-opacity-90"
+                    className="btn-shine rounded-full bg-gradient-to-r from-[#008081] to-[#0a9a8f] px-6 py-2.5 font-semibold text-white shadow-[0_10px_24px_-10px_rgba(0,128,129,0.8)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_28px_-10px_rgba(0,128,129,0.9)]"
                   >
                     Login
                   </Link>
@@ -363,10 +360,12 @@ export default function Navigation() {
                 onClick={() => setMenuOpen(!menuOpen)}
                 aria-label="Toggle menu"
                 aria-expanded={menuOpen}
-                className="rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#008081]"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white/90 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#008081] dark:border-slate-700 dark:bg-slate-800/90"
               >
                 <svg
-                  className="h-7 w-7 text-slate-700 dark:text-slate-200"
+                  className={`h-6 w-6 text-slate-700 transition-transform duration-300 dark:text-slate-200 ${
+                    menuOpen ? "rotate-90" : "rotate-0"
+                  }`}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -393,12 +392,17 @@ export default function Navigation() {
         </div>
 
         <div
-          className={`md:hidden overflow-hidden border-t border-slate-100 bg-white/95 transition-all duration-300 dark:border-slate-800 dark:bg-slate-900/95 ${
-            menuOpen ? "max-h-[80vh] opacity-100" : "max-h-0 opacity-0"
+          className={`grid md:hidden transition-[grid-template-rows,opacity] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            menuOpen
+              ? "grid-rows-[1fr] border-t border-slate-100 bg-white/95 opacity-100 shadow-[0_20px_40px_-20px_rgba(15,23,42,0.25)] dark:border-slate-800 dark:bg-slate-900/95"
+              : "grid-rows-[0fr] opacity-0"
           }`}
+          aria-hidden={!menuOpen}
+          inert={!menuOpen}
         >
+          <div className="max-h-[calc(100dvh-5rem)] overflow-y-auto overscroll-contain">
           <div className="mx-auto max-w-8xl px-4 py-4 sm:px-6">
-            <nav className="flex flex-col gap-1">
+            <nav className={`flex flex-col gap-1 ${menuOpen ? "stagger" : ""}`}>
               {[
                 { href: "/", label: "Home" },
                 { href: "/finddoctor", label: "Find Doctor" },
@@ -409,9 +413,10 @@ export default function Navigation() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
-                  className={`rounded-xl px-4 py-3 text-sm font-medium transition-colors ${
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={`flex min-h-12 items-center rounded-2xl px-4 py-3 text-[15px] font-semibold transition-colors ${
                     isActive(item.href)
-                      ? "bg-[#008081]/10 text-[#008081]"
+                      ? "bg-[#008081]/10 text-[#008081] ring-1 ring-[#008081]/15"
                       : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                   }`}
                 >
@@ -479,6 +484,7 @@ export default function Navigation() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
 

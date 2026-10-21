@@ -834,7 +834,7 @@ export default function DoctorPatientRecord() {
                   No patient records found.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="stagger space-y-3">
                   {filtered.map((p, i) => (
                     <PatientCard
                       key={p.id}
@@ -994,7 +994,7 @@ export default function DoctorPatientRecord() {
                     No patient records found.
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="stagger space-y-3">
                     {filtered.map((p, i) => (
                       <PatientCard
                         key={p.id}

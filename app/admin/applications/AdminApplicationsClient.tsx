@@ -290,7 +290,7 @@ export default function AdminApplicationsClient() {
 
         <div className="mt-5">
           {listState === "loading" ? (
-            <div className="space-y-3">
+            <div className="stagger space-y-3">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="h-24 animate-pulse rounded-2xl bg-white" />
               ))}
@@ -313,7 +313,7 @@ export default function AdminApplicationsClient() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="stagger space-y-3">
               {applications.map((app) => (
                 <button
                   key={app.id}

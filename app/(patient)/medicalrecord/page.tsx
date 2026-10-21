@@ -430,7 +430,7 @@ export default function PatientMedicalRecordPage() {
                 No completed appointments found.
               </div>
             ) : (
-              <div className="custom-scrollbar flex-1 space-y-3 overflow-y-auto pr-1">
+              <div className="custom-scrollbar stagger flex-1 space-y-3 overflow-y-auto pr-1">
                 {appointments.map((appt) => (
                   <AppointmentCard
                     key={appt._id}
