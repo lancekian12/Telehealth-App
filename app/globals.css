@@ -48,9 +48,11 @@
     from { opacity: 0; translate: 0 32px; }
     to { opacity: 1; translate: 0 0; }
   }
+  /* Opacity only: a transform here would re-anchor position:fixed children
+     (modals, the mobile map sheet) to the page wrapper while it runs. */
   @keyframes page-in {
-    from { opacity: 0; translate: 0 10px; }
-    to { opacity: 1; translate: 0 0; }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   @keyframes float {
     0%, 100% { translate: 0 0; }
@@ -389,4 +391,169 @@ html,
 body {
   overflow-x: clip;
 }
+}
+
+/* ---------- Find Doctor map (Leaflet) ---------- */
+@layer components {
+  .doc-pin-icon {
+    background: none;
+    border: 0;
+  }
+
+  /* Pin = white pill (photo + price) with a small pointer. The marker box is
+     0x0 at the coordinate; the pin sits above it, tip on the exact spot.
+     No <img>: Leaflet's marker-pane img rules would distort it. */
+  .doc-pin {
+    position: absolute;
+    left: 0;
+    bottom: 7px;
+    translate: -50% 0;
+    transform-origin: 50% calc(100% + 7px);
+    transition: scale 0.25s var(--ease-spring);
+    cursor: pointer;
+  }
+
+  .doc-pin__bubble {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 11px 3px 3px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.08),
+      0 6px 16px -4px rgba(15, 23, 42, 0.22);
+    transition:
+      background-color 0.2s var(--ease-out-soft),
+      padding 0.2s var(--ease-out-soft);
+  }
+
+  /* Pointer */
+  .doc-pin__bubble::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    translate: -50% 0;
+    rotate: 45deg;
+    background: inherit;
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom-right-radius: 2px;
+  }
+
+  .doc-pin__photo {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    background-color: #e2e8f0;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 0 0 2px #22c55e;
+  }
+
+  .doc-pin__fee {
+    position: relative;
+    z-index: 1;
+    color: #0f172a;
+    font: 700 13px/1 var(--font-sans);
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+  }
+
+  /* Fully booked: muted */
+  .doc-pin.is-booked .doc-pin__photo {
+    box-shadow: 0 0 0 2px #94a3b8;
+    filter: grayscale(0.7);
+  }
+  .doc-pin.is-booked .doc-pin__fee {
+    color: #64748b;
+  }
+
+  /* Zoomed out: just the photo bubble, so pins don't pile up */
+  .map-zoomed-out .doc-pin:not(.is-active) .doc-pin__bubble {
+    padding: 3px;
+  }
+  .map-zoomed-out .doc-pin:not(.is-active) .doc-pin__fee {
+    display: none;
+  }
+
+  /* Hovered / selected */
+  .doc-pin.is-active {
+    scale: 1.12;
+    z-index: 1;
+  }
+  .doc-pin.is-active .doc-pin__bubble {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    box-shadow: 0 10px 24px -6px rgba(0, 128, 129, 0.55);
+  }
+  .doc-pin.is-active .doc-pin__bubble::after {
+    border-color: var(--color-primary);
+  }
+  .doc-pin.is-active .doc-pin__fee {
+    color: #fff;
+  }
+  .doc-pin.is-active .doc-pin__photo {
+    box-shadow: 0 0 0 2px #fff;
+  }
+
+  /* "You are here" dot */
+  .user-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    border: 3px solid #fff;
+    background: #2563eb;
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+    animation: user-pulse 2s var(--ease-out-soft) infinite;
+  }
+  @keyframes user-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+    80%, 100% { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); }
+  }
+
+  /* Popup */
+  .doc-popup .leaflet-popup-content-wrapper {
+    padding: 0;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow: var(--shadow-lifted);
+  }
+  .doc-popup .leaflet-popup-content {
+    margin: 0;
+    width: min(260px, calc(100vw - 124px)) !important;
+    font-family: var(--font-sans);
+  }
+  .doc-popup .leaflet-popup-tip {
+    box-shadow: none;
+  }
+  .doc-popup a.leaflet-popup-close-button {
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #475569;
+    font: 400 18px/28px var(--font-sans);
+  }
+
+  .leaflet-container {
+    font-family: var(--font-sans);
+    background: #eef2f3;
+  }
+  .leaflet-control-attribution {
+    border-radius: 0.5rem 0 0 0;
+    background: rgba(255, 255, 255, 0.75) !important;
+    backdrop-filter: blur(6px);
+    font-size: 10px;
+  }
 }

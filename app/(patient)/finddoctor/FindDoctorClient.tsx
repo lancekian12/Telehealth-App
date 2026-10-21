@@ -8,13 +8,20 @@ import React, {
   useRef,
   useState,
 } from "react";
-import type { DivIcon, LatLngExpression, Map as LeafletMap } from "leaflet";
+import type {
+  DivIcon,
+  LatLngExpression,
+  Map as LeafletMap,
+  Marker as LeafletMarker,
+} from "leaflet";
 import {
   Star,
   Heart,
   Plus,
   Minus,
-  Navigation2,
+  LocateFixed,
+  Maximize2,
+  List as ListIcon,
   Map as MapIcon,
   RefreshCw,
   Stethoscope,
@@ -233,62 +240,124 @@ function AiSearchModal({
   );
 }
 
-function MapControls({
-  center,
-  onSearchArea,
+const mapButtonClass =
+  "flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/70 bg-white/95 text-slate-600 shadow-[var(--shadow-soft)] backdrop-blur-md transition-colors hover:text-primary disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/95 dark:text-slate-300";
+
+function MapOverlay({
+  locationLabel,
+  total,
+  accepting,
+  booked,
+  locating,
+  onFitAll,
+  onLocate,
 }: {
-  center: LatLngExpression;
-  onSearchArea: () => void;
+  locationLabel: string;
+  total: number;
+  accepting: number;
+  booked: number;
+  locating: boolean;
+  onFitAll: () => void;
+  onLocate: () => void;
 }) {
   return (
-    <div className="absolute right-3 top-3 z-20 flex flex-col gap-2 sm:right-6 sm:top-6">
-      <button
-        onClick={() => window.__doctorMap?.zoomIn()}
-        className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-        aria-label="zoom in"
-      >
-        <Plus size={18} />
-      </button>
-
-      <button
-        onClick={() => window.__doctorMap?.zoomOut()}
-        className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-        aria-label="zoom out"
-      >
-        <Minus size={18} />
-      </button>
-
-      <button
-        onClick={() => {
-          const map = window.__doctorMap;
-          if (map) {
-            map.panTo(center);
-            map.setZoom(14);
-          }
-        }}
-        className="mt-2 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-600 shadow-lg transition-colors hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-        aria-label="locate center"
-      >
-        <Navigation2 size={18} />
-      </button>
-
-      <button
-        onClick={onSearchArea}
-        className="mt-2 w-max rounded-2xl border border-slate-100 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md transition-colors hover:bg-white dark:border-slate-700 dark:bg-slate-800/90"
-      >
-        <div className="flex items-center gap-3 text-sm font-medium">
-          <MapIcon size={18} className="text-[#008081]" />
-          <div className="text-left">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+    <>
+      {/* Top: where we are searching + how many pins */}
+      <div className="pointer-events-none absolute left-3 right-16 top-3 z-[500] sm:left-5 sm:top-5 lg:top-24">
+        <div className="pointer-events-auto inline-flex max-w-full animate-fade-up items-center gap-3 rounded-2xl border border-slate-200/70 bg-white/95 px-4 py-2.5 shadow-[var(--shadow-soft)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/95">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <MapIcon size={18} aria-hidden="true" />
+          </span>
+          <div className="min-w-0 text-left">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Searching in
             </p>
-            <p className="font-bold text-slate-900 dark:text-white">
-              Davao City, PH
+            <p className="truncate text-sm font-bold text-slate-900 dark:text-white">
+              {locationLabel}
+              <span className="ml-2 font-medium text-slate-500 dark:text-slate-400">
+                · {total} {total === 1 ? "doctor" : "doctors"} on map
+              </span>
             </p>
           </div>
         </div>
-      </button>
-    </div>
+      </div>
+
+      {/* Right: map controls */}
+      <div className="absolute right-3 top-3 z-[500] flex flex-col gap-2 sm:right-5 sm:top-5 lg:top-24">
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white/95 shadow-[var(--shadow-soft)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/95">
+          <button
+            type="button"
+            onClick={() => window.__doctorMap?.zoomIn()}
+            className="flex h-11 w-11 items-center justify-center text-slate-600 transition-colors hover:bg-slate-50 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-700"
+            aria-label="Zoom in"
+            title="Zoom in"
+          >
+            <Plus size={18} />
+          </button>
+          <div className="h-px bg-slate-200/80 dark:bg-slate-700" />
+          <button
+            type="button"
+            onClick={() => window.__doctorMap?.zoomOut()}
+            className="flex h-11 w-11 items-center justify-center text-slate-600 transition-colors hover:bg-slate-50 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-700"
+            aria-label="Zoom out"
+            title="Zoom out"
+          >
+            <Minus size={18} />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onFitAll}
+          className={mapButtonClass}
+          aria-label="Show all doctors"
+          title="Show all doctors"
+        >
+          <Maximize2 size={18} />
+        </button>
+
+        <button
+          type="button"
+          onClick={onLocate}
+          disabled={locating}
+          className={mapButtonClass}
+          aria-label="Show my location"
+          title="Show my location"
+        >
+          <LocateFixed size={18} className={locating ? "animate-spin" : ""} />
+        </button>
+      </div>
+
+      {/* Bottom: legend */}
+      <div className="absolute bottom-24 left-3 z-[500] sm:left-5 lg:bottom-8">
+        <div className="flex items-center gap-4 rounded-2xl border border-slate-200/70 bg-white/95 px-4 py-2.5 text-xs font-semibold text-slate-600 shadow-[var(--shadow-soft)] backdrop-blur-md dark:border-slate-700 dark:bg-slate-800/95 dark:text-slate-300">
+          <span className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-[#22c55e] ring-2 ring-white" />
+            Accepting ({accepting})
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-slate-400 ring-2 ring-white" />
+            Fully booked ({booked})
+          </span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function isDarkScheme(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches
   );
 }
 
@@ -336,8 +405,19 @@ export default function FindDoctorClient(): JSX.Element {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markerLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const markersRef = useRef<Map<string, LeafletMarker>>(new Map());
+  const userMarkerRef = useRef<LeafletMarker | null>(null);
+  const fittedKeyRef = useRef("");
+  // Work deferred while the map is hidden (mobile list view): zero-size
+  // maps cannot fit bounds or fly anywhere.
+  const pendingFitRef = useRef(false);
+  const pendingFocusRef = useRef<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [hoveredDoctorId, setHoveredDoctorId] = useState<string | null>(null);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
 
-  const center = useMemo<LatLngExpression>(() => [7.1907, 125.4553], []);
   const philippinesCenter = useMemo<LatLngExpression>(
     () => [12.8797, 121.774],
     [],
@@ -692,21 +772,157 @@ export default function FindDoctorClient(): JSX.Element {
     aiRankedDoctorIds,
   ]);
 
-  async function createDoctorIcon(img: string): Promise<DivIcon> {
-    const L = await import("leaflet");
+  function createDoctorIcon(
+    L: typeof import("leaflet"),
+    doctor: FindDoctor,
+    active: boolean,
+  ): DivIcon {
+    const classes = [
+      "doc-pin",
+      doctor.status === "fully_booked" ? "is-booked" : "",
+      active ? "is-active" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    // CSS url() needs quotes/parens escaped before the HTML attribute escape.
+    const photoUrl = doctor.img.replace(
+      /["'()\\]/g,
+      (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
 
     return L.divIcon({
-      className: "custom-doctor-icon",
+      className: "doc-pin-icon",
       html: `
-        <div class="h-12 w-12 overflow-hidden rounded-full border-4 border-white bg-white shadow-lg">
-          <img src="${img}" alt="Doctor" class="h-full w-full object-cover" style="width:100%;height:100%;object-fit:cover;object-position:center;" />
+        <div class="${classes}">
+          <div class="doc-pin__bubble">
+            <span class="doc-pin__photo" style="background-image:url('${escapeHtml(photoUrl)}')"></span>
+            <span class="doc-pin__fee">₱${escapeHtml(doctor.fee.toLocaleString())}</span>
+          </div>
         </div>
       `,
-      iconSize: [48, 48],
-      iconAnchor: [24, 48],
-      popupAnchor: [0, -48],
-    });
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+      popupAnchor: [0, -48],    });
   }
+
+  function buildPopupHtml(doctor: FindDoctor): string {
+    const booked = doctor.status === "fully_booked";
+    return `
+      <div>
+        <div style="display:flex;gap:12px;padding:16px 16px 12px">
+          <img src="${escapeHtml(doctor.img)}" alt="" style="width:56px;height:56px;border-radius:14px;object-fit:cover;flex-shrink:0" />
+          <div style="min-width:0;padding-right:20px">
+            <p style="margin:0;font-weight:800;font-size:15px;color:#0f172a;line-height:1.3">${escapeHtml(doctor.name)}</p>
+            <p style="margin:4px 0 0;display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(0,128,129,.1);color:#008081;font-size:11px;font-weight:700">${escapeHtml(doctor.specialty)}</p>
+            <p style="margin:6px 0 0;font-size:12px;color:#64748b;line-height:1.35">${escapeHtml(doctor.hospital)}</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;border-top:1px solid #f1f5f9;background:#f8fafc">
+          <span style="font-size:12px;color:#475569"><b style="color:#f59e0b">★</b> <b style="color:#0f172a">${doctor.rating.toFixed(1)}</b></span>
+          <span style="font-size:15px;font-weight:800;color:#0f172a">₱${escapeHtml(String(doctor.fee))}<span style="font-size:11px;font-weight:500;color:#64748b"> / visit</span></span>
+        </div>
+        <div style="padding:12px 16px 16px">
+          ${
+            booked
+              ? `<button type="button" disabled style="width:100%;padding:10px;border-radius:999px;border:0;background:#f1f5f9;color:#94a3b8;font-weight:700;font-size:13px">Fully booked</button>`
+              : `<button type="button" data-book-doctor="${escapeHtml(doctor.id)}" style="width:100%;padding:10px;border-radius:999px;border:0;background:linear-gradient(90deg,#008081,#0a9a8f);color:#fff;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 8px 18px -8px rgba(0,128,129,.7)">View availability</button>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  // Latest values for Leaflet event handlers, which are bound once.
+  const visibleDoctorsRef = useRef(visibleDoctors);
+  const openAvailabilityRef = useRef(openAvailabilityPanel);
+  useEffect(() => {
+    visibleDoctorsRef.current = visibleDoctors;
+    openAvailabilityRef.current = openAvailabilityPanel;
+  });
+
+  const fitToDoctors = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const size = map.getSize();
+    if (!size.x || !size.y) {
+      pendingFitRef.current = true;
+      return;
+    }
+    pendingFitRef.current = false;
+    const points = [...markersRef.current.values()].map((m) => m.getLatLng());
+    if (points.length === 0) {
+      map.setView(philippinesCenter, 5);
+      return;
+    }
+    if (points.length === 1) {
+      map.flyTo(points[0], 14, { duration: 0.8 });
+      return;
+    }
+    map.flyToBounds(points.map((p) => [p.lat, p.lng]) as [number, number][], {
+      paddingTopLeft: [60, 140],
+      paddingBottomRight: [80, 90],
+      maxZoom: 14,
+      duration: 0.8,
+    });
+  }, [philippinesCenter]);
+
+  const flyToDoctor = useCallback((doctorId: string) => {
+    const map = mapRef.current;
+    const marker = markersRef.current.get(doctorId);
+    if (!map || !marker) return;
+    map.stop(); // cancel any running fly so its moveend can't open the popup early
+    map.closePopup();
+    map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 15), {
+      duration: 0.8,
+    });
+    map.once("moveend", () => marker.openPopup());
+  }, []);
+
+  const focusDoctorOnMap = useCallback(
+    (doctorId: string) => {
+      setSelectedDoctorId(doctorId);
+      const size = mapRef.current?.getSize();
+      if (size && size.x && size.y) {
+        flyToDoctor(doctorId);
+      } else {
+        // Mobile: open the map sheet first; the effect below flies once sized.
+        pendingFocusRef.current = doctorId;
+        setMapOpen(true);
+      }
+    },
+    [flyToDoctor],
+  );
+
+  const locateUser = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        const map = mapRef.current;
+        setLocating(false);
+        if (!map) return;
+        const L = await import("leaflet");
+        const latLng: LatLngExpression = [coords.latitude, coords.longitude];
+        userMarkerRef.current?.remove();
+        userMarkerRef.current = L.marker(latLng, {
+          icon: L.divIcon({
+            className: "doc-pin-icon",
+            html: '<div class="user-dot"></div>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          }),
+          keyboard: false,
+          zIndexOffset: 1000,
+        })
+          .bindTooltip("You are here", { direction: "top", offset: [0, -10] })
+          .addTo(map);
+        map.flyTo(latLng, 13, { duration: 0.8 });
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }, []);
 
   useEffect(() => {
     if (!hasMounted) return;
@@ -714,27 +930,70 @@ export default function FindDoctorClient(): JSX.Element {
     if (mapRef.current) return;
 
     let cancelled = false;
+    const markers = markersRef.current;
 
     const initMap = async () => {
       const L = await import("leaflet");
       if (cancelled || !mapHostRef.current || mapRef.current) return;
 
+      // No live map is tracked here, so any Leaflet id left on the node is
+      // from an instance that was torn down (e.g. by a dev hot reload).
+      const host = mapHostRef.current as HTMLDivElement & {
+        _leaflet_id?: number | null;
+      };
+      if (host._leaflet_id) host._leaflet_id = null;
+
       const map = L.map(mapHostRef.current, {
         zoomControl: false,
+        zoomSnap: 0.5,
       });
 
       mapRef.current = map;
       window.__doctorMap = map;
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
+      // Esri Canvas basemap (no API key): a calm gray base so doctor pins
+      // stand out, with labels drawn on a separate layer above it.
+      const canvas = isDarkScheme() ? "World_Dark_Gray" : "World_Light_Gray";
+      const esri = (layer: string) =>
+        `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${layer}/MapServer/tile/{z}/{y}/{x}`;
+      L.tileLayer(esri(`${canvas}_Base`), {
+        attribution:
+          'Tiles &copy; <a href="https://www.esri.com">Esri</a>, HERE, Garmin, &copy; OpenStreetMap contributors',
+        maxZoom: 16,
       }).addTo(map);
+      L.tileLayer(esri(`${canvas}_Reference`), { maxZoom: 16 }).addTo(map);
 
       markerLayerRef.current = L.layerGroup().addTo(map);
       map.setView(philippinesCenter, 5);
 
-      const handleResize = () => map.invalidateSize();
-      window.addEventListener("resize", handleResize);
+      // Fee tags only when zoomed in enough that pins stop overlapping.
+      const syncZoomClass = () =>
+        map.getContainer().classList.toggle("map-zoomed-out", map.getZoom() < 13);
+      map.on("zoomend", syncZoomClass);
+      syncZoomClass();
+
+      // Popup "View availability" button opens the booking panel.
+      map.on("popupopen", (event) => {
+        const button = event.popup
+          .getElement()
+          ?.querySelector<HTMLButtonElement>("[data-book-doctor]");
+        if (!button) return;
+        button.onclick = () => {
+          const doctor = visibleDoctorsRef.current.find(
+            (d) => d.id === button.dataset.bookDoctor,
+          );
+          if (doctor) {
+            map.closePopup();
+            setMapOpen(false);
+            openAvailabilityRef.current(doctor);
+          }
+        };
+      });
+
+      // Re-measure whenever the map's box changes (window resize, mobile
+      // sheet opening, page transitions), so Leaflet never uses a stale size.
+      const resizeObserver = new ResizeObserver(() => map.invalidateSize());
+      resizeObserver.observe(mapHostRef.current);
 
       const timeout = window.setTimeout(() => {
         try {
@@ -746,7 +1005,7 @@ export default function FindDoctorClient(): JSX.Element {
 
       const cleanup = () => {
         window.clearTimeout(timeout);
-        window.removeEventListener("resize", handleResize);
+        resizeObserver.disconnect();
         map.remove();
         mapRef.current = null;
         markerLayerRef.current = null;
@@ -754,6 +1013,7 @@ export default function FindDoctorClient(): JSX.Element {
       };
 
       map.on("unload", cleanup);
+      setMapReady(true);
     };
 
     void initMap();
@@ -769,59 +1029,103 @@ export default function FindDoctorClient(): JSX.Element {
       }
       mapRef.current = null;
       markerLayerRef.current = null;
+      markers.clear();
       if (window.__doctorMap) delete window.__doctorMap;
     };
   }, [hasMounted, philippinesCenter]);
 
+  // Pins follow the filtered list, so the map always matches what you see.
   useEffect(() => {
+    if (!mapReady) return;
+
     const syncMarkers = async () => {
       const map = mapRef.current;
       const markerLayer = markerLayerRef.current;
-
       if (!map || !markerLayer) return;
 
       const L = await import("leaflet");
       markerLayer.clearLayers();
+      markersRef.current.clear();
 
-      const doctorsWithCoords = doctors.filter(
+      const doctorsWithCoords = visibleDoctors.filter(
         (doctor) => Array.isArray(doctor.coords) && doctor.coords.length === 2,
       );
 
-      if (doctorsWithCoords.length === 0) {
-        return;
-      }
-
       for (const doctor of doctorsWithCoords) {
-        const icon = await createDoctorIcon(doctor.img);
-
         const marker = L.marker(doctor.coords as LatLngExpression, {
-          icon,
-        }).bindPopup(`
-          <div class="w-64 rounded-lg">
-            <div class="flex items-start gap-3">
-              <img src="${doctor.img}" alt="${doctor.name}" class="h-16 w-16 rounded-md object-cover" />
-              <div class="flex-1">
-                <h4 class="font-bold">${doctor.name}</h4>
-                <div class="text-xs font-bold uppercase text-[#008081]">${doctor.specialty}</div>
-                <div class="text-xs text-slate-500">${doctor.hospital}</div>
-                <div class="mt-2 flex items-center gap-2 text-sm">
-                  <span class="font-bold">${doctor.rating.toFixed(1)}</span>
-                  <span class="text-xs text-slate-400">(${doctor.reviews ?? 0} reviews)</span>
-                </div>
-              </div>
-            </div>
-            <div class="mt-3 text-right">
-              <div class="text-lg font-bold">₱${doctor.fee}</div>
-            </div>
-          </div>
-        `);
+          icon: createDoctorIcon(L, doctor, false),
+          title: doctor.name,
+          riseOnHover: true,
+        })
+          .bindPopup(buildPopupHtml(doctor), {
+            className: "doc-popup",
+            closeButton: true,
+            // Keep popups clear of the search chip (top) and legend (bottom).
+            autoPanPaddingTopLeft: [16, 150],
+            autoPanPaddingBottomRight: [16, 170],
+          })
+          .on("click", () => {
+            setSelectedDoctorId(doctor.id);
+            document
+              .querySelector(`[data-doctor="${CSS.escape(doctor.id)}"]`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          })
+          .on("mouseover", () => setHoveredDoctorId(doctor.id))
+          .on("mouseout", () => setHoveredDoctorId(null));
 
         marker.addTo(markerLayer);
+        markersRef.current.set(doctor.id, marker);
+      }
+
+      const key = doctorsWithCoords.map((d) => d.id).join("|");
+      if (key !== fittedKeyRef.current) {
+        fittedKeyRef.current = key;
+        fitToDoctors();
       }
     };
 
     void syncMarkers();
-  }, [doctors]);
+  }, [visibleDoctors, mapReady, fitToDoctors]);
+
+  // Highlight the pin for the hovered or selected doctor card.
+  useEffect(() => {
+    if (!mapReady) return;
+    const activeId = hoveredDoctorId ?? selectedDoctorId;
+
+    void import("leaflet").then((L) => {
+      for (const doctor of visibleDoctorsRef.current) {
+        const marker = markersRef.current.get(doctor.id);
+        if (!marker) continue;
+        const active = doctor.id === activeId;
+        marker.setIcon(createDoctorIcon(L, doctor, active));
+        marker.setZIndexOffset(active ? 900 : 0);
+      }
+    });
+  }, [hoveredDoctorId, selectedDoctorId, mapReady]);
+
+  // The mobile map sheet starts hidden; resize the map when it opens.
+  useEffect(() => {
+    if (!mapOpen) return;
+    const id = window.setTimeout(() => {
+      mapRef.current?.invalidateSize();
+      if (pendingFocusRef.current) {
+        flyToDoctor(pendingFocusRef.current);
+        pendingFocusRef.current = null;
+        pendingFitRef.current = false;
+      } else if (pendingFitRef.current) {
+        fitToDoctors();
+      }
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [mapOpen, flyToDoctor, fitToDoctors]);
+
+  const mapStats = useMemo(() => {
+    const onMap = visibleDoctors.filter(
+      (d) => Array.isArray(d.coords) && d.coords.length === 2,
+    );
+    const booked = onMap.filter((d) => d.status === "fully_booked").length;
+    return { total: onMap.length, booked, accepting: onMap.length - booked };
+  }, [visibleDoctors]);
 
   useEffect(() => {
     mapRef.current?.invalidateSize();
@@ -944,7 +1248,13 @@ export default function FindDoctorClient(): JSX.Element {
                     <article
                       key={d.id}
                       data-doctor={d.id}
-                      className="doctor-card group flex flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#008081]/25 hover:shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:gap-6 sm:p-6 lg:flex-row"
+                      onMouseEnter={() => setHoveredDoctorId(d.id)}
+                      onMouseLeave={() => setHoveredDoctorId(null)}
+                      className={`doctor-card group flex flex-col gap-4 rounded-3xl border bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#008081]/25 hover:shadow-xl dark:bg-slate-800 sm:gap-6 sm:p-6 lg:flex-row ${
+                        selectedDoctorId === d.id || hoveredDoctorId === d.id
+                          ? "border-[#008081]/40 ring-2 ring-[#008081]/15 dark:border-[#008081]/50"
+                          : "border-slate-100 dark:border-slate-700"
+                      }`}
                     >
                       <div className="relative h-48 w-full flex-shrink-0 overflow-hidden rounded-2xl sm:h-40 sm:w-40">
                         <img
@@ -1011,12 +1321,25 @@ export default function FindDoctorClient(): JSX.Element {
                               </div>
                             ))}
 
-                            <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-500 dark:bg-slate-700/50 dark:text-slate-300">
-                              <span className="text-[#008081]">
-                                <MapIcon size={14} />
-                              </span>
-                              <span className="text-[11px]">{d.locationLabel}</span>
-                            </div>
+                            {d.coords ? (
+                              <button
+                                type="button"
+                                onClick={() => focusDoctorOnMap(d.id)}
+                                className="flex items-center gap-1.5 rounded-full bg-[#008081]/10 px-2.5 py-1 text-[#008081] transition-colors hover:bg-[#008081] hover:text-white dark:bg-[#008081]/20"
+                                title="Show on map"
+                              >
+                                <MapIcon size={14} aria-hidden="true" />
+                                <span className="text-[11px]">{d.locationLabel}</span>
+                                <span className="sr-only">, show on map</span>
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-500 dark:bg-slate-700/50 dark:text-slate-300">
+                                <span className="text-[#008081]">
+                                  <MapIcon size={14} />
+                                </span>
+                                <span className="text-[11px]">{d.locationLabel}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -1086,16 +1409,54 @@ export default function FindDoctorClient(): JSX.Element {
           </div>
         </section>
 
-        <aside className="relative z-0 hidden h-[100dvh] w-1/2 overflow-hidden bg-slate-100 dark:bg-[#0f172a] lg:block">
+        <aside
+          className={`overflow-hidden bg-slate-100 dark:bg-[#0f172a] lg:relative lg:z-0 lg:block lg:h-[100dvh] lg:w-1/2 lg:animate-none ${
+            mapOpen
+              ? "fixed inset-x-0 bottom-0 top-20 z-[150] block animate-slide-up"
+              : "hidden"
+          }`}
+          aria-label="Map of doctors"
+        >
           <div ref={mapHostRef} className="h-full w-full" />
-          <MapControls
-            center={center}
-            onSearchArea={() => {
-              const el = document.querySelector("section");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }}
+          <MapOverlay
+            locationLabel={
+              locationQuery && locationQuery !== "All areas"
+                ? locationQuery
+                : "All areas"
+            }
+            total={mapStats.total}
+            accepting={mapStats.accepting}
+            booked={mapStats.booked}
+            locating={locating}
+            onFitAll={fitToDoctors}
+            onLocate={locateUser}
           />
         </aside>
+
+        {/* Mobile: switch between list and map */}
+        <button
+          type="button"
+          onClick={() => setMapOpen((open) => !open)}
+          className="fixed bottom-6 left-1/2 z-[160] flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-[0_14px_30px_-10px_rgba(15,23,42,0.6)] lg:hidden dark:bg-white dark:text-slate-900"
+          aria-pressed={mapOpen}
+        >
+          {mapOpen ? (
+            <>
+              <ListIcon size={18} aria-hidden="true" />
+              Show list
+            </>
+          ) : (
+            <>
+              <MapIcon size={18} aria-hidden="true" />
+              Show map
+              {mapStats.total > 0 && (
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs dark:bg-slate-900/10">
+                  {mapStats.total}
+                </span>
+              )}
+            </>
+          )}
+        </button>
       </main>
 
       <AiSearchModal
